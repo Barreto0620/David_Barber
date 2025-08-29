@@ -1,281 +1,358 @@
+// app/page.tsx (Dashboard)
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
-import { AppointmentCard } from '@/components/appointments/AppointmentCard';
-import { ServiceCompletionModal } from '@/components/appointments/ServiceCompletionModal';
-import { NewAppointmentModal } from '@/components/forms/NewAppointmentModal';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Timer } from '@/components/appointments/Timer';
+import { SearchBar } from '@/components/ui/search-bar';
 import { 
   DollarSign, 
   Calendar, 
+  Users, 
   TrendingUp, 
-  Users,
   Clock,
-  CheckCircle,
-  Plus
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { formatCurrency } from '@/lib/utils/currency';
-import { getTodaysRevenue, getWeeklyRevenue, getMonthlyRevenue } from '@/lib/utils/appointments';
-import type { Appointment, PaymentMethod } from '@/types/database';
-import { toast } from 'sonner';
+import { formatCurrency, formatTime } from '@/lib/utils/currency';
+import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
-  const {
-    appointments,
-    clients,
+  const { 
+    appointments, 
+    clients, 
     services,
+    metrics, 
+    isLoading,
     getTodaysAppointments,
-    completeAppointment,
-    addAppointment,
-    addClient
+    getRecentClients,
+    syncWithSupabase,
+    calculateMetrics,
+    lastSync
   } = useAppStore();
 
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [completionModalOpen, setCompletionModalOpen] = useState(false);
-  const [newAppointmentModalOpen, setNewAppointmentModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Initialize with sample data if empty
+  // Auto-sync on component mount and periodically
   useEffect(() => {
-    if (clients.length === 0) {
-      // Sample clients
-      const sampleClients = [
-        { 
-          id: '1', 
-          name: 'João Silva', 
-          phone: '(11) 99999-1111', 
-          email: 'joao@email.com',
-          created_at: new Date().toISOString(),
-          total_visits: 12,
-          total_spent: 420,
-          last_visit: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          notes: 'Prefere corte clássico'
-        },
-        { 
-          id: '2', 
-          name: 'Carlos Santos', 
-          phone: '(11) 99999-2222',
-          created_at: new Date().toISOString(),
-          total_visits: 8,
-          total_spent: 280,
-          last_visit: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        { 
-          id: '3', 
-          name: 'Pedro Oliveira', 
-          phone: '(11) 99999-3333',
-          created_at: new Date().toISOString(),
-          total_visits: 5,
-          total_spent: 175,
-          last_visit: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      ];
+    const initializeData = async () => {
+      if (!lastSync || Date.now() - new Date(lastSync).getTime() > 5 * 60 * 1000) {
+        await syncWithSupabase();
+      } else {
+        calculateMetrics();
+      }
+    };
 
-      sampleClients.forEach(client => addClient(client));
+    initializeData();
 
-      // Sample appointments for today
-      const today = new Date();
-      const sampleAppointments = [
-        {
-          id: '1',
-          client_id: '1',
-          scheduled_date: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0).toISOString(),
-          service_type: 'Corte + Barba',
-          status: 'completed' as const,
-          price: 35,
-          payment_method: 'dinheiro',
-          created_via: 'whatsapp' as const,
-          completed_at: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 45).toISOString()
-        },
-        {
-          id: '2',
-          client_id: '2',
-          scheduled_date: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 14, 30).toISOString(),
-          service_type: 'Corte Simples',
-          status: 'scheduled' as const,
-          price: 25,
-          created_via: 'manual' as const
-        },
-        {
-          id: '3',
-          client_id: '3',
-          scheduled_date: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 16, 0).toISOString(),
-          service_type: 'Barba',
-          status: 'scheduled' as const,
-          price: 15,
-          created_via: 'whatsapp' as const
-        }
-      ];
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(() => {
+      syncWithSupabase();
+    }, 5 * 60 * 1000);
 
-      sampleAppointments.forEach(appointment => addAppointment(appointment));
-    }
-  }, [clients.length, addClient, addAppointment]);
+    return () => clearInterval(interval);
+  }, [syncWithSupabase, calculateMetrics, lastSync]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await syncWithSupabase();
+    setIsRefreshing(false);
+  };
 
   const todaysAppointments = getTodaysAppointments();
-  const todayRevenue = getTodaysRevenue(appointments);
-  const weeklyRevenue = getWeeklyRevenue(appointments);
-  const monthlyRevenue = getMonthlyRevenue(appointments);
+  const recentClients = getRecentClients();
   
-  const todayCompleted = todaysAppointments.filter(apt => apt.status === 'completed').length;
-  const todayScheduled = todaysAppointments.filter(apt => apt.status === 'scheduled').length;
+  const nextAppointment = todaysAppointments
+    .filter(apt => apt.status === 'scheduled')
+    .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())[0];
 
-  const handleCompleteAppointment = (id: string) => {
-    const appointment = appointments.find(apt => apt.id === id);
-    if (appointment) {
-      setSelectedAppointment(appointment);
-      setCompletionModalOpen(true);
+  const currentAppointment = todaysAppointments
+    .find(apt => apt.status === 'in_progress');
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'in_progress': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'cancelled': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
-  const handleServiceCompletion = (paymentMethod: PaymentMethod, finalPrice: number, notes?: string) => {
-    if (!selectedAppointment) return;
-    
-    completeAppointment(selectedAppointment.id, paymentMethod, finalPrice);
-    toast.success('Atendimento finalizado com sucesso!');
-    
-    setSelectedAppointment(null);
-    setCompletionModalOpen(false);
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'Agendado';
+      case 'in_progress': return 'Em Andamento';
+      case 'completed': return 'Concluído';
+      case 'cancelled': return 'Cancelado';
+      default: return status;
+    }
   };
 
-  const handleCancelAppointment = (id: string) => {
-    // Implementation would update appointment status to cancelled
-    toast.info('Agendamento cancelado');
-  };
+  if (isLoading && !lastSync) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+          <p className="text-muted-foreground">Carregando dados...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
+    <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground">
-            Visão geral da barbearia David Barber
+            Visão geral da sua barbearia
           </p>
         </div>
-        <div className="flex space-x-2">
-          <Button onClick={() => setNewAppointmentModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Agendamento
+        <div className="flex items-center gap-4">
+          <SearchBar className="w-80" />
+          <Button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+            Atualizar
           </Button>
         </div>
       </div>
 
-      {/* Metrics */}
+      {lastSync && (
+        <div className="text-xs text-muted-foreground">
+          Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}
+        </div>
+      )}
+
+      {/* Metrics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="Receita de Hoje"
-          value={todayRevenue}
+          title="Receita Hoje"
+          value={metrics.todayRevenue}
           type="currency"
-          icon={<DollarSign className="h-4 w-4" />}
           trend="up"
-          trendValue="+12% vs ontem"
+          trendValue="+12.5% vs ontem"
+          icon={<DollarSign className="h-4 w-4" />}
+          className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
         />
+        
         <MetricCard
           title="Agendamentos Hoje"
-          value={todaysAppointments.length}
+          value={metrics.todayAppointments}
+          trend="up"
+          trendValue={`${metrics.completedToday} concluídos`}
           icon={<Calendar className="h-4 w-4" />}
-          trend="neutral"
-          trendValue={`${todayCompleted} concluídos`}
+          className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
         />
+        
         <MetricCard
           title="Receita Semanal"
-          value={weeklyRevenue}
+          value={metrics.weeklyRevenue}
           type="currency"
+          trend="neutral"
           icon={<TrendingUp className="h-4 w-4" />}
-          trend="up"
-          trendValue="+8% vs semana passada"
         />
+        
         <MetricCard
-          title="Clientes Ativos"
+          title="Total de Clientes"
           value={clients.length}
-          icon={<Users className="h-4 w-4" />}
           trend="up"
-          trendValue="+3 novos este mês"
+          trendValue="+3 este mês"
+          icon={<Users className="h-4 w-4" />}
         />
       </div>
 
-      {/* Charts */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <RevenueChart />
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Current/Next Appointment + Timer */}
+        <div className="lg:col-span-1 space-y-4">
+          {currentAppointment && (
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Atendimento em Andamento
+              </h3>
+              <div className="space-y-4">
+                <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center justify-between">
+                      <span>{clients.find(c => c.id === currentAppointment.client_id)?.name || 'Cliente'}</span>
+                      <Badge className={getStatusColor(currentAppointment.status)}>
+                        {getStatusLabel(currentAppointment.status)}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      {currentAppointment.service_type} • {formatTime(currentAppointment.scheduled_date)}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+                
+                <Timer
+                  appointment={currentAppointment}
+                  serviceDuration={services.find(s => s.name === currentAppointment.service_type)?.duration_minutes || 30}
+                />
+              </div>
+            </div>
+          )}
+
+          {nextAppointment && !currentAppointment && (
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" />
+                Próximo Agendamento
+              </h3>
+              <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span>{clients.find(c => c.id === nextAppointment.client_id)?.name || 'Cliente'}</span>
+                    <Badge className={getStatusColor(nextAppointment.status)}>
+                      {getStatusLabel(nextAppointment.status)}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription>
+                    {nextAppointment.service_type} • {formatTime(nextAppointment.scheduled_date)}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <Timer
+                    appointment={nextAppointment}
+                    serviceDuration={services.find(s => s.name === nextAppointment.service_type)?.duration_minutes || 30}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {!currentAppointment && !nextAppointment && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  Sem agendamentos pendentes
+                </CardTitle>
+                <CardDescription>
+                  Todos os atendimentos de hoje foram concluídos!
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </div>
+
+        {/* Today's Appointments */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Agendamentos de Hoje</span>
+                <Badge variant="secondary">
+                  {todaysAppointments.length} total
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                {metrics.completedToday} concluídos • {metrics.scheduledToday} pendentes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {todaysAppointments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Nenhum agendamento para hoje</p>
+                  </div>
+                ) : (
+                  todaysAppointments.map((appointment) => {
+                    const client = clients.find(c => c.id === appointment.client_id);
+                    const service = services.find(s => s.name === appointment.service_type);
+                    
+                    return (
+                      <div
+                        key={appointment.id}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">
+                              {client?.name || 'Cliente não encontrado'}
+                            </span>
+                            <Badge className={getStatusColor(appointment.status)}>
+                              {getStatusLabel(appointment.status)}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {appointment.service_type} • {formatTime(appointment.scheduled_date)}
+                            {service && ` • ${service.duration_minutes}min`}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">{formatCurrency(appointment.price)}</div>
+                          {appointment.payment_method && (
+                            <div className="text-xs text-muted-foreground capitalize">
+                              {appointment.payment_method}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Charts and Recent Clients */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RevenueChart />
+        </div>
         
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Status de Hoje</CardTitle>
+            <CardTitle>Clientes Recentes</CardTitle>
+            <CardDescription>
+              Últimos clientes atendidos
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Clock className="h-4 w-4 text-blue-500" />
-                <span className="text-sm">Agendados</span>
-              </div>
-              <Badge variant="secondary">{todayScheduled}</Badge>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <span className="text-sm">Concluídos</span>
-              </div>
-              <Badge variant="secondary">{todayCompleted}</Badge>
-            </div>
-            
-            <div className="pt-2 border-t">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Taxa de Conclusão</span>
-                <span className="font-bold">
-                  {todaysAppointments.length > 0 
-                    ? Math.round((todayCompleted / todaysAppointments.length) * 100)
-                    : 0
-                  }%
-                </span>
-              </div>
+          <CardContent>
+            <div className="space-y-3">
+              {recentClients.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Nenhum cliente recente</p>
+                </div>
+              ) : (
+                recentClients.map((client) => (
+                  <div key={client.id} className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{client.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {client.last_visit && `Última visita: ${new Date(client.last_visit).toLocaleDateString('pt-BR')}`}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium">{client.total_visits} visitas</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatCurrency(client.total_spent)}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Today's Appointments */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Agendamentos de Hoje</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {todaysAppointments.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhum agendamento para hoje
-            </p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {todaysAppointments.map((appointment) => (
-                <AppointmentCard
-                  key={appointment.id}
-                  appointment={appointment}
-                  onComplete={handleCompleteAppointment}
-                  onCancel={handleCancelAppointment}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Modals */}
-      <ServiceCompletionModal
-        appointment={selectedAppointment}
-        open={completionModalOpen}
-        onClose={() => setCompletionModalOpen(false)}
-        onComplete={handleServiceCompletion}
-      />
-
-      <NewAppointmentModal
-        open={newAppointmentModalOpen}
-        onClose={() => setNewAppointmentModalOpen(false)}
-        onSuccess={() => {}}
-      />
     </div>
   );
 }
