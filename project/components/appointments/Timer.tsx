@@ -102,12 +102,6 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
           // Save to localStorage
           localStorage.setItem(`timer-${appointment.id}`, JSON.stringify(newState));
 
-          // Auto-complete appointment when timer reaches target
-          // Remova esta linha, a finalização será feita apenas no botão
-          // if (newCompleted && !prev.isCompleted) {
-          //   updateAppointment(appointment.id, { status: 'in_progress' });
-          // }
-
           return newState;
         });
       }, 1000);
@@ -127,10 +121,6 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
     
     setTimer(newState);
     localStorage.setItem(`timer-${appointment.id}`, JSON.stringify(newState));
-    
-    // Update appointment status to in_progress
-    // Já está OK, pois é um status simples
-    // Apenas para fins de consistência
   }, [timer.timeElapsed, appointment.id]);
 
   const pauseTimer = useCallback(() => {
@@ -211,10 +201,8 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
   };
 
   const canComplete = () => {
-    const minTimeInSeconds = Math.min(300, targetTimeInSeconds * 0.2);
-    const canFinish = timer.timeElapsed >= minTimeInSeconds && appointment.status !== 'completed';
-    
-    return canFinish;
+    // Altera a lógica para que o botão de finalização apareça sempre que o status do agendamento não for "concluído".
+    return appointment.status !== 'completed';
   };
 
   const formatCurrency = (value: number) => {
