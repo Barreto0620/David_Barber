@@ -23,6 +23,15 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { SearchBar } from '@/components/ui/search-bar';
 import { 
@@ -35,7 +44,10 @@ import {
   Smartphone,
   ArrowUpDown,
   Filter,
-  Download
+  Download,
+  Edit3,
+  Save,
+  X
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils/currency';
@@ -46,6 +58,9 @@ export default function FinancialPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [monthlyGoal, setMonthlyGoal] = useState(5000);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [tempGoal, setTempGoal] = useState('5000');
 
   // Calculate financial metrics
   const financialData = useMemo(() => {
@@ -117,7 +132,6 @@ export default function FinancialPage() {
     };
   }, [appointments, selectedPeriod, selectedPaymentMethod]);
   
-  // CORREÇÃO: Mova a declaração do objeto para dentro da função do componente
   const paymentMethodIcons = {
     dinheiro: <Banknote className="h-4 w-4" />,
     cartao: <CreditCard className="h-4 w-4" />,
@@ -148,6 +162,19 @@ export default function FinancialPage() {
                paymentMethod.includes(search);
     });
   }, [financialData.appointments, searchTerm, clients]);
+
+  const handleSaveGoal = () => {
+    const newGoal = parseFloat(tempGoal.replace(',', '.'));
+    if (!isNaN(newGoal) && newGoal > 0) {
+      setMonthlyGoal(newGoal);
+      setEditingGoal(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setTempGoal(monthlyGoal.toString());
+    setEditingGoal(false);
+  };
 
   const exportData = () => {
     // Simple CSV export functionality
@@ -434,28 +461,85 @@ export default function FinancialPage() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Comparativo</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div>
+                  <CardTitle>Comparativo</CardTitle>
+                </div>
+                <Dialog open={editingGoal} onOpenChange={setEditingGoal}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Edit3 className="h-4 w-4 mr-2" />
+                      Editar Meta
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Editar Meta Mensal</DialogTitle>
+                      <DialogDescription>
+                        Defina sua meta de receita mensal para acompanhar o progresso.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="goal" className="text-right">
+                          Meta (R$)
+                        </Label>
+                        <Input
+                          id="goal"
+                          value={tempGoal}
+                          onChange={(e) => setTempGoal(e.target.value)}
+                          placeholder="5000"
+                          className="col-span-3"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={handleCancelEdit}>
+                        <X className="h-4 w-4 mr-2" />
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleSaveGoal}>
+                        <Save className="h-4 w-4 mr-2" />
+                        Salvar
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Receita vs Meta Mensal</span>
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      {financialData.totalRevenue >= monthlyGoal ? (
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <TrendingUp className="h-4 w-4 text-orange-600" />
+                      )}
                       <span className="font-medium">
-                        {((financialData.totalRevenue / 5000) * 100).toFixed(1)}%
+                        {((financialData.totalRevenue / monthlyGoal) * 100).toFixed(1)}%
                       </span>
                     </div>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2">
                     <div 
-                      className="bg-green-600 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min((financialData.totalRevenue / 5000) * 100, 100)}%` }}
+                      className={cn(
+                        "h-2 rounded-full transition-all duration-500",
+                        financialData.totalRevenue >= monthlyGoal 
+                          ? "bg-green-600" 
+                          : "bg-orange-600"
+                      )}
+                      style={{ width: `${Math.min((financialData.totalRevenue / monthlyGoal) * 100, 100)}%` }}
                     />
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Meta: R$ 5.000,00
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Meta: {formatCurrency(monthlyGoal)}</span>
+                    <span>
+                      Faltam: {formatCurrency(Math.max(0, monthlyGoal - financialData.totalRevenue))}
+                    </span>
                   </div>
                 </div>
               </CardContent>
