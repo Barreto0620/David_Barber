@@ -27,14 +27,20 @@ export default function AppointmentsPage() {
   const [completionModalOpen, setCompletionModalOpen] = useState(false);
   const [newAppointmentModalOpen, setNewAppointmentModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AppointmentStatus | 'all'>('all');
+  const [viewMode, setViewMode] = useState<'daily' | 'all'>('daily'); // Novo estado para o modo de visualização
 
-  const todaysAppointments = getAppointmentsByDate(appointments, selectedDate);
+  // Lógica para definir a lista de agendamentos a ser exibida
+  const displayAppointments = viewMode === 'all' 
+    ? appointments 
+    : getAppointmentsByDate(appointments, selectedDate);
+    
+  // Filtra os agendamentos com base na aba e no modo de visualização
   const filteredAppointments = activeTab === 'all' 
-    ? todaysAppointments 
-    : getAppointmentsByStatus(todaysAppointments, activeTab);
+    ? displayAppointments 
+    : getAppointmentsByStatus(displayAppointments, activeTab);
 
   const getStatusCount = (status: AppointmentStatus) => {
-    return getAppointmentsByStatus(todaysAppointments, status).length;
+    return getAppointmentsByStatus(displayAppointments, status).length;
   };
 
   const handleCompleteAppointment = (id: string) => {
@@ -81,48 +87,67 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* Date Selection */}
+      {/* Date and View Mode Selection */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
               <Calendar className="h-5 w-5" />
-              <span>Data Selecionada</span>
+              <span>{viewMode === 'daily' ? 'Data Selecionada' : 'Visualização Completa'}</span>
             </CardTitle>
             <div className="text-sm text-muted-foreground">
-              {formatDate(selectedDate)}
+              {viewMode === 'daily' ? formatDate(selectedDate) : 'Todos os Agendamentos'}
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-4">
+            {/* Botões para o modo de visualização diária */}
             <Button
-              variant="outline"
-              onClick={() => {
-                const yesterday = new Date(selectedDate);
-                yesterday.setDate(yesterday.getDate() - 1);
-                setSelectedDate(yesterday);
-              }}
+              variant={viewMode === 'daily' ? 'default' : 'outline'}
+              onClick={() => setViewMode('daily')}
             >
-              Dia Anterior
+              Visualização Diária
             </Button>
+            {/* Botão para o modo de visualização completa */}
             <Button
-              variant="outline"
-              onClick={() => setSelectedDate(new Date())}
+              variant={viewMode === 'all' ? 'default' : 'outline'}
+              onClick={() => setViewMode('all')}
             >
-              Hoje
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                const tomorrow = new Date(selectedDate);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                setSelectedDate(tomorrow);
-              }}
-            >
-              Próximo Dia
+              Visualização Completa
             </Button>
           </div>
+          {/* Mostra os botões de navegação de data apenas no modo 'daily' */}
+          {viewMode === 'daily' && (
+            <div className="flex items-center space-x-4 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const yesterday = new Date(selectedDate);
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  setSelectedDate(yesterday);
+                }}
+              >
+                Dia Anterior
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedDate(new Date())}
+              >
+                Hoje
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const tomorrow = new Date(selectedDate);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  setSelectedDate(tomorrow);
+                }}
+              >
+                Próximo Dia
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -132,7 +157,7 @@ export default function AppointmentsPage() {
           <TabsTrigger value="all">
             Todos
             <Badge variant="secondary" className="ml-2">
-              {todaysAppointments.length}
+              {displayAppointments.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="scheduled">
@@ -166,7 +191,7 @@ export default function AppointmentsPage() {
             <Card>
               <CardContent className="p-8">
                 <p className="text-center text-muted-foreground">
-                  Nenhum agendamento encontrado para esta data
+                  Nenhum agendamento encontrado para esta {viewMode === 'daily' ? 'data' : 'visualização'}.
                 </p>
               </CardContent>
             </Card>

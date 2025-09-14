@@ -3,9 +3,9 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, User, Phone, Check, X } from 'lucide-react';
+import { Clock, User, Phone, CalendarDays, Check, X } from 'lucide-react';
 import type { Appointment } from '@/types/database';
-import { formatTime, formatCurrency } from '@/lib/utils/currency';
+import { formatTime, formatCurrency, formatDate } from '@/lib/utils/currency';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +53,10 @@ export function AppointmentCard({
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">
               {formatTime(appointment.scheduled_date)}
+            </span>
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {formatDate(appointment.scheduled_date)}
             </span>
           </div>
           <Badge className={cn('text-white', getStatusColor(appointment.status))}>
