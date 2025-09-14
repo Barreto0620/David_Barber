@@ -1,4 +1,3 @@
-// app/page.tsx (Dashboard)
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -38,8 +37,12 @@ export default function Dashboard() {
   } = useAppStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
-  // Auto-sync on component mount and periodically
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   useEffect(() => {
     const initializeData = async () => {
       if (!lastSync || Date.now() - new Date(lastSync).getTime() > 5 * 60 * 1000) {
@@ -51,7 +54,6 @@ export default function Dashboard() {
 
     initializeData();
 
-    // Auto-refresh every 5 minutes
     const interval = setInterval(() => {
       syncWithSupabase();
     }, 5 * 60 * 1000);
@@ -65,8 +67,8 @@ export default function Dashboard() {
     setIsRefreshing(false);
   };
 
-  const todaysAppointments = getTodaysAppointments();
-  const recentClients = getRecentClients();
+  const todaysAppointments = isClient ? getTodaysAppointments() : [];
+  const recentClients = isClient ? getRecentClients() : [];
   
   const nextAppointment = todaysAppointments
     .filter(apt => apt.status === 'scheduled')
@@ -75,7 +77,18 @@ export default function Dashboard() {
   const currentAppointment = todaysAppointments
     .find(apt => apt.status === 'in_progress');
 
-  const getStatusColor = (status: string) => {
+  const SafeBadge = ({ count, children }) => {
+    if (!isClient) {
+      return <Badge variant="secondary">0</Badge>;
+    }
+    return (
+      <Badge variant="secondary">
+        {count} {children}
+      </Badge>
+    );
+  };
+
+  const getStatusColor = (status) => {
     switch (status) {
       case 'scheduled': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       case 'in_progress': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
@@ -85,7 +98,7 @@ export default function Dashboard() {
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status) => {
     switch (status) {
       case 'scheduled': return 'Agendado';
       case 'in_progress': return 'Em Andamento';
@@ -135,11 +148,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Metrics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Receita Hoje"
-          value={metrics.todayRevenue}
+          value={isClient ? metrics.todayRevenue : 0}
           type="currency"
           trend="up"
           trendValue="+12.5% vs ontem"
@@ -149,16 +161,16 @@ export default function Dashboard() {
         
         <MetricCard
           title="Agendamentos Hoje"
-          value={metrics.todayAppointments}
+          value={isClient ? metrics.todayAppointments : 0}
           trend="up"
-          trendValue={`${metrics.completedToday} concluídos`}
+          trendValue={isClient ? `${metrics.completedToday} concluídos` : "0 concluídos"}
           icon={<Calendar className="h-4 w-4" />}
           className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
         />
         
         <MetricCard
           title="Receita Semanal"
-          value={metrics.weeklyRevenue}
+          value={isClient ? metrics.weeklyRevenue : 0}
           type="currency"
           trend="neutral"
           icon={<TrendingUp className="h-4 w-4" />}
@@ -166,7 +178,7 @@ export default function Dashboard() {
         
         <MetricCard
           title="Total de Clientes"
-          value={clients.length}
+          value={isClient ? clients.length : 0}
           trend="up"
           trendValue="+3 este mês"
           icon={<Users className="h-4 w-4" />}
@@ -174,7 +186,6 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Current/Next Appointment + Timer */}
         <div className="lg:col-span-1 space-y-4">
           {currentAppointment && (
             <div>
@@ -248,18 +259,15 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Today's Appointments */}
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Agendamentos de Hoje</span>
-                <Badge variant="secondary">
-                  {todaysAppointments.length} total
-                </Badge>
+                <SafeBadge count={todaysAppointments.length}>total</SafeBadge>
               </CardTitle>
               <CardDescription>
-                {metrics.completedToday} concluídos • {metrics.scheduledToday} pendentes
+                {isClient ? `${metrics.completedToday} concluídos • ${metrics.scheduledToday} pendentes` : '0 concluídos • 0 pendentes'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -311,7 +319,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Charts and Recent Clients */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <RevenueChart />
