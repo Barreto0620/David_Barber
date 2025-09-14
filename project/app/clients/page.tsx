@@ -1,8 +1,10 @@
+// project/app/clients/page.tsx
 'use client';
 
 import { useState } from 'react';
 import { ClientProfile } from '@/components/clients/ClientProfile';
 import { NewClientModal } from '@/components/forms/NewClientModal';
+import { ClientEditDialog } from '@/components/clients/ClientEditDialog'; // Importe o novo componente
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +16,8 @@ export default function ClientsPage() {
   const { clients } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [newClientModalOpen, setNewClientModalOpen] = useState(false);
+  const [editClientDialogOpen, setEditClientDialogOpen] = useState(false); // Novo estado
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null); // Novo estado
 
   const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -21,8 +25,15 @@ export default function ClientsPage() {
   );
 
   const handleEditClient = (client: Client) => {
-    // Implementation for editing client
-    console.log('Edit client:', client);
+    setSelectedClient(client);
+    setEditClientDialogOpen(true);
+  };
+  
+  const handleOpenChange = (open: boolean) => {
+    setEditClientDialogOpen(open);
+    if (!open) {
+      setSelectedClient(null); // Limpa o cliente selecionado ao fechar o diálogo
+    }
   };
 
   return (
@@ -78,7 +89,7 @@ export default function ClientsPage() {
             <ClientProfile
               key={client.id}
               client={client}
-              onEdit={handleEditClient}
+              onEdit={handleEditClient} // Passa a função de edição para o componente
             />
           ))}
         </div>
@@ -89,6 +100,13 @@ export default function ClientsPage() {
         open={newClientModalOpen}
         onClose={() => setNewClientModalOpen(false)}
         onSuccess={() => {}}
+      />
+      
+      {/* Edit Client Dialog */}
+      <ClientEditDialog
+        client={selectedClient}
+        open={editClientDialogOpen}
+        onOpenChange={handleOpenChange}
       />
     </div>
   );
