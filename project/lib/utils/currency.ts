@@ -5,7 +5,10 @@ export const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export const formatDate = (date: string | Date): string => {
+export const formatDate = (date: string | Date | undefined | null): string => {
+  if (!date) {
+    return 'Data Inválida';
+  }
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -13,14 +16,20 @@ export const formatDate = (date: string | Date): string => {
   }).format(new Date(date));
 };
 
-export const formatTime = (date: string | Date): string => {
+export const formatTime = (date: string | Date | undefined | null): string => {
+  if (!date) {
+    return 'Horário Inválido';
+  }
   return new Intl.DateTimeFormat('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(date));
 };
 
-export const formatDateTime = (date: string | Date): string => {
+export const formatDateTime = (date: string | Date | undefined | null): string => {
+  if (!date) {
+    return 'Data e Hora Inválidas';
+  }
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
