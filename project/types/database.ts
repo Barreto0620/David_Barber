@@ -1,3 +1,4 @@
+// types/database.ts
 export interface Client {
   id: string;
   name: string;
@@ -23,6 +24,10 @@ export interface Appointment {
   created_via: 'whatsapp' | 'manual';
   completed_at?: string;
   notes?: string;
+  // Campos adicionais opcionais para melhor controle do timer
+  started_at?: string; // Quando o serviço foi iniciado
+  actual_duration?: number; // Duração real em minutos
+  service_quality_rating?: 1 | 2 | 3 | 4 | 5; // Avaliação do serviço (futuro)
 }
 
 export interface Service {
@@ -32,6 +37,7 @@ export interface Service {
   duration_minutes: number;
   description?: string;
   active: boolean;
+  created_at: string;
 }
 
 export interface DashboardMetrics {
