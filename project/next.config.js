@@ -1,13 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Mantém as configurações originais
-  output: 'export',
+  // Remove output: 'export' para desenvolvimento normal
+  // output: 'export', // Comente esta linha para desenvolvimento
   eslint: {
     ignoreDuringBuilds: true,
   },
-  images: { unoptimized: true },
-
-  // Adiciona a configuração do Webpack
+  images: { 
+    unoptimized: true 
+  },
+  
+  // Configuração do Webpack
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.ignoreWarnings = [
@@ -15,6 +17,11 @@ const nextConfig = {
       ];
     }
     return config;
+  },
+  
+  // Configurações experimentais para App Router
+  experimental: {
+    appDir: true,
   },
 };
 
