@@ -30,10 +30,7 @@ export function Header() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="relative max-w-sm hidden sm:block">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar cliente..." className="pl-8" />
-            </div>
+            
 
             <Button variant="outline" size="icon">
               <Bell className="h-4 w-4" />
