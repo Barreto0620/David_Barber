@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { Timer } from '@/components/appointments/Timer';
-import { SearchBar } from '@/components/ui/search-bar';
 import { 
   DollarSign, 
   Calendar, 
@@ -129,7 +128,6 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <SearchBar className="w-80" />
           <Button
             onClick={handleRefresh}
             disabled={isRefreshing}
