@@ -28,10 +28,12 @@ import { formatDate } from '@/lib/utils/currency';
 export default function AppointmentsPage() {
   const { 
     appointments, 
+    clients,
     selectedDate, 
     setSelectedDate,
     completeAppointment,
-    cancelAppointment 
+    cancelAppointment,
+    getClientById 
   } = useAppStore();
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -64,14 +66,18 @@ export default function AppointmentsPage() {
     }
   };
 
-  const handleServiceCompletion = (paymentMethod: PaymentMethod, finalPrice: number, notes?: string) => {
+  const handleServiceCompletion = async (paymentMethod: PaymentMethod, finalPrice: number, notes?: string) => {
     if (!selectedAppointment) return;
     
-    completeAppointment(selectedAppointment.id, paymentMethod, finalPrice);
-    toast.success('Atendimento finalizado com sucesso!');
+    const success = await completeAppointment(selectedAppointment.id, paymentMethod, finalPrice);
     
-    setSelectedAppointment(null);
-    setCompletionModalOpen(false);
+    if (success) {
+      toast.success('Atendimento finalizado com sucesso!');
+      setSelectedAppointment(null);
+      setCompletionModalOpen(false);
+    } else {
+      toast.error('Erro ao finalizar atendimento. Tente novamente.');
+    }
   };
 
   const handleCancelAppointment = (id: string) => {
@@ -79,18 +85,49 @@ export default function AppointmentsPage() {
     setCancelDialogOpen(true);
   };
 
-  const confirmCancelAppointment = () => {
+  const confirmCancelAppointment = async () => {
     if (appointmentToCancel) {
-      cancelAppointment(appointmentToCancel);
-      toast.success('Agendamento cancelado com sucesso!');
-      setAppointmentToCancel(null);
-      setCancelDialogOpen(false);
+      const success = await cancelAppointment(appointmentToCancel);
+      
+      if (success) {
+        toast.success('Agendamento cancelado com sucesso!');
+        setAppointmentToCancel(null);
+        setCancelDialogOpen(false);
+      } else {
+        toast.error('Erro ao cancelar agendamento. Tente novamente.');
+      }
     }
   };
 
   const getCancelAppointmentDetails = () => {
     if (!appointmentToCancel) return null;
-    return appointments.find(apt => apt.id === appointmentToCancel);
+    
+    const appointment = appointments.find(apt => apt.id === appointmentToCancel);
+    if (!appointment) return null;
+
+    // Busca o nome do cliente (pode vir direto no appointment ou precisa buscar)
+    const client = appointment.client || (appointment.client_id ? getClientById(appointment.client_id) : null);
+    const clientName = client?.name || 'Cliente não identificado';
+
+    // Formata a data e hora
+    const scheduledDate = new Date(appointment.scheduled_date);
+    const dateStr = scheduledDate.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    const timeStr = scheduledDate.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    return {
+      clientName,
+      serviceName: appointment.service_type || 'Serviço não especificado',
+      date: dateStr,
+      time: timeStr,
+      dateTime: `${dateStr} às ${timeStr}`
+    };
   };
 
   return (
@@ -277,9 +314,9 @@ export default function AppointmentsPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Horário:</span>
+                    <span className="text-muted-foreground">Data/Hora:</span>
                     <span className="font-medium text-foreground">
-                      {getCancelAppointmentDetails()?.time}
+                      {getCancelAppointmentDetails()?.dateTime}
                     </span>
                   </div>
                 </div>
