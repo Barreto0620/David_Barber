@@ -156,10 +156,8 @@ export default function LoginPage() {
             <CardTitle className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
               David Barber
             </CardTitle>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex items-center justify-center gap-1">
-              <Sparkles className="h-4 w-4" />
-              Sistema de Gestão para Barbearia
-            </p>
+         
+        
           </div>
         </CardHeader>
         
