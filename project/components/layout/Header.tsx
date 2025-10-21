@@ -26,13 +26,13 @@ export function Header() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   // Estados de notificação do Zustand
-  const { 
-    notifications, 
-    unreadCount, 
-    markAsRead, 
-    markAllAsRead, 
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
     removeNotification,
-    clearAllNotifications 
+    clearAllNotifications
   } = useAppStore();
 
   async function handleLogout() {
@@ -81,8 +81,25 @@ export function Header() {
           </div>
 
           <div className="flex-1 flex items-center justify-between">
+            {/* Contêiner do Logo e Título */}
             <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold hidden md:block">David Barber</h1>
+              
+              {/* Logo Redondo e Linkado para o Dashboard (página inicial) */}
+              <h1 className="hidden md:block">
+                <a 
+                  onClick={() => router.push("/")} // Link para a rota raiz (Dashboard)
+                  className="cursor-pointer flex items-center h-full hover:opacity-80 transition-opacity"
+                >
+                  <img 
+                    src="https://github.com/Lusxka/img_public/blob/main/logo_david_barber.png?raw=true"
+                    alt="David Barber Logo"
+                    // w-10 h-10 para tamanho ideal, rounded-full para ser redondo, object-cover para preencher
+                    className="w-10 h-10 rounded-full object-cover shadow-md border border-zinc-700" 
+                  />
+                </a>
+              </h1>
+
+              {/* Título (Mobile) */}
               <h1 className="text-lg font-semibold md:hidden">David Barber</h1>
             </div>
 
@@ -93,7 +110,7 @@ export function Header() {
                   <Button variant="outline" size="icon" className="relative">
                     <Bell className="h-4 w-4" />
                     {unreadCount > 0 && (
-                      <Badge 
+                      <Badge
                         className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                         variant="destructive"
                       >
@@ -107,7 +124,7 @@ export function Header() {
                     <div>
                       <h3 className="font-semibold text-lg">Notificações</h3>
                       <p className="text-xs text-muted-foreground">
-                        {unreadCount > 0 
+                        {unreadCount > 0
                           ? `${unreadCount} não lida${unreadCount > 1 ? 's' : ''}`
                           : 'Nenhuma nova notificação'
                         }
@@ -158,10 +175,10 @@ export function Header() {
                             {!notification.read && (
                               <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full" />
                             )}
-                            
+
                             <div className="flex gap-3 pl-4">
                               <span className="text-2xl shrink-0">{getNotificationIcon(notification.type)}</span>
-                              
+
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2 mb-1">
                                   <p className="font-medium text-sm leading-tight">
@@ -179,11 +196,11 @@ export function Header() {
                                     <X className="h-3 w-3" />
                                   </Button>
                                 </div>
-                                
+
                                 <p className="text-xs text-muted-foreground mb-2">
                                   {notification.message}
                                 </p>
-                                
+
                                 {notification.clientName && (
                                   <div className="text-xs space-y-1 mb-2 bg-muted/50 p-2 rounded">
                                     <p><strong>Cliente:</strong> {notification.clientName}</p>
@@ -195,7 +212,7 @@ export function Header() {
                                     )}
                                   </div>
                                 )}
-                                
+
                                 <p className="text-xs text-muted-foreground">
                                   {formatDistanceToNow(new Date(notification.createdAt), {
                                     addSuffix: true,
@@ -224,7 +241,7 @@ export function Header() {
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="relative bg-zinc-900 rounded-3xl shadow-2xl max-w-md w-full border-2 border-zinc-800 overflow-hidden animate-in zoom-in-95 duration-300">
-            
+
             {/* Header do Modal */}
             <div className="p-8 pb-6">
               <div className="flex justify-center mb-6">
@@ -236,7 +253,7 @@ export function Header() {
                   </div>
                 </div>
               </div>
-              
+
               <h3 className="text-2xl font-bold text-center text-white mb-2 tracking-tight">
                 Encerrar Sessão?
               </h3>
