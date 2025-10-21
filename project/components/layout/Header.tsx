@@ -74,7 +74,8 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-16 items-center px-4 gap-4">
+        {/* CORREÇÃO CRÍTICA: Aumentando o padding lateral para 'px-8' em telas médias (desktop) */}
+        <div className="flex h-16 items-center px-4 md:px-8 gap-4"> 
           {/* Mobile sidebar */}
           <div className="md:hidden">
             <Sidebar />
@@ -84,7 +85,7 @@ export function Header() {
             {/* Contêiner do Logo e Título */}
             <div className="flex items-center space-x-4">
               
-              {/* Logo Redondo e Linkado para o Dashboard (página inicial) */}
+              {/* Logo Redondo, Linkado e Tamanho Aumentado */}
               <h1 className="hidden md:block">
                 <a 
                   onClick={() => router.push("/")} // Link para a rota raiz (Dashboard)
@@ -93,8 +94,8 @@ export function Header() {
                   <img 
                     src="https://github.com/Lusxka/img_public/blob/main/logo_david_barber.png?raw=true"
                     alt="David Barber Logo"
-                    // w-10 h-10 para tamanho ideal, rounded-full para ser redondo, object-cover para preencher
-                    className="w-10 h-10 rounded-full object-cover shadow-md border border-zinc-700" 
+                    // Tamanho aumentado para w-12 h-12 (48x48px)
+                    className="w-12 h-12 rounded-full object-cover shadow-lg border-2 border-primary/50 ring-2 ring-primary/30" 
                   />
                 </a>
               </h1>
