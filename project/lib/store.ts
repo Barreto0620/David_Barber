@@ -1,4 +1,4 @@
-// src/lib/store.ts
+// src/lib/store.ts - VERSÃO OTIMIZADA PARA SYNC INSTANTÂNEO
 'use client';
 
 import { create } from 'zustand';
@@ -9,7 +9,7 @@ import type { Notification, NotificationType } from '@/types/notifications';
 import { getAppointmentsByDate, getMonthlyRevenue, getWeeklyRevenue } from '@/lib/utils/appointments';
 
 interface AppStore {
-  // State existente
+  // State
   clients: Client[];
   appointments: Appointment[];
   services: Service[];
@@ -17,12 +17,10 @@ interface AppStore {
   selectedDate: Date;
   isLoading: boolean;
   lastSync: string | null;
-
-  // State de notificações (NOVO)
   notifications: Notification[];
   unreadCount: number;
 
-  // Actions existentes
+  // Actions
   setClients: (clients: Client[]) => void;
   setAppointments: (appointments: Appointment[]) => void;
   setServices: (services: Service[]) => void;
@@ -40,18 +38,19 @@ interface AppStore {
   completeAppointment: (id: string, paymentMethod: string, finalPrice?: number) => Promise<boolean>;
   cancelAppointment: (id: string) => Promise<boolean>;
   
-  // Actions de notificações (NOVO)
+  // Notifications
   addNotification: (notification: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   removeNotification: (id: string) => void;
   clearAllNotifications: () => void;
   
-  // Supabase sync functions
+  // Sync
   syncWithSupabase: () => Promise<void>;
   fetchClients: () => Promise<void>;
   fetchAppointments: () => Promise<void>;
   fetchServices: () => Promise<void>;
+  setupRealtimeSubscription: () => void;
   
   // Computed
   getTodaysAppointments: () => Appointment[];
@@ -63,7 +62,7 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      // Initial state existente
+      // Initial state
       clients: [],
       appointments: [],
       services: [
@@ -83,12 +82,10 @@ export const useAppStore = create<AppStore>()(
       selectedDate: new Date(),
       isLoading: false,
       lastSync: null,
-
-      // Initial state de notificações (NOVO)
       notifications: [],
       unreadCount: 0,
 
-      // Basic setters existentes
+      // Setters
       setClients: (clients) => { set({ clients }); get().calculateMetrics(); },
       setAppointments: (appointments) => { set({ appointments }); get().calculateMetrics(); },
       setServices: (services) => set({ services }),
@@ -96,7 +93,7 @@ export const useAppStore = create<AppStore>()(
       setSelectedDate: (selectedDate) => set({ selectedDate }),
       setLoading: (isLoading) => set({ isLoading }),
 
-      // Actions de notificações (NOVO)
+      // Notifications
       addNotification: (notification) => {
         const newNotification: Notification = {
           ...notification,
@@ -146,13 +143,125 @@ export const useAppStore = create<AppStore>()(
         set({ notifications: [], unreadCount: 0 });
       },
 
-      // Client operations (mantidos iguais)
+      // 🚀 REALTIME INSTANTÂNEO - VERSÃO OTIMIZADA
+      setupRealtimeSubscription: () => {
+        console.log('🔴 REALTIME: Iniciando listener...');
+
+        const channel = supabase
+          .channel('appointments-realtime')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'appointments',
+            },
+            async (payload) => {
+              console.log('🆕 INSERT DETECTADO:', payload.new);
+
+              const newAppointment = payload.new as Appointment;
+
+              // ✅ ADICIONA IMEDIATAMENTE AO ESTADO (INSTANTÂNEO!)
+              set((state) => ({
+                appointments: [newAppointment, ...state.appointments],
+                lastSync: new Date().toISOString(),
+              }));
+
+              get().calculateMetrics();
+
+              // Busca nome do cliente
+              let clientName = 'Cliente';
+              if (newAppointment.client_id) {
+                const client = get().clients.find(c => c.id === newAppointment.client_id);
+                if (client) {
+                  clientName = client.name;
+                } else {
+                  const { data } = await supabase
+                    .from('clients')
+                    .select('name')
+                    .eq('id', newAppointment.client_id)
+                    .maybeSingle();
+                  if (data) clientName = data.name;
+                }
+              }
+
+              // Cria notificação
+              get().addNotification({
+                type: 'appointment',
+                title: '📅 Novo Agendamento',
+                message: `${clientName} - ${newAppointment.service_type}`,
+                appointmentId: newAppointment.id,
+                clientName,
+                serviceType: newAppointment.service_type,
+                scheduledDate: new Date(newAppointment.scheduled_date),
+              });
+
+              console.log('✅ Appointment adicionado INSTANTANEAMENTE');
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'appointments',
+            },
+            (payload) => {
+              console.log('🔄 UPDATE DETECTADO:', payload.new);
+
+              const updatedAppointment = payload.new as Appointment;
+
+              set((state) => ({
+                appointments: state.appointments.map((apt) =>
+                  apt.id === updatedAppointment.id ? updatedAppointment : apt
+                ),
+                lastSync: new Date().toISOString(),
+              }));
+
+              get().calculateMetrics();
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'DELETE',
+              schema: 'public',
+              table: 'appointments',
+            },
+            (payload) => {
+              console.log('🗑️ DELETE DETECTADO:', payload.old);
+
+              const deletedId = (payload.old as any).id;
+
+              set((state) => ({
+                appointments: state.appointments.filter((apt) => apt.id !== deletedId),
+                lastSync: new Date().toISOString(),
+              }));
+
+              get().calculateMetrics();
+            }
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              console.log('✅ REALTIME CONECTADO E ATIVO');
+            } else {
+              console.log('📡 Status Realtime:', status);
+            }
+          });
+
+        return () => {
+          console.log('🔴 REALTIME: Desconectando...');
+          supabase.removeChannel(channel);
+        };
+      },
+
+      // Client operations
       addClient: async (clientData) => {
         try {
           set({ isLoading: true });
 
           const { data: userAuth } = await supabase.auth.getUser();
-          if (!userAuth.user) throw new Error('Usuário não autenticado.');
+          if (!userAuth.user) throw new Error('Não autenticado');
 
           const payload = {
             name: clientData.name?.trim(),
@@ -166,13 +275,21 @@ export const useAppStore = create<AppStore>()(
             professional_id: userAuth.user.id,
           };
 
-          const { data, error } = await supabase.from('clients').insert([payload]).select('*').single();
+          const { data, error } = await supabase
+            .from('clients')
+            .insert([payload])
+            .select('*')
+            .single();
+
           if (error) throw error;
 
           const newClient = data as Client;
-          set(state => ({ clients: [...state.clients, newClient], lastSync: new Date().toISOString() }));
+          set(state => ({ 
+            clients: [newClient, ...state.clients],
+            lastSync: new Date().toISOString() 
+          }));
+          
           get().calculateMetrics();
-          console.log(`✅ Cliente adicionado (${newClient.id})`);
           return newClient;
         } catch (error) {
           console.error('Erro ao adicionar cliente:', error);
@@ -185,14 +302,22 @@ export const useAppStore = create<AppStore>()(
       updateClient: async (id, clientData) => {
         try {
           set({ isLoading: true });
-          if (!id) return false;
           const { id: _, created_at: __, ...updateData } = clientData as any;
 
-          const { data, error } = await supabase.from('clients').update(updateData).eq('id', id).select('*').single();
+          const { data, error } = await supabase
+            .from('clients')
+            .update(updateData)
+            .eq('id', id)
+            .select('*')
+            .single();
           
           if (error) throw error;
 
-          set(state => ({ clients: state.clients.map(c => c.id === id ? { ...c, ...data } : c), lastSync: new Date().toISOString() }));
+          set(state => ({ 
+            clients: state.clients.map(c => c.id === id ? { ...c, ...data } : c),
+            lastSync: new Date().toISOString() 
+          }));
+          
           get().calculateMetrics();
           return true;
         } catch (error) {
@@ -206,9 +331,12 @@ export const useAppStore = create<AppStore>()(
       deleteClient: async (id) => {
         try {
           set({ isLoading: true });
-          if (!id) return false;
 
-          const { error } = await supabase.from('clients').delete().eq('id', id);
+          const { error } = await supabase
+            .from('clients')
+            .delete()
+            .eq('id', id);
+
           if (error) throw error;
 
           set(state => ({
@@ -216,6 +344,7 @@ export const useAppStore = create<AppStore>()(
             appointments: state.appointments.filter(a => a.client_id !== id),
             lastSync: new Date().toISOString()
           }));
+          
           get().calculateMetrics();
           return true;
         } catch (error) {
@@ -226,13 +355,71 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
-      // Appointment operations
+      // ⚡ FETCH ULTRA-RÁPIDO
+      fetchAppointments: async () => {
+        try {
+          console.log('🔄 Buscando appointments...');
+          
+          const currentIds = new Set(get().appointments.map(a => a.id));
+
+          // Busca TODOS sem filtro
+          const { data, error } = await supabase
+            .from('appointments')
+            .select('*')
+            .order('scheduled_date', { ascending: false });
+          
+          if (error) throw error;
+
+          const fetchedAppointments = data || [];
+          console.log(`📊 ${fetchedAppointments.length} appointments encontrados`);
+
+          // Detecta novos
+          const newAppointments = fetchedAppointments.filter(apt => !currentIds.has(apt.id));
+
+          if (newAppointments.length > 0) {
+            console.log(`🆕 ${newAppointments.length} novos detectados`);
+
+            // Cria notificações apenas para novos
+            for (const apt of newAppointments) {
+              const isRecent = new Date(apt.created_at).getTime() > (Date.now() - 10000);
+              
+              if (isRecent && apt.created_via !== 'manual') {
+                let clientName = 'Cliente';
+                if (apt.client_id) {
+                  const client = get().clients.find(c => c.id === apt.client_id);
+                  if (client) clientName = client.name;
+                }
+
+                get().addNotification({
+                  type: 'appointment',
+                  title: '📅 Novo Agendamento',
+                  message: `${clientName} - ${apt.service_type}`,
+                  appointmentId: apt.id,
+                  clientName,
+                  serviceType: apt.service_type,
+                  scheduledDate: new Date(apt.scheduled_date),
+                });
+              }
+            }
+          }
+
+          set({ 
+            appointments: fetchedAppointments,
+            lastSync: new Date().toISOString() 
+          });
+
+          get().calculateMetrics();
+        } catch (error) {
+          console.error('❌ Erro ao buscar appointments:', error);
+        }
+      },
+
       addAppointment: async (appointmentData) => {
         try {
           set({ isLoading: true });
 
           const { data: userAuth } = await supabase.auth.getUser();
-          if (!userAuth.user) throw new Error('Usuário não autenticado.');
+          if (!userAuth.user) throw new Error('Não autenticado');
 
           const cleanData = {
             client_id: appointmentData.client_id ?? null,
@@ -246,19 +433,30 @@ export const useAppStore = create<AppStore>()(
             professional_id: userAuth.user.id,
           };
 
-          const { data, error } = await supabase.from('appointments').insert([cleanData]).select('*').single();
+          const { data, error } = await supabase
+            .from('appointments')
+            .insert([cleanData])
+            .select('*')
+            .single();
+
           if (error) throw error;
 
           const newAppointment = data as Appointment;
-          set(state => ({ appointments: [...state.appointments, newAppointment], lastSync: new Date().toISOString() }));
+          
+          // Adiciona ao estado
+          set(state => ({ 
+            appointments: [newAppointment, ...state.appointments],
+            lastSync: new Date().toISOString() 
+          }));
+          
           get().calculateMetrics();
 
-          // ADICIONAR NOTIFICAÇÃO AUTOMATICAMENTE (NOVO)
+          // Notificação para criação manual
           const client = newAppointment.client_id ? get().getClientById(newAppointment.client_id) : null;
           get().addNotification({
             type: 'appointment',
-            title: '📅 Novo Agendamento Criado',
-            message: 'Um novo agendamento foi registrado no sistema',
+            title: '✅ Agendamento Criado',
+            message: `${client?.name || 'Cliente'} - ${newAppointment.service_type}`,
             appointmentId: newAppointment.id,
             clientName: client?.name || 'Cliente',
             serviceType: newAppointment.service_type,
@@ -267,7 +465,7 @@ export const useAppStore = create<AppStore>()(
 
           return newAppointment;
         } catch (error) {
-          console.error('Erro ao adicionar agendamento:', error);
+          console.error('Erro ao adicionar appointment:', error);
           return null;
         } finally {
           set({ isLoading: false });
@@ -276,40 +474,34 @@ export const useAppStore = create<AppStore>()(
 
       updateAppointment: async (id, appointmentData) => {
         try {
-          set({ isLoading: true });
-          if (!id) return false;
-
-          const { data: existing } = await supabase.from('appointments').select('id').eq('id', id).maybeSingle();
-          if (!existing) { await get().fetchAppointments(); return false; }
+          set({ isLoading: true});
 
           const { id: _, created_at: __, ...updateData } = appointmentData as any;
-          
-          if (!updateData.professional_id) {
-            const { data: userAuth } = await supabase.auth.getUser();
-            if (userAuth.user) {
-              updateData.professional_id = userAuth.user.id; 
-            }
-          }
-          
-          const { data, error } = await supabase.from('appointments').update(updateData).eq('id', id).select('*');
+
+          const { data, error } = await supabase
+            .from('appointments')
+            .update(updateData)
+            .eq('id', id)
+            .select('*');
           
           if (error) throw error;
 
           if (!data || data.length === 0) {
-            console.error('⚠️ Update falhou ou RLS bloqueou a atualização (0 linhas afetadas).');
+            console.error('⚠️ Update falhou');
             return false;
           }
 
           const updatedAppointment = data[0] as Appointment;
 
           set(state => ({ 
-            appointments: state.appointments.map(a => a.id === id ? { ...a, ...updatedAppointment } : a), 
+            appointments: state.appointments.map(a => a.id === id ? { ...a, ...updatedAppointment } : a),
             lastSync: new Date().toISOString() 
           }));
+          
           get().calculateMetrics();
           return true;
         } catch (error) {
-          console.error('Erro ao atualizar agendamento:', error);
+          console.error('Erro ao atualizar appointment:', error);
           return false;
         } finally {
           set({ isLoading: false });
@@ -319,16 +511,23 @@ export const useAppStore = create<AppStore>()(
       deleteAppointment: async (id) => {
         try {
           set({ isLoading: true });
-          if (!id) return false;
 
-          const { error } = await supabase.from('appointments').delete().eq('id', id);
+          const { error } = await supabase
+            .from('appointments')
+            .delete()
+            .eq('id', id);
+
           if (error) throw error;
 
-          set(state => ({ appointments: state.appointments.filter(a => a.id !== id), lastSync: new Date().toISOString() }));
+          set(state => ({ 
+            appointments: state.appointments.filter(a => a.id !== id),
+            lastSync: new Date().toISOString() 
+          }));
+          
           get().calculateMetrics();
           return true;
         } catch (error) {
-          console.error('Erro ao excluir agendamento:', error);
+          console.error('Erro ao excluir appointment:', error);
           return false;
         } finally {
           set({ isLoading: false });
@@ -337,19 +536,12 @@ export const useAppStore = create<AppStore>()(
 
       completeAppointment: async (id, paymentMethod, finalPrice) => {
         try {
-          if (!id) return false;
-
           const appointment = get().appointments.find(a => a.id === id);
-          if (!appointment) {
-            console.error(`Agendamento ${id} não encontrado no state.`);
-            return false;
-          }
-
-          const normalizedPaymentMethod = paymentMethod?.toLowerCase() || 'dinheiro';
+          if (!appointment) return false;
 
           const updates: Partial<Appointment> = {
             status: 'completed',
-            payment_method: normalizedPaymentMethod,
+            payment_method: paymentMethod?.toLowerCase() || 'dinheiro',
             price: finalPrice ?? appointment.price,
             completed_at: new Date().toISOString(),
           };
@@ -369,34 +561,24 @@ export const useAppStore = create<AppStore>()(
 
           return success;
         } catch (error) {
-          console.error('Erro ao completar agendamento:', error);
+          console.error('Erro ao completar appointment:', error);
           return false;
         }
       },
 
       cancelAppointment: async (id) => {
         try {
-          if (!id) return false;
-
           const appointment = get().appointments.find(a => a.id === id);
-          if (!appointment) {
-            console.error(`Agendamento ${id} não encontrado no state.`);
-            return false;
-          }
+          if (!appointment) return false;
 
-          const updates: Partial<Appointment> = {
-            status: 'cancelled',
-          };
+          const success = await get().updateAppointment(id, { status: 'cancelled' });
 
-          const success = await get().updateAppointment(id, updates);
-
-          // ADICIONAR NOTIFICAÇÃO DE CANCELAMENTO (NOVO)
           if (success) {
             const client = appointment.client_id ? get().getClientById(appointment.client_id) : null;
             get().addNotification({
               type: 'cancellation',
-              title: '❌ Agendamento Cancelado',
-              message: 'Um agendamento foi cancelado',
+              title: '❌ Cancelamento',
+              message: `${client?.name || 'Cliente'} - ${appointment.service_type}`,
               appointmentId: appointment.id,
               clientName: client?.name || 'Cliente',
               serviceType: appointment.service_type,
@@ -406,61 +588,79 @@ export const useAppStore = create<AppStore>()(
 
           return success;
         } catch (error) {
-          console.error('Erro ao cancelar agendamento:', error);
+          console.error('Erro ao cancelar appointment:', error);
           return false;
         }
       },
 
-      // Supabase sync functions (mantidos iguais)
       fetchClients: async () => {
         try {
-          set({ isLoading: true });
-          const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
-          if (error) throw error;
-          set({ clients: data || [], lastSync: new Date().toISOString() });
-          get().calculateMetrics();
-        } catch (error) { console.error('Erro ao buscar clientes:', error); }
-        finally { set({ isLoading: false }); }
-      },
+          const { data, error } = await supabase
+            .from('clients')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-      fetchAppointments: async () => {
-        try {
-          set({ isLoading: true });
-          const { data, error } = await supabase.from('appointments').select('*').order('scheduled_date', { ascending: false });
           if (error) throw error;
-          set({ appointments: data || [], lastSync: new Date().toISOString() });
+
+          set({ 
+            clients: data || [],
+            lastSync: new Date().toISOString() 
+          });
+          
           get().calculateMetrics();
-        } catch (error) { console.error('Erro ao buscar agendamentos:', error); }
-        finally { set({ isLoading: false }); }
+        } catch (error) {
+          console.error('Erro ao buscar clientes:', error);
+        }
       },
 
       fetchServices: async () => {
         try {
-          set({ isLoading: true });
-          const { data, error } = await supabase.from('services').select('*').eq('active', true).order('name');
+          const { data, error } = await supabase
+            .from('services')
+            .select('*')
+            .eq('active', true)
+            .order('name');
+
           if (error) throw error;
-          if (data?.length) set({ services: data, lastSync: new Date().toISOString() });
-        } catch (error) { console.error('Erro ao buscar serviços:', error); }
-        finally { set({ isLoading: false }); }
+
+          if (data?.length) {
+            set({ 
+              services: data,
+              lastSync: new Date().toISOString() 
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao buscar serviços:', error);
+        }
       },
 
       syncWithSupabase: async () => {
-        set({ isLoading: true });
-        try { await Promise.all([get().fetchClients(), get().fetchAppointments(), get().fetchServices()]); }
-        catch (error) { console.error('Erro ao sincronizar com Supabase:', error); }
-        finally { set({ isLoading: false }); }
+        try {
+          await Promise.all([
+            get().fetchClients(),
+            get().fetchAppointments(),
+            get().fetchServices()
+          ]);
+          console.log('✅ Sincronização completa');
+        } catch (error) {
+          console.error('Erro na sincronização:', error);
+        }
       },
 
-      // Computed functions (mantidos iguais)
       getTodaysAppointments: () => getAppointmentsByDate(get().appointments, new Date()),
       getClientById: (id) => get().clients.find(c => c.id === id),
-      getRecentClients: () => get().clients.filter(c => c.last_visit).sort((a,b)=>new Date(b.last_visit!).getTime()-new Date(a.last_visit!).getTime()).slice(0,10),
+      getRecentClients: () => get().clients
+        .filter(c => c.last_visit)
+        .sort((a, b) => new Date(b.last_visit!).getTime() - new Date(a.last_visit!).getTime())
+        .slice(0, 10),
 
       calculateMetrics: () => {
         const appointments = get().appointments;
         const todaysAppointments = getAppointmentsByDate(appointments, new Date());
 
-        const todayRevenue = todaysAppointments.filter(a => a.status === 'completed').reduce((sum,a)=>sum+(Number(a.price)||0),0);
+        const todayRevenue = todaysAppointments
+          .filter(a => a.status === 'completed')
+          .reduce((sum, a) => sum + (Number(a.price) || 0), 0);
 
         const metrics: DashboardMetrics = {
           todayRevenue,
@@ -468,7 +668,7 @@ export const useAppStore = create<AppStore>()(
           weeklyRevenue: getWeeklyRevenue(appointments),
           monthlyRevenue: getMonthlyRevenue(appointments),
           completedToday: todaysAppointments.filter(a => a.status === 'completed').length,
-          scheduledToday: todaysAppointments.filter(a => a.status !== 'completed' && a.status !== 'canceled').length,
+          scheduledToday: todaysAppointments.filter(a => a.status !== 'completed' && a.status !== 'cancelled').length,
         };
 
         set({ metrics });
