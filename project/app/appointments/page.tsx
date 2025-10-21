@@ -445,7 +445,10 @@ export default function AppointmentsPage() {
                     size="sm"
                   >
                     <Calendar className="h-4 w-4 mr-2" />
-                    {selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '')}
+                    {selectedDate.toDateString() === new Date().toDateString() 
+                      ? 'HOJE' 
+                      : selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '')
+                    }
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="center">
