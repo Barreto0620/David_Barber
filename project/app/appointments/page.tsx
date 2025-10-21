@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Calendar, Plus, Filter, Scissors, AlertTriangle, Search, X, CalendarDays } from 'lucide-react';
+import { Calendar, Plus, Filter, Scissors, AlertTriangle, Search, X, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getAppointmentsByDate, getAppointmentsByStatus } from '@/lib/utils/appointments';
 import type { Appointment, PaymentMethod, AppointmentStatus } from '@/types/database';
@@ -216,11 +216,9 @@ export default function AppointmentsPage() {
     const appointment = appointments.find(apt => apt.id === appointmentToCancel);
     if (!appointment) return null;
 
-    // Busca o nome do cliente (pode vir direto no appointment ou precisa buscar)
     const client = appointment.client || (appointment.client_id ? getClientById(appointment.client_id) : null);
     const clientName = client?.name || 'Cliente não identificado';
 
-    // Formata a data e hora
     const scheduledDate = new Date(appointment.scheduled_date);
     const dateStr = scheduledDate.toLocaleDateString('pt-BR', {
       day: '2-digit',
@@ -482,7 +480,7 @@ export default function AppointmentsPage() {
         </CardHeader>
         {viewMode === 'daily' && (
           <CardContent className="pt-0">
-            <div className="flex flex-col sm:flex-row gap-2 p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between gap-3 p-4 bg-gradient-to-r from-muted/50 via-muted/30 to-muted/50 rounded-xl border">
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -490,18 +488,19 @@ export default function AppointmentsPage() {
                   yesterday.setDate(yesterday.getDate() - 1);
                   setSelectedDate(yesterday);
                 }}
-                className="flex-1 sm:flex-none hover:bg-background"
+                className="flex-1 hover:bg-background/80 h-10 font-medium"
                 size="sm"
               >
-                ← Anterior
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Anterior
               </Button>
               <Button
-                variant="ghost"
+                variant="default"
                 onClick={() => setSelectedDate(new Date())}
-                className="flex-1 sm:flex-none hover:bg-background font-semibold"
+                className="flex-1 h-10 font-semibold shadow-sm"
                 size="sm"
               >
-                • Hoje •
+                📅 Hoje
               </Button>
               <Button
                 variant="ghost"
@@ -510,10 +509,11 @@ export default function AppointmentsPage() {
                   tomorrow.setDate(tomorrow.getDate() + 1);
                   setSelectedDate(tomorrow);
                 }}
-                className="flex-1 sm:flex-none hover:bg-background"
+                className="flex-1 hover:bg-background/80 h-10 font-medium"
                 size="sm"
               >
-                Próximo →
+                Próximo
+                <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardContent>
@@ -523,38 +523,43 @@ export default function AppointmentsPage() {
       {/* Status Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AppointmentStatus | 'all')}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto">
-          <TabsTrigger value="all" className="text-xs sm:text-sm">
+          <TabsTrigger value="all" className="text-xs sm:text-sm gap-1">
+            📋
             <span className="hidden sm:inline">Todos</span>
             <span className="sm:hidden">Todos</span>
-            <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
+            <Badge variant="secondary" className="ml-1 text-xs">
               {displayAppointments.length}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="scheduled" className="text-xs sm:text-sm">
+          <TabsTrigger value="scheduled" className="text-xs sm:text-sm gap-1">
+            🗓️
             <span className="hidden sm:inline">Agendados</span>
             <span className="sm:hidden">Agend.</span>
-            <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
+            <Badge variant="secondary" className="ml-1 text-xs">
               {getStatusCount('scheduled')}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="in_progress" className="text-xs sm:text-sm">
+          <TabsTrigger value="in_progress" className="text-xs sm:text-sm gap-1">
+            ✂️
             <span className="hidden sm:inline">Em Andamento</span>
             <span className="sm:hidden">Ativo</span>
-            <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
+            <Badge variant="secondary" className="ml-1 text-xs">
               {getStatusCount('in_progress')}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="completed" className="text-xs sm:text-sm">
+          <TabsTrigger value="completed" className="text-xs sm:text-sm gap-1">
+            ✅
             <span className="hidden sm:inline">Concluídos</span>
             <span className="sm:hidden">Concl.</span>
-            <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
+            <Badge variant="secondary" className="ml-1 text-xs">
               {getStatusCount('completed')}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="cancelled" className="text-xs sm:text-sm">
+          <TabsTrigger value="cancelled" className="text-xs sm:text-sm gap-1">
+            ❌
             <span className="hidden sm:inline">Cancelados</span>
             <span className="sm:hidden">Canc.</span>
-            <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
+            <Badge variant="secondary" className="ml-1 text-xs">
               {getStatusCount('cancelled')}
             </Badge>
           </TabsTrigger>
