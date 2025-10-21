@@ -79,8 +79,7 @@ export function Sidebar({ className }: SidebarProps) {
           </div>
         )}
         <div className="text-xs text-muted-foreground text-center">
-          <p>David Barber Management</p>
-          <p>v2.0.0</p>
+          <p>WebCashCompany©</p>
         </div>
       </div>
     </div>
