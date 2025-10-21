@@ -1,17 +1,39 @@
+// src/components/layout/Header.tsx
 "use client";
 
-import { Bell, Search, LogOut, X, Scissors } from "lucide-react";
+import { Bell, LogOut, X, Scissors, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Sidebar } from "./Sidebar";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAppStore } from "@/lib/store";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 export function Header() {
   const router = useRouter();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  // Estados de notificação do Zustand
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead, 
+    removeNotification,
+    clearAllNotifications 
+  } = useAppStore();
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -32,6 +54,23 @@ export function Header() {
     setShowLogoutModal(false);
   }
 
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'appointment':
+        return '📅';
+      case 'cancellation':
+        return '❌';
+      case 'reminder':
+        return '⏰';
+      default:
+        return '🔔';
+    }
+  };
+
+  const handleNotificationClick = (notificationId: string) => {
+    markAsRead(notificationId);
+  };
+
   return (
     <>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -48,9 +87,130 @@ export function Header() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <Button variant="outline" size="icon">
-                <Bell className="h-4 w-4" />
-              </Button>
+              {/* Sino de Notificações com Popover */}
+              <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon" className="relative">
+                    <Bell className="h-4 w-4" />
+                    {unreadCount > 0 && (
+                      <Badge 
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                        variant="destructive"
+                      >
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-96 p-0" align="end">
+                  <div className="flex items-center justify-between p-4 border-b">
+                    <div>
+                      <h3 className="font-semibold text-lg">Notificações</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {unreadCount > 0 
+                          ? `${unreadCount} não lida${unreadCount > 1 ? 's' : ''}`
+                          : 'Nenhuma nova notificação'
+                        }
+                      </p>
+                    </div>
+                    {notifications.length > 0 && (
+                      <div className="flex gap-1">
+                        {unreadCount > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={markAllAsRead}
+                            className="text-xs h-8"
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            Marcar todas
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearAllNotifications}
+                          className="text-xs text-destructive hover:text-destructive h-8"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <ScrollArea className="h-[400px]">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <Bell className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                        <p className="text-sm">Nenhuma notificação</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y">
+                        {notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={cn(
+                              'p-4 hover:bg-muted/50 transition-colors cursor-pointer relative',
+                              !notification.read && 'bg-primary/5'
+                            )}
+                            onClick={() => handleNotificationClick(notification.id)}
+                          >
+                            {!notification.read && (
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full" />
+                            )}
+                            
+                            <div className="flex gap-3 pl-4">
+                              <span className="text-2xl shrink-0">{getNotificationIcon(notification.type)}</span>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <p className="font-medium text-sm leading-tight">
+                                    {notification.title}
+                                  </p>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeNotification(notification.id);
+                                    }}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                
+                                <p className="text-xs text-muted-foreground mb-2">
+                                  {notification.message}
+                                </p>
+                                
+                                {notification.clientName && (
+                                  <div className="text-xs space-y-1 mb-2 bg-muted/50 p-2 rounded">
+                                    <p><strong>Cliente:</strong> {notification.clientName}</p>
+                                    {notification.serviceType && (
+                                      <p><strong>Serviço:</strong> {notification.serviceType}</p>
+                                    )}
+                                    {notification.scheduledDate && (
+                                      <p><strong>Horário:</strong> {new Date(notification.scheduledDate).toLocaleString('pt-BR')}</p>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDistanceToNow(new Date(notification.createdAt), {
+                                    addSuffix: true,
+                                    locale: ptBR,
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
 
               <Button variant="outline" size="icon" onClick={handleLogoutClick}>
                 <LogOut className="h-4 w-4" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AppointmentCard } from '@/components/appointments/AppointmentCard';
 import { ServiceCompletionModal } from '@/components/appointments/ServiceCompletionModal';
 import { NewAppointmentModal } from '@/components/forms/NewAppointmentModal';
@@ -47,7 +47,8 @@ export default function AppointmentsPage() {
     setSelectedDate,
     completeAppointment,
     cancelAppointment,
-    getClientById 
+    getClientById,
+    addNotification, // <- ADICIONADO
   } = useAppStore();
 
   // Garantir que selectedDate seja sempre um objeto Date
@@ -66,8 +67,67 @@ export default function AppointmentsPage() {
   // Estados para busca e filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [filterService, setFilterService] = useState<string>('all');
-  const [filterDateRange, setFilterDateRange] = useState<string>('all'); // today, week, month, all
+  const [filterDateRange, setFilterDateRange] = useState<string>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // ===== SISTEMA DE LEMBRETES AUTOMÁTICOS (NOVO) =====
+  useEffect(() => {
+    const checkUpcomingAppointments = () => {
+      const now = new Date();
+      
+      appointments.forEach(apt => {
+        // Só processa agendamentos agendados (não completados/cancelados)
+        if (apt.status !== 'scheduled') return;
+        
+        const scheduledDate = new Date(apt.scheduled_date);
+        
+        // Calcula diferença em minutos
+        const diffMinutes = Math.round((scheduledDate.getTime() - now.getTime()) / (1000 * 60));
+        
+        // Cria lembretes em momentos específicos: 30, 15 e 5 minutos antes
+        if (diffMinutes === 30 || diffMinutes === 15 || diffMinutes === 5) {
+          const client = apt.client || getClientById(apt.client_id);
+          
+          addNotification({
+            type: 'reminder',
+            title: '⏰ Lembrete de Agendamento',
+            message: `${client?.name || 'Cliente'} tem agendamento em ${diffMinutes} minutos`,
+            appointmentId: apt.id,
+            clientName: client?.name || 'Cliente',
+            serviceType: apt.service_type,
+            scheduledDate: apt.scheduled_date,
+          });
+          
+          console.log(`📢 Lembrete criado: ${client?.name} em ${diffMinutes} minutos`);
+        }
+        
+        // Notificação quando o agendamento está atrasado (5 minutos após o horário)
+        if (diffMinutes === -5) {
+          const client = apt.client || getClientById(apt.client_id);
+          
+          addNotification({
+            type: 'reminder',
+            title: '⚠️ Agendamento Atrasado',
+            message: `O agendamento de ${client?.name || 'Cliente'} está 5 minutos atrasado`,
+            appointmentId: apt.id,
+            clientName: client?.name || 'Cliente',
+            serviceType: apt.service_type,
+            scheduledDate: apt.scheduled_date,
+          });
+        }
+      });
+    };
+
+    // Verifica imediatamente ao carregar
+    checkUpcomingAppointments();
+    
+    // Configura verificação automática a cada 1 minuto
+    const interval = setInterval(checkUpcomingAppointments, 60000);
+    
+    // Limpa o interval quando o componente for desmontado
+    return () => clearInterval(interval);
+  }, [appointments, addNotification, getClientById]);
+  // ===== FIM DO SISTEMA DE LEMBRETES =====
 
   // Lógica para definir a lista de agendamentos a ser exibida
   const displayAppointments = viewMode === 'all' 
@@ -101,7 +161,6 @@ export default function AppointmentsPage() {
     
     switch (filterDateRange) {
       case 'recent':
-        // Próximos agendamentos (a partir de agora)
         const now = new Date();
         return aptDate >= now;
       

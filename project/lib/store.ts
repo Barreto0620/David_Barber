@@ -5,10 +5,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/lib/supabase';
 import type { Client, Appointment, Service, DashboardMetrics } from '@/types/database';
+import type { Notification, NotificationType } from '@/types/notifications';
 import { getAppointmentsByDate, getMonthlyRevenue, getWeeklyRevenue } from '@/lib/utils/appointments';
 
 interface AppStore {
-  // State
+  // State existente
   clients: Client[];
   appointments: Appointment[];
   services: Service[];
@@ -17,7 +18,11 @@ interface AppStore {
   isLoading: boolean;
   lastSync: string | null;
 
-  // Actions
+  // State de notificações (NOVO)
+  notifications: Notification[];
+  unreadCount: number;
+
+  // Actions existentes
   setClients: (clients: Client[]) => void;
   setAppointments: (appointments: Appointment[]) => void;
   setServices: (services: Service[]) => void;
@@ -35,6 +40,13 @@ interface AppStore {
   completeAppointment: (id: string, paymentMethod: string, finalPrice?: number) => Promise<boolean>;
   cancelAppointment: (id: string) => Promise<boolean>;
   
+  // Actions de notificações (NOVO)
+  addNotification: (notification: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
+  removeNotification: (id: string) => void;
+  clearAllNotifications: () => void;
+  
   // Supabase sync functions
   syncWithSupabase: () => Promise<void>;
   fetchClients: () => Promise<void>;
@@ -51,7 +63,7 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      // Initial state
+      // Initial state existente
       clients: [],
       appointments: [],
       services: [
@@ -72,7 +84,11 @@ export const useAppStore = create<AppStore>()(
       isLoading: false,
       lastSync: null,
 
-      // Basic setters
+      // Initial state de notificações (NOVO)
+      notifications: [],
+      unreadCount: 0,
+
+      // Basic setters existentes
       setClients: (clients) => { set({ clients }); get().calculateMetrics(); },
       setAppointments: (appointments) => { set({ appointments }); get().calculateMetrics(); },
       setServices: (services) => set({ services }),
@@ -80,12 +96,61 @@ export const useAppStore = create<AppStore>()(
       setSelectedDate: (selectedDate) => set({ selectedDate }),
       setLoading: (isLoading) => set({ isLoading }),
 
-      // Client operations
+      // Actions de notificações (NOVO)
+      addNotification: (notification) => {
+        const newNotification: Notification = {
+          ...notification,
+          id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          read: false,
+          createdAt: new Date(),
+        };
+        
+        set((state) => ({
+          notifications: [newNotification, ...state.notifications],
+          unreadCount: state.unreadCount + 1,
+        }));
+      },
+
+      markAsRead: (id) => {
+        set((state) => {
+          const notification = state.notifications.find(n => n.id === id);
+          if (!notification || notification.read) return state;
+          
+          return {
+            notifications: state.notifications.map((n) =>
+              n.id === id ? { ...n, read: true } : n
+            ),
+            unreadCount: Math.max(0, state.unreadCount - 1),
+          };
+        });
+      },
+
+      markAllAsRead: () => {
+        set((state) => ({
+          notifications: state.notifications.map((n) => ({ ...n, read: true })),
+          unreadCount: 0,
+        }));
+      },
+
+      removeNotification: (id) => {
+        set((state) => {
+          const notif = state.notifications.find((n) => n.id === id);
+          return {
+            notifications: state.notifications.filter((n) => n.id !== id),
+            unreadCount: notif && !notif.read ? state.unreadCount - 1 : state.unreadCount,
+          };
+        });
+      },
+
+      clearAllNotifications: () => {
+        set({ notifications: [], unreadCount: 0 });
+      },
+
+      // Client operations (mantidos iguais)
       addClient: async (clientData) => {
         try {
           set({ isLoading: true });
 
-          // Obter o ID do usuário logado para vinculação
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Usuário não autenticado.');
 
@@ -98,7 +163,7 @@ export const useAppStore = create<AppStore>()(
             total_spent: clientData.total_spent ?? 0,
             preferences: clientData.preferences ?? null,
             last_visit: clientData.last_visit ?? null,
-            professional_id: userAuth.user.id, // Vincula o cliente ao profissional
+            professional_id: userAuth.user.id,
           };
 
           const { data, error } = await supabase.from('clients').insert([payload]).select('*').single();
@@ -123,7 +188,6 @@ export const useAppStore = create<AppStore>()(
           if (!id) return false;
           const { id: _, created_at: __, ...updateData } = clientData as any;
 
-          // O RLS já permite que administradores atualizem qualquer registro
           const { data, error } = await supabase.from('clients').update(updateData).eq('id', id).select('*').single();
           
           if (error) throw error;
@@ -167,7 +231,6 @@ export const useAppStore = create<AppStore>()(
         try {
           set({ isLoading: true });
 
-          // Obter o ID do usuário logado para vinculação
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Usuário não autenticado.');
 
@@ -180,7 +243,7 @@ export const useAppStore = create<AppStore>()(
             payment_method: appointmentData.payment_method ?? null,
             created_via: appointmentData.created_via ?? 'manual',
             notes: appointmentData.notes ?? null,
-            professional_id: userAuth.user.id, // Vincula o agendamento ao profissional
+            professional_id: userAuth.user.id,
           };
 
           const { data, error } = await supabase.from('appointments').insert([cleanData]).select('*').single();
@@ -189,6 +252,19 @@ export const useAppStore = create<AppStore>()(
           const newAppointment = data as Appointment;
           set(state => ({ appointments: [...state.appointments, newAppointment], lastSync: new Date().toISOString() }));
           get().calculateMetrics();
+
+          // ADICIONAR NOTIFICAÇÃO AUTOMATICAMENTE (NOVO)
+          const client = newAppointment.client_id ? get().getClientById(newAppointment.client_id) : null;
+          get().addNotification({
+            type: 'appointment',
+            title: '📅 Novo Agendamento Criado',
+            message: 'Um novo agendamento foi registrado no sistema',
+            appointmentId: newAppointment.id,
+            clientName: client?.name || 'Cliente',
+            serviceType: newAppointment.service_type,
+            scheduledDate: new Date(newAppointment.scheduled_date),
+          });
+
           return newAppointment;
         } catch (error) {
           console.error('Erro ao adicionar agendamento:', error);
@@ -208,32 +284,28 @@ export const useAppStore = create<AppStore>()(
 
           const { id: _, created_at: __, ...updateData } = appointmentData as any;
           
-          // 💡 Correção: Garante que o professional_id seja enviado no update 
-          // para satisfazer a política WITH CHECK (se houver, mesmo para admins).
           if (!updateData.professional_id) {
-              const { data: userAuth } = await supabase.auth.getUser();
-              if (userAuth.user) {
-                  updateData.professional_id = userAuth.user.id; 
-              }
+            const { data: userAuth } = await supabase.auth.getUser();
+            if (userAuth.user) {
+              updateData.professional_id = userAuth.user.id; 
+            }
           }
           
           const { data, error } = await supabase.from('appointments').update(updateData).eq('id', id).select('*');
           
           if (error) throw error;
 
-          // Linha 208: Se RLS não bloqueou, deve retornar 1 linha.
           if (!data || data.length === 0) {
-              // Este erro é mais provável ser um problema de RLS ou filtro no Supabase
-              console.error('⚠️ Update falhou ou RLS bloqueou a atualização (0 linhas afetadas).');
-              return false;
+            console.error('⚠️ Update falhou ou RLS bloqueou a atualização (0 linhas afetadas).');
+            return false;
           }
 
-          const updatedAppointment = data[0] as Appointment; // Pega o agendamento atualizado
+          const updatedAppointment = data[0] as Appointment;
 
           set(state => ({ 
-              appointments: state.appointments.map(a => a.id === id ? { ...a, ...updatedAppointment } : a), 
-              lastSync: new Date().toISOString() 
-            }));
+            appointments: state.appointments.map(a => a.id === id ? { ...a, ...updatedAppointment } : a), 
+            lastSync: new Date().toISOString() 
+          }));
           get().calculateMetrics();
           return true;
         } catch (error) {
@@ -263,29 +335,25 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
-      // FUNÇÃO CORRIGIDA PARA RESOLVER O ERRO 23514
       completeAppointment: async (id, paymentMethod, finalPrice) => {
         try {
           if (!id) return false;
 
           const appointment = get().appointments.find(a => a.id === id);
           if (!appointment) {
-                console.error(`Agendamento ${id} não encontrado no state.`);
-                return false;
-            }
+            console.error(`Agendamento ${id} não encontrado no state.`);
+            return false;
+          }
 
-            // 💡 FIX CRÍTICO: Converte o método de pagamento para minúsculas.
-            // Isso resolve a violação da "check constraint" do PostgreSQL.
-            const normalizedPaymentMethod = paymentMethod?.toLowerCase() || 'dinheiro'; // Default seguro
+          const normalizedPaymentMethod = paymentMethod?.toLowerCase() || 'dinheiro';
 
           const updates: Partial<Appointment> = {
             status: 'completed',
-            payment_method: normalizedPaymentMethod, // Usa o valor normalizado
+            payment_method: normalizedPaymentMethod,
             price: finalPrice ?? appointment.price,
             completed_at: new Date().toISOString(),
           };
 
-          // Chama updateAppointment, que garante o professional_id e executa o update
           const success = await get().updateAppointment(id, updates);
           
           if (success && appointment.client_id) {
@@ -306,7 +374,6 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
-      // NOVA FUNÇÃO: Cancelar agendamento
       cancelAppointment: async (id) => {
         try {
           if (!id) return false;
@@ -322,6 +389,21 @@ export const useAppStore = create<AppStore>()(
           };
 
           const success = await get().updateAppointment(id, updates);
+
+          // ADICIONAR NOTIFICAÇÃO DE CANCELAMENTO (NOVO)
+          if (success) {
+            const client = appointment.client_id ? get().getClientById(appointment.client_id) : null;
+            get().addNotification({
+              type: 'cancellation',
+              title: '❌ Agendamento Cancelado',
+              message: 'Um agendamento foi cancelado',
+              appointmentId: appointment.id,
+              clientName: client?.name || 'Cliente',
+              serviceType: appointment.service_type,
+              scheduledDate: new Date(appointment.scheduled_date),
+            });
+          }
+
           return success;
         } catch (error) {
           console.error('Erro ao cancelar agendamento:', error);
@@ -329,11 +411,10 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
-      // Supabase sync functions
+      // Supabase sync functions (mantidos iguais)
       fetchClients: async () => {
         try {
           set({ isLoading: true });
-          // O RLS já filtra aqui: só retorna clientes do profissional logado
           const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
           if (error) throw error;
           set({ clients: data || [], lastSync: new Date().toISOString() });
@@ -345,7 +426,6 @@ export const useAppStore = create<AppStore>()(
       fetchAppointments: async () => {
         try {
           set({ isLoading: true });
-          // O RLS já filtra aqui: só retorna agendamentos do profissional logado
           const { data, error } = await supabase.from('appointments').select('*').order('scheduled_date', { ascending: false });
           if (error) throw error;
           set({ appointments: data || [], lastSync: new Date().toISOString() });
@@ -371,7 +451,7 @@ export const useAppStore = create<AppStore>()(
         finally { set({ isLoading: false }); }
       },
 
-      // Computed functions
+      // Computed functions (mantidos iguais)
       getTodaysAppointments: () => getAppointmentsByDate(get().appointments, new Date()),
       getClientById: (id) => get().clients.find(c => c.id === id),
       getRecentClients: () => get().clients.filter(c => c.last_visit).sort((a,b)=>new Date(b.last_visit!).getTime()-new Date(a.last_visit!).getTime()).slice(0,10),
@@ -402,6 +482,8 @@ export const useAppStore = create<AppStore>()(
         services: state.services,
         selectedDate: state.selectedDate,
         lastSync: state.lastSync,
+        notifications: state.notifications,
+        unreadCount: state.unreadCount,
       }),
     }
   )
