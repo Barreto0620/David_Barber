@@ -1,7 +1,6 @@
-// app/financial/page.tsx
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,40 +31,67 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { MetricCard } from '@/components/dashboard/MetricCard';
-import { SearchBar } from '@/components/ui/search-bar';
 import { 
   DollarSign, 
   TrendingUp, 
-  TrendingDown, 
   Calendar,
   CreditCard,
   Banknote,
   Smartphone,
   ArrowUpDown,
-  Filter,
   Download,
   Edit3,
   Save,
-  X
+  X,
+  Clock,
+  CheckCircle2,
+  Target,
+  PieChart as PieChartIcon,
+  BarChart3,
+  LineChart as LineChartIcon,
+  Filter,
+  FileSpreadsheet,
+  Printer
 } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils/currency';
-import { cn } from '@/lib/utils';
+
+const CHART_COLORS = {
+  primary: '#059669',
+  secondary: '#0891b2', 
+  tertiary: '#7c3aed',
+  quaternary: '#dc2626'
+};
 
 export default function FinancialPage() {
-  const { appointments, clients, metrics } = useAppStore();
+  const { appointments, clients } = useAppStore();
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [monthlyGoal, setMonthlyGoal] = useState(5000);
+  const [monthlyGoal, setMonthlyGoal] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('monthlyGoal');
+      return saved ? parseFloat(saved) : 5000;
+    }
+    return 5000;
+  });
   const [editingGoal, setEditingGoal] = useState(false);
   const [tempGoal, setTempGoal] = useState('5000');
+  const [chartType, setChartType] = useState('line');
+  const [selectedMetric, setSelectedMetric] = useState('revenue');
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
-  // Calculate financial metrics
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('monthlyGoal', monthlyGoal.toString());
+    }
+  }, [monthlyGoal]);
+
+  // Calculate financial metrics from real data
   const financialData = useMemo(() => {
     const now = new Date();
-    let startDate: Date;
+    let startDate;
     
     switch (selectedPeriod) {
       case 'today':
@@ -84,7 +110,8 @@ export default function FinancialPage() {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    const filteredAppointments = appointments.filter(apt => {
+    // Completed appointments (confirmed revenue)
+    const completedAppointments = appointments.filter(apt => {
       const aptDate = new Date(apt.scheduled_date);
       const isInPeriod = aptDate >= startDate && aptDate <= now;
       const isCompleted = apt.status === 'completed';
@@ -93,42 +120,62 @@ export default function FinancialPage() {
       return isInPeriod && isCompleted && matchesPayment;
     });
 
-    const totalRevenue = filteredAppointments.reduce((sum, apt) => sum + apt.price, 0);
-    const totalAppointments = filteredAppointments.length;
-    const averageTicket = totalAppointments > 0 ? totalRevenue / totalAppointments : 0;
+    // Future appointments (expected revenue)
+    const futureAppointments = appointments.filter(apt => {
+      const aptDate = new Date(apt.scheduled_date);
+      const isInFuture = aptDate > now;
+      const isScheduled = apt.status === 'scheduled';
+      
+      return isInFuture && isScheduled;
+    });
+
+    const confirmedRevenue = completedAppointments.reduce((sum, apt) => sum + apt.price, 0);
+    const expectedRevenue = futureAppointments.reduce((sum, apt) => sum + apt.price, 0);
+    const totalAppointments = completedAppointments.length;
+    const averageTicket = totalAppointments > 0 ? confirmedRevenue / totalAppointments : 0;
 
     // Payment method breakdown
-    const paymentMethods = filteredAppointments.reduce((acc, apt) => {
+    const paymentMethods = completedAppointments.reduce((acc, apt) => {
       const method = apt.payment_method || 'não informado';
       acc[method] = (acc[method] || 0) + apt.price;
       return acc;
-    }, {} as Record<string, number>);
+    }, {});
 
     // Daily revenue for chart
-    const dailyRevenue = filteredAppointments.reduce((acc, apt) => {
+    const dailyData = {};
+    completedAppointments.forEach(apt => {
       const date = apt.scheduled_date.split('T')[0];
-      acc[date] = (acc[date] || 0) + apt.price;
-      return acc;
-    }, {} as Record<string, number>);
+      if (!dailyData[date]) {
+        dailyData[date] = { date, revenue: 0, count: 0 };
+      }
+      dailyData[date].revenue += apt.price;
+      dailyData[date].count += 1;
+    });
+
+    const chartData = Object.values(dailyData).sort((a, b) => 
+      new Date(a.date) - new Date(b.date)
+    );
 
     // Top services
-    const serviceRevenue = filteredAppointments.reduce((acc, apt) => {
+    const serviceRevenue = completedAppointments.reduce((acc, apt) => {
       acc[apt.service_type] = (acc[apt.service_type] || 0) + apt.price;
       return acc;
-    }, {} as Record<string, number>);
+    }, {});
 
     const topServices = Object.entries(serviceRevenue)
       .sort(([,a], [,b]) => b - a)
       .slice(0, 5);
 
     return {
-      totalRevenue,
+      confirmedRevenue,
+      expectedRevenue,
       totalAppointments,
       averageTicket,
       paymentMethods,
-      dailyRevenue,
+      chartData,
       topServices,
-      appointments: filteredAppointments
+      completedAppointments,
+      futureAppointments
     };
   }, [appointments, selectedPeriod, selectedPaymentMethod]);
   
@@ -146,11 +193,18 @@ export default function FinancialPage() {
     transferencia: 'Transferência'
   };
 
-  // Filter appointments by search term
+  const paymentMethodColors = {
+    dinheiro: CHART_COLORS.primary,
+    cartao: CHART_COLORS.secondary,
+    pix: CHART_COLORS.tertiary,
+    transferencia: CHART_COLORS.quaternary
+  };
+
   const searchFilteredAppointments = useMemo(() => {
-    if (!searchTerm) return financialData.appointments;
+    const allAppointments = [...financialData.completedAppointments, ...financialData.futureAppointments];
+    if (!searchTerm) return allAppointments;
     
-    return financialData.appointments.filter(apt => {
+    return allAppointments.filter(apt => {
       const client = clients.find(c => c.id === apt.client_id);
       const clientName = client?.name.toLowerCase() || '';
       const serviceType = apt.service_type.toLowerCase();
@@ -161,7 +215,7 @@ export default function FinancialPage() {
                serviceType.includes(search) || 
                paymentMethod.includes(search);
     });
-  }, [financialData.appointments, searchTerm, clients]);
+  }, [financialData.completedAppointments, financialData.futureAppointments, searchTerm, clients]);
 
   const handleSaveGoal = () => {
     const newGoal = parseFloat(tempGoal.replace(',', '.'));
@@ -176,160 +230,571 @@ export default function FinancialPage() {
     setEditingGoal(false);
   };
 
-  const exportData = () => {
-    // Simple CSV export functionality
+  const exportToExcel = () => {
+    const periodLabel = selectedPeriod === 'today' ? 'Hoje' : 
+                       selectedPeriod === 'week' ? 'Últimos 7 dias' : 
+                       selectedPeriod === 'month' ? 'Este mês' : 'Este ano';
+    
     const csvContent = [
-      ['Data', 'Cliente', 'Serviço', 'Valor', 'Pagamento'].join(','),
+      ['RELATÓRIO FINANCEIRO - DAVID BARBER'],
+      ['Período:', periodLabel],
+      ['Data de Geração:', new Date().toLocaleString('pt-BR')],
+      [''],
+      ['RESUMO'],
+      ['Receita Confirmada:', formatCurrency(financialData.confirmedRevenue)],
+      ['Receita a Receber:', formatCurrency(financialData.expectedRevenue)],
+      ['Total de Atendimentos:', financialData.totalAppointments],
+      ['Ticket Médio:', formatCurrency(financialData.averageTicket)],
+      [''],
+      ['TRANSAÇÕES DETALHADAS'],
+      ['Data', 'Cliente', 'Telefone', 'Serviço', 'Valor', 'Pagamento', 'Status'],
       ...searchFilteredAppointments.map(apt => {
         const client = clients.find(c => c.id === apt.client_id);
         return [
-          formatDate(apt.scheduled_date),
+          formatDateTime(apt.scheduled_date),
           client?.name || 'N/A',
+          client?.phone || 'N/A',
           apt.service_type,
-          apt.price,
-          paymentMethodLabels[apt.payment_method as keyof typeof paymentMethodLabels] || 'N/A'
-        ].join(',');
+          `R$ ${apt.price.toFixed(2)}`,
+          paymentMethodLabels[apt.payment_method] || 'N/A',
+          apt.status === 'completed' ? 'Confirmado' : 'Agendado'
+        ];
       })
-    ].join('\n');
+    ].map(row => row.join(';')).join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `financeiro-${selectedPeriod}-${formatDate(new Date())}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+    setExportDialogOpen(false);
   };
+
+  const exportToPDF = () => {
+    const periodLabel = selectedPeriod === 'today' ? 'Hoje' : 
+                       selectedPeriod === 'week' ? 'Últimos 7 dias' : 
+                       selectedPeriod === 'month' ? 'Este mês' : 'Este ano';
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório Financeiro - David Barber</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+          .header { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 30px; text-align: center; margin-bottom: 30px; border-radius: 8px; }
+          .header h1 { font-size: 32px; margin-bottom: 8px; }
+          .header p { font-size: 16px; opacity: 0.9; }
+          .info { margin-bottom: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px; }
+          .info p { margin: 5px 0; }
+          .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 30px; }
+          .summary-card { padding: 20px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #059669; }
+          .summary-card.blue { background: #f0f9ff; border-left-color: #0891b2; }
+          .summary-card h3 { font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 8px; }
+          .summary-card p { font-size: 24px; font-weight: bold; color: #059669; }
+          .summary-card.blue p { color: #0891b2; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #059669; color: white; padding: 12px; text-align: left; font-weight: 600; }
+          td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+          tr:nth-child(even) { background: #f9fafb; }
+          .footer { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #666; font-size: 12px; }
+          @media print {
+            body { padding: 0; }
+            .header { border-radius: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>DAVID BARBER</h1>
+          <p>Relatório Financeiro</p>
+        </div>
+        
+        <div class="info">
+          <p><strong>Período:</strong> ${periodLabel}</p>
+          <p><strong>Data de Geração:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+        
+        <div class="summary">
+          <div class="summary-card">
+            <h3>Receita Confirmada</h3>
+            <p>${formatCurrency(financialData.confirmedRevenue)}</p>
+          </div>
+          <div class="summary-card blue">
+            <h3>Receita a Receber</h3>
+            <p>${formatCurrency(financialData.expectedRevenue)}</p>
+          </div>
+          <div class="summary-card">
+            <h3>Total de Atendimentos</h3>
+            <p>${financialData.totalAppointments}</p>
+          </div>
+          <div class="summary-card blue">
+            <h3>Ticket Médio</h3>
+            <p>${formatCurrency(financialData.averageTicket)}</p>
+          </div>
+        </div>
+        
+        <h2 style="margin-bottom: 15px;">Transações Detalhadas</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Cliente</th>
+              <th>Serviço</th>
+              <th>Valor</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${searchFilteredAppointments.slice(0, 50).map(apt => {
+              const client = clients.find(c => c.id === apt.client_id);
+              return `
+                <tr>
+                  <td>${formatDate(apt.scheduled_date)}</td>
+                  <td>${client?.name || 'N/A'}</td>
+                  <td>${apt.service_type}</td>
+                  <td style="font-weight: bold; color: ${apt.status === 'completed' ? '#059669' : '#0891b2'}">
+                    ${formatCurrency(apt.price)}
+                  </td>
+                  <td>${apt.status === 'completed' ? '✓ Confirmado' : '○ Agendado'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        
+        <div class="footer">
+          <p>Sistema David Barber - Gestão Profissional</p>
+          <p>Gerado em ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      printWindow.onload = () => {
+        printWindow.print();
+        setTimeout(() => {
+          printWindow.close();
+        }, 100);
+      };
+    }
+    
+    setExportDialogOpen(false);
+  };
+
+  const pieChartData = Object.entries(financialData.paymentMethods).map(([method, value]) => ({
+    name: paymentMethodLabels[method] || method,
+    value,
+    color: paymentMethodColors[method] || '#94a3b8'
+  }));
+
+  const renderChart = () => {
+    const data = financialData.chartData.map(d => ({
+      ...d,
+      date: formatDate(d.date),
+      'Receita (R$)': d.revenue,
+      'Atendimentos': d.count
+    }));
+
+    if (chartType === 'line') {
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
+            <YAxis stroke="#6b7280" fontSize={12} />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: '#fff', 
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+              }} 
+            />
+            <Legend />
+            {selectedMetric === 'revenue' && (
+              <Line type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={3} dot={{ fill: CHART_COLORS.primary, r: 4 }} />
+            )}
+            {selectedMetric === 'appointments' && (
+              <Line type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={3} dot={{ fill: CHART_COLORS.secondary, r: 4 }} />
+            )}
+            {selectedMetric === 'both' && (
+              <>
+                <Line type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={3} dot={{ fill: CHART_COLORS.primary, r: 4 }} />
+                <Line type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={3} dot={{ fill: CHART_COLORS.secondary, r: 4 }} />
+              </>
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      );
+    } else if (chartType === 'bar') {
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
+            <YAxis stroke="#6b7280" fontSize={12} />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: '#fff', 
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+              }} 
+            />
+            <Legend />
+            {selectedMetric === 'revenue' && (
+              <Bar dataKey="Receita (R$)" fill={CHART_COLORS.primary} radius={[8, 8, 0, 0]} />
+            )}
+            {selectedMetric === 'appointments' && (
+              <Bar dataKey="Atendimentos" fill={CHART_COLORS.secondary} radius={[8, 8, 0, 0]} />
+            )}
+            {selectedMetric === 'both' && (
+              <>
+                <Bar dataKey="Receita (R$)" fill={CHART_COLORS.primary} radius={[8, 8, 0, 0]} />
+                <Bar dataKey="Atendimentos" fill={CHART_COLORS.secondary} radius={[8, 8, 0, 0]} />
+              </>
+            )}
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    } else {
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3}/>
+                <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0}/>
+              </linearGradient>
+              <linearGradient id="colorAppointments" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={CHART_COLORS.secondary} stopOpacity={0.3}/>
+                <stop offset="95%" stopColor={CHART_COLORS.secondary} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
+            <YAxis stroke="#6b7280" fontSize={12} />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: '#fff', 
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+              }} 
+            />
+            <Legend />
+            {selectedMetric === 'revenue' && (
+              <Area type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+            )}
+            {selectedMetric === 'appointments' && (
+              <Area type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={3} fillOpacity={1} fill="url(#colorAppointments)" />
+            )}
+            {selectedMetric === 'both' && (
+              <>
+                <Area type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                <Area type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={3} fillOpacity={1} fill="url(#colorAppointments)" />
+              </>
+            )}
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    }
+  };
+
+  const goalProgress = monthlyGoal > 0 ? (financialData.confirmedRevenue / monthlyGoal) * 100 : 0;
 
   return (
     <div className="flex-1 space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Financeiro</h2>
-          <p className="text-muted-foreground">
-            Acompanhe receitas, pagamentos e performance financeira
+          <h2 className="text-3xl font-bold tracking-tight text-white">
+            Financeiro
+          </h2>
+          <p className="text-slate-300">
+            Controle completo de receitas, métricas e análises financeiras
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <SearchBar 
-            className="w-80" 
-          />
-          <Button onClick={exportData} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar
-          </Button>
-        </div>
+        <Button 
+          onClick={() => setExportDialogOpen(true)} 
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Exportar Relatório
+        </Button>
       </div>
+
+      {/* Export Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Exportar Relatório</DialogTitle>
+            <DialogDescription>
+              Escolha o formato de exportação do seu relatório financeiro
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-6">
+            <Button 
+              onClick={exportToExcel}
+              className="h-20 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-3"
+              size="lg"
+            >
+              <FileSpreadsheet className="h-8 w-8" />
+              <div className="text-left">
+                <div className="font-bold text-lg">Excel / CSV</div>
+                <div className="text-xs opacity-90">Ideal para análises em planilhas</div>
+              </div>
+            </Button>
+            
+            <Button 
+              onClick={exportToPDF}
+              className="h-20 bg-cyan-600 hover:bg-cyan-700 text-white flex items-center justify-center gap-3"
+              size="lg"
+            >
+              <Printer className="h-8 w-8" />
+              <div className="text-left">
+                <div className="font-bold text-lg">Imprimir / PDF</div>
+                <div className="text-xs opacity-90">Formato profissional para impressão</div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Label htmlFor="period">Período:</Label>
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger id="period" className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Hoje</SelectItem>
-              <SelectItem value="week">7 dias</SelectItem>
-              <SelectItem value="month">Este mês</SelectItem>
-              <SelectItem value="year">Este ano</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <Card className="border-slate-700 bg-slate-800/50">
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-slate-400" />
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-32 border-slate-600 bg-slate-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Hoje</SelectItem>
+                  <SelectItem value="week">7 dias</SelectItem>
+                  <SelectItem value="month">Este mês</SelectItem>
+                  <SelectItem value="year">Este ano</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="flex items-center gap-2">
-          <Label htmlFor="payment">Pagamento:</Label>
-          <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-            <SelectTrigger id="payment" className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="dinheiro">Dinheiro</SelectItem>
-              <SelectItem value="cartao">Cartão</SelectItem>
-              <SelectItem value="pix">PIX</SelectItem>
-              <SelectItem value="transferencia">Transferência</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+                <SelectTrigger className="w-40 border-slate-600 bg-slate-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Pagamentos</SelectItem>
+                  <SelectItem value="dinheiro">💵 Dinheiro</SelectItem>
+                  <SelectItem value="cartao">💳 Cartão</SelectItem>
+                  <SelectItem value="pix">📱 PIX</SelectItem>
+                  <SelectItem value="transferencia">🔄 Transferência</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Buscar transações..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-64"
-          />
-        </div>
-      </div>
+            <Input
+              placeholder="🔍 Buscar transações..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64 border-slate-600 bg-slate-900"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Metrics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Receita Total"
-          value={financialData.totalRevenue}
-          type="currency"
-          icon={<DollarSign className="h-4 w-4" />}
-          className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
-        />
+        <Card className="border-slate-700 bg-gradient-to-br from-emerald-900/50 to-emerald-800/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full -mr-16 -mt-16" />
+          <CardHeader className="relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-emerald-100">Receita Confirmada</CardTitle>
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative">
+            <div className="text-3xl font-bold text-white">{formatCurrency(financialData.confirmedRevenue)}</div>
+            <p className="text-xs text-emerald-200 mt-1">{financialData.totalAppointments} atendimentos</p>
+          </CardContent>
+        </Card>
         
-        <MetricCard
-          title="Atendimentos"
-          value={financialData.totalAppointments}
-          icon={<Calendar className="h-4 w-4" />}
-        />
+        <Card className="border-slate-700 bg-gradient-to-br from-cyan-900/50 to-cyan-800/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full -mr-16 -mt-16" />
+          <CardHeader className="relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-cyan-100">Receita a Receber</CardTitle>
+              <Clock className="h-5 w-5 text-cyan-400" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative">
+            <div className="text-3xl font-bold text-white">{formatCurrency(financialData.expectedRevenue)}</div>
+            <p className="text-xs text-cyan-200 mt-1">{financialData.futureAppointments.length} agendamentos</p>
+          </CardContent>
+        </Card>
         
-        <MetricCard
-          title="Ticket Médio"
-          value={financialData.averageTicket}
-          type="currency"
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
+        <Card className="border-slate-700 bg-gradient-to-br from-purple-900/50 to-purple-800/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full -mr-16 -mt-16" />
+          <CardHeader className="relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-purple-100">Atendimentos</CardTitle>
+              <Calendar className="h-5 w-5 text-purple-400" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative">
+            <div className="text-3xl font-bold text-white">{financialData.totalAppointments}</div>
+            <p className="text-xs text-purple-200 mt-1">Ticket médio: {formatCurrency(financialData.averageTicket)}</p>
+          </CardContent>
+        </Card>
         
-        <MetricCard
-          title="Receita Hoje"
-          value={metrics.todayRevenue}
-          type="currency"
-          icon={<DollarSign className="h-4 w-4" />}
-          className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
-        />
+        <Dialog open={editingGoal} onOpenChange={setEditingGoal}>
+          <DialogTrigger asChild>
+            <Card className="border-slate-700 bg-gradient-to-br from-orange-900/50 to-red-800/30 relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow">
+              <div className="absolute top-2 right-2 p-1.5 bg-white/10 rounded-full">
+                <Edit3 className="h-4 w-4 text-orange-300" />
+              </div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16" />
+              <CardHeader className="relative">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-orange-100">Meta do Mês</CardTitle>
+                  <Target className="h-5 w-5 text-orange-400" />
+                </div>
+              </CardHeader>
+              <CardContent className="relative">
+                <div className="text-3xl font-bold text-white">{goalProgress.toFixed(0)}%</div>
+                <p className="text-xs text-orange-200 mt-1">Meta: {formatCurrency(monthlyGoal)}</p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="text-2xl">Configurar Meta Mensal</DialogTitle>
+              <DialogDescription>
+                Defina sua meta de receita mensal para acompanhar o progresso e alcançar seus objetivos.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="goal" className="text-right font-medium">
+                  Meta (R$)
+                </Label>
+                <Input
+                  id="goal"
+                  value={tempGoal}
+                  onChange={(e) => setTempGoal(e.target.value)}
+                  placeholder="5000"
+                  className="col-span-3"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg">
+                <div className="text-sm text-muted-foreground mb-2">Progresso atual:</div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl font-bold text-emerald-600">
+                    {formatCurrency(financialData.confirmedRevenue)}
+                  </span>
+                  <Badge variant="outline" className="text-sm">
+                    {goalProgress.toFixed(1)}% da meta
+                  </Badge>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
+                  <div 
+                    className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all duration-500"
+                    style={{ width: `${Math.min(goalProgress, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCancelEdit}>
+                <X className="h-4 w-4 mr-2" />
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveGoal} className="bg-emerald-600 hover:bg-emerald-700">
+                <Save className="h-4 w-4 mr-2" />
+                Salvar Meta
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-          <TabsTrigger value="transactions">Transações</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        <TabsList className="bg-slate-800 border-slate-700">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-slate-700">
+            <PieChartIcon className="h-4 w-4 mr-2" />
+            Visão Geral
+          </TabsTrigger>
+          <TabsTrigger value="graphics" className="data-[state=active]:bg-slate-700">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Gráficos
+          </TabsTrigger>
+          <TabsTrigger value="transactions" className="data-[state=active]:bg-slate-700">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Transações
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="data-[state=active]:bg-slate-700">
+            <LineChartIcon className="h-4 w-4 mr-2" />
+            Analytics
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             {/* Payment Methods */}
-            <Card>
+            <Card className="border-slate-700 bg-slate-800/50">
               <CardHeader>
-                <CardTitle>Métodos de Pagamento</CardTitle>
-                <CardDescription>
-                  Distribuição por forma de pagamento no período
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <CreditCard className="h-5 w-5 text-emerald-400" />
+                  Métodos de Pagamento
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Distribuição por forma de pagamento
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {Object.entries(financialData.paymentMethods).map(([method, amount]) => {
-                    const percentage = (amount / financialData.totalRevenue) * 100;
+                    const percentage = (amount / financialData.confirmedRevenue) * 100;
                     return (
-                      <div key={method} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {paymentMethodIcons[method as keyof typeof paymentMethodIcons]}
-                          <span className="text-sm font-medium">
-                            {paymentMethodLabels[method as keyof typeof paymentMethodLabels] || method}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">{formatCurrency(amount)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {percentage.toFixed(1)}%
+                      <div key={method} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {paymentMethodIcons[method]}
+                            <span className="text-sm font-medium text-slate-200">
+                              {paymentMethodLabels[method] || method}
+                            </span>
                           </div>
+                          <div className="text-right">
+                            <div className="font-bold text-emerald-400">{formatCurrency(amount)}</div>
+                            <div className="text-xs text-slate-400">
+                              {percentage.toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-2">
+                          <div 
+                            className="h-2 rounded-full transition-all duration-500"
+                            style={{ 
+                              width: `${percentage}%`,
+                              backgroundColor: paymentMethodColors[method] || '#94a3b8'
+                            }}
+                          />
                         </div>
                       </div>
                     );
@@ -339,96 +804,376 @@ export default function FinancialPage() {
             </Card>
 
             {/* Top Services */}
-            <Card>
+            <Card className="border-slate-700 bg-slate-800/50">
               <CardHeader>
-                <CardTitle>Serviços Mais Rentáveis</CardTitle>
-                <CardDescription>
-                  Top 5 serviços por receita no período
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <TrendingUp className="h-5 w-5 text-purple-400" />
+                  Top Serviços
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Serviços mais rentáveis do período
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {financialData.topServices.map(([service, revenue], index) => (
-                    <div key={service} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          #{index + 1}
-                        </Badge>
-                        <span className="text-sm font-medium">{service}</span>
+                <div className="space-y-3">
+                  {financialData.topServices.length > 0 ? (
+                    financialData.topServices.map(([service, revenue], index) => (
+                      <div key={service} className="flex items-center justify-between p-3 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="text-xs font-bold border-slate-600" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
+                            #{index + 1}
+                          </Badge>
+                          <span className="text-sm font-medium text-slate-200">{service}</span>
+                        </div>
+                        <div className="font-bold text-emerald-400">{formatCurrency(revenue)}</div>
                       </div>
-                      <div className="font-medium">{formatCurrency(revenue)}</div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-slate-400">
+                      Nenhum serviço realizado no período
                     </div>
-                  ))}
+                  )}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment Methods Pie Chart */}
+            <Card className="border-slate-700 bg-slate-800/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <PieChartIcon className="h-5 w-5 text-cyan-400" />
+                  Distribuição de Pagamentos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pieChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={pieChartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {pieChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#1e293b', 
+                          border: '1px solid #475569',
+                          borderRadius: '8px',
+                          color: '#fff'
+                        }}
+                        formatter={(value) => formatCurrency(value)}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[250px] flex items-center justify-center text-slate-400">
+                    Sem dados de pagamento
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Future Revenue */}
+            <Card className="border-slate-700 bg-gradient-to-br from-cyan-900/30 to-cyan-800/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Clock className="h-5 w-5 text-cyan-400" />
+                  Receita Futura Esperada
+                </CardTitle>
+                <CardDescription className="text-cyan-200">
+                  Agendamentos confirmados a receber
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-center p-6 bg-slate-800/50 rounded-lg">
+                  <div className="text-4xl font-bold text-cyan-400 mb-2">
+                    {formatCurrency(financialData.expectedRevenue)}
+                  </div>
+                  <div className="text-sm text-slate-300">
+                    {financialData.futureAppointments.length} agendamentos pendentes
+                  </div>
+                </div>
+                
+                {financialData.futureAppointments.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-slate-300">Próximos agendamentos:</div>
+                    {financialData.futureAppointments.slice(0, 3).map((apt) => {
+                      const client = clients.find(c => c.id === apt.client_id);
+                      return (
+                        <div key={apt.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                          <div>
+                            <div className="font-medium text-sm text-slate-200">{client?.name || 'Cliente'}</div>
+                            <div className="text-xs text-slate-400">{apt.service_type}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-cyan-400">{formatCurrency(apt.price)}</div>
+                            <div className="text-xs text-slate-400">{formatDate(apt.scheduled_date)}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="graphics" className="space-y-4">
+          <Card className="border-slate-700 bg-slate-800/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <BarChart3 className="h-5 w-5 text-emerald-400" />
+                    Análise Visual de Performance
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Visualize tendências e padrões financeiros
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+                    <SelectTrigger className="w-40 border-slate-600 bg-slate-900">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="revenue">💰 Receita</SelectItem>
+                      <SelectItem value="appointments">📅 Atendimentos</SelectItem>
+                      <SelectItem value="both">📊 Ambos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={chartType} onValueChange={setChartType}>
+                    <SelectTrigger className="w-32 border-slate-600 bg-slate-900">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="line">📈 Linha</SelectItem>
+                      <SelectItem value="bar">📊 Barras</SelectItem>
+                      <SelectItem value="area">🌊 Área</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {financialData.chartData.length > 0 ? (
+                renderChart()
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-slate-400">
+                  Nenhum dado disponível para o período selecionado
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Revenue Comparison */}
+            <Card className="border-slate-700 bg-slate-800/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                  Comparativo de Receitas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={[
+                    { name: 'Confirmada', value: financialData.confirmedRevenue, fill: CHART_COLORS.primary },
+                    { name: 'Futura', value: financialData.expectedRevenue, fill: CHART_COLORS.secondary },
+                    { name: 'Meta', value: monthlyGoal, fill: CHART_COLORS.quaternary }
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+                    <YAxis stroke="#94a3b8" fontSize={12} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#1e293b', 
+                        border: '1px solid #475569',
+                        borderRadius: '8px',
+                        color: '#fff'
+                      }}
+                      formatter={(value) => formatCurrency(value)}
+                    />
+                    <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                      {[
+                        { name: 'Confirmada', value: financialData.confirmedRevenue, fill: CHART_COLORS.primary },
+                        { name: 'Futura', value: financialData.expectedRevenue, fill: CHART_COLORS.secondary },
+                        { name: 'Meta', value: monthlyGoal, fill: CHART_COLORS.quaternary }
+                      ].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Services Performance */}
+            <Card className="border-slate-700 bg-slate-800/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <TrendingUp className="h-5 w-5 text-purple-400" />
+                  Performance por Serviço
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {financialData.topServices.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart 
+                      data={financialData.topServices.map(([name, value]) => ({ name, value }))}
+                      layout="vertical"
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                      <XAxis type="number" stroke="#94a3b8" fontSize={12} />
+                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={11} width={100} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#1e293b', 
+                          border: '1px solid #475569',
+                          borderRadius: '8px',
+                          color: '#fff'
+                        }}
+                        formatter={(value) => formatCurrency(value)}
+                      />
+                      <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                        {financialData.topServices.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={Object.values(CHART_COLORS)[index % 4]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[250px] flex items-center justify-center text-slate-400">
+                    Sem dados de serviços
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
-          <Card>
+          <Card className="border-slate-700 bg-slate-800/50">
             <CardHeader>
-              <CardTitle>Histórico de Transações</CardTitle>
-              <CardDescription>
-                {searchFilteredAppointments.length} transações encontradas
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <DollarSign className="h-5 w-5 text-emerald-400" />
+                    Histórico de Transações
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    {searchFilteredAppointments.length} transações encontradas
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    {financialData.completedAppointments.length} confirmadas
+                  </Badge>
+                  <Badge variant="outline" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+                    <Clock className="h-3 w-3 mr-1" />
+                    {financialData.futureAppointments.length} futuras
+                  </Badge>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="rounded-lg border border-slate-700 overflow-hidden">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Serviço</TableHead>
-                      <TableHead>Pagamento</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
+                  <TableHeader className="bg-slate-900">
+                    <TableRow className="border-slate-700">
+                      <TableHead className="font-semibold text-slate-300">Data</TableHead>
+                      <TableHead className="font-semibold text-slate-300">Cliente</TableHead>
+                      <TableHead className="font-semibold text-slate-300">Serviço</TableHead>
+                      <TableHead className="font-semibold text-slate-300">Pagamento</TableHead>
+                      <TableHead className="font-semibold text-slate-300">Status</TableHead>
+                      <TableHead className="text-right font-semibold text-slate-300">Valor</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {searchFilteredAppointments.slice(0, 50).map((appointment) => {
-                      const client = clients.find(c => c.id === appointment.client_id);
-                      return (
-                        <TableRow key={appointment.id}>
-                          <TableCell className="font-mono text-sm">
-                            {formatDateTime(appointment.scheduled_date)}
-                          </TableCell>
-                          <TableCell>
-                            {client ? (
-                              <div>
-                                <div className="font-medium">{client.name}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {client.phone}
+                    {searchFilteredAppointments.length > 0 ? (
+                      searchFilteredAppointments.slice(0, 50).map((appointment) => {
+                        const client = clients.find(c => c.id === appointment.client_id);
+                        const isCompleted = appointment.status === 'completed';
+                        return (
+                          <TableRow key={appointment.id} className="border-slate-700 hover:bg-slate-700/30">
+                            <TableCell className="font-mono text-sm text-slate-300">
+                              {formatDateTime(appointment.scheduled_date)}
+                            </TableCell>
+                            <TableCell>
+                              {client ? (
+                                <div>
+                                  <div className="font-medium text-slate-200">{client.name}</div>
+                                  <div className="text-xs text-slate-400">
+                                    {client.phone}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Cliente não encontrado</span>
-                            )}
-                          </TableCell>
-                          <TableCell>{appointment.service_type}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {appointment.payment_method && paymentMethodIcons[appointment.payment_method as keyof typeof paymentMethodIcons]}
-                              <span className="text-sm">
-                                {appointment.payment_method 
-                                  ? paymentMethodLabels[appointment.payment_method as keyof typeof paymentMethodLabels]
-                                  : 'Não informado'
-                                }
+                              ) : (
+                                <span className="text-slate-400">Cliente não encontrado</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="font-medium border-slate-600 text-slate-300">
+                                {appointment.service_type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {appointment.payment_method ? (
+                                <div className="flex items-center gap-2 text-slate-300">
+                                  {paymentMethodIcons[appointment.payment_method]}
+                                  <span className="text-sm">
+                                    {paymentMethodLabels[appointment.payment_method]}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400">Não definido</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {isCompleted ? (
+                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Confirmado
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Agendado
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className={`font-bold ${isCompleted ? 'text-emerald-400' : 'text-cyan-400'}`}>
+                                {formatCurrency(appointment.price)}
                               </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {formatCurrency(appointment.price)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                          Nenhuma transação encontrada
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
               
               {searchFilteredAppointments.length > 50 && (
-                <div className="mt-4 text-center text-sm text-muted-foreground">
+                <div className="mt-4 text-center text-sm text-slate-400">
                   Mostrando 50 de {searchFilteredAppointments.length} transações
                 </div>
               )}
@@ -438,108 +1183,137 @@ export default function FinancialPage() {
 
         <TabsContent value="analytics" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+            {/* Summary Cards */}
+            <Card className="border-slate-700 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20">
               <CardHeader>
-                <CardTitle>Resumo do Período</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                  Resumo de Receitas Confirmadas
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-secondary/50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">
-                      {formatCurrency(financialData.totalRevenue)}
+                  <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+                    <div className="text-3xl font-bold text-emerald-400">
+                      {formatCurrency(financialData.confirmedRevenue)}
                     </div>
-                    <div className="text-sm text-muted-foreground">Receita Total</div>
+                    <div className="text-sm text-slate-300 mt-1">Receita Total</div>
                   </div>
-                  <div className="text-center p-4 bg-secondary/50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+                    <div className="text-3xl font-bold text-emerald-400">
                       {financialData.totalAppointments}
                     </div>
-                    <div className="text-sm text-muted-foreground">Atendimentos</div>
+                    <div className="text-sm text-slate-300 mt-1">Atendimentos</div>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-slate-800/50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-slate-300">Ticket Médio</span>
+                    <span className="text-2xl font-bold text-emerald-400">
+                      {formatCurrency(financialData.averageTicket)}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Por atendimento realizado
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div>
-                  <CardTitle>Comparativo</CardTitle>
-                </div>
-                <Dialog open={editingGoal} onOpenChange={setEditingGoal}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Edit3 className="h-4 w-4 mr-2" />
-                      Editar Meta
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Editar Meta Mensal</DialogTitle>
-                      <DialogDescription>
-                        Defina sua meta de receita mensal para acompanhar o progresso.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="goal" className="text-right">
-                          Meta (R$)
-                        </Label>
-                        <Input
-                          id="goal"
-                          value={tempGoal}
-                          onChange={(e) => setTempGoal(e.target.value)}
-                          placeholder="5000"
-                          className="col-span-3"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={handleCancelEdit}>
-                        <X className="h-4 w-4 mr-2" />
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleSaveGoal}>
-                        <Save className="h-4 w-4 mr-2" />
-                        Salvar
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+            {/* Goal Progress */}
+            <Card className="border-slate-700 bg-slate-800/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Target className="h-5 w-5 text-orange-400" />
+                  Progresso da Meta Mensal
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Receita vs Meta Mensal</span>
-                    <div className="flex items-center gap-2">
-                      {financialData.totalRevenue >= monthlyGoal ? (
-                        <TrendingUp className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <TrendingUp className="h-4 w-4 text-orange-600" />
-                      )}
-                      <span className="font-medium">
-                        {((financialData.totalRevenue / monthlyGoal) * 100).toFixed(1)}%
+                <div className="space-y-6">
+                  <div className="text-center p-6 bg-gradient-to-br from-orange-900/30 to-red-800/20 rounded-lg">
+                    <div className="text-5xl font-bold text-orange-400 mb-2">
+                      {goalProgress.toFixed(1)}%
+                    </div>
+                    <div className="text-sm text-slate-300">
+                      da meta alcançada
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-300">Progresso</span>
+                      <div className="flex items-center gap-2">
+                        {goalProgress >= 100 ? (
+                          <span className="font-medium text-emerald-400">Meta atingida! 🎉</span>
+                        ) : goalProgress >= 75 ? (
+                          <span className="font-medium text-orange-400">Quase lá!</span>
+                        ) : (
+                          <span className="font-medium text-cyan-400">Continue assim!</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="w-full bg-slate-700 rounded-full h-4 overflow-hidden">
+                      <div 
+                        className={`h-4 rounded-full transition-all duration-500 ${
+                          goalProgress >= 100 
+                            ? "bg-gradient-to-r from-emerald-500 to-emerald-600" 
+                            : goalProgress >= 75
+                            ? "bg-gradient-to-r from-orange-500 to-red-600"
+                            : "bg-gradient-to-r from-cyan-500 to-cyan-600"
+                        }`}
+                        style={{ width: `${Math.min(goalProgress, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-400">
+                      <span>Meta: {formatCurrency(monthlyGoal)}</span>
+                      <span>
+                        {goalProgress >= 100 
+                          ? `Superou em: ${formatCurrency(financialData.confirmedRevenue - monthlyGoal)}`
+                          : `Faltam: ${formatCurrency(Math.max(0, monthlyGoal - financialData.confirmedRevenue))}`
+                        }
                       </span>
                     </div>
                   </div>
-                  <div className="w-full bg-secondary rounded-full h-2">
-                    <div 
-                      className={cn(
-                        "h-2 rounded-full transition-all duration-500",
-                        financialData.totalRevenue >= monthlyGoal 
-                          ? "bg-green-600" 
-                          : "bg-orange-600"
-                      )}
-                      style={{ width: `${Math.min((financialData.totalRevenue / monthlyGoal) * 100, 100)}%` }}
-                    />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Revenue Projection */}
+            <Card className="border-slate-700 bg-slate-800/50 md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <TrendingUp className="h-5 w-5 text-cyan-400" />
+                  Projeção de Receita Total
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Receita confirmada + receita futura esperada
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-6 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 rounded-lg">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-400 mx-auto mb-3" />
+                    <div className="text-2xl font-bold text-emerald-400 mb-1">
+                      {formatCurrency(financialData.confirmedRevenue)}
+                    </div>
+                    <div className="text-sm text-slate-300">Receita Confirmada</div>
                   </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Meta: {formatCurrency(monthlyGoal)}</span>
-                    <span>
-                      Faltam: {formatCurrency(Math.max(0, monthlyGoal - financialData.totalRevenue))}
-                    </span>
+                  
+                  <div className="text-center p-6 bg-gradient-to-br from-cyan-900/30 to-cyan-800/20 rounded-lg">
+                    <Clock className="h-8 w-8 text-cyan-400 mx-auto mb-3" />
+                    <div className="text-2xl font-bold text-cyan-400 mb-1">
+                      {formatCurrency(financialData.expectedRevenue)}
+                    </div>
+                    <div className="text-sm text-slate-300">Receita Futura</div>
+                  </div>
+                  
+                  <div className="text-center p-6 bg-gradient-to-br from-purple-900/30 to-purple-800/20 rounded-lg">
+                    <DollarSign className="h-8 w-8 text-purple-400 mx-auto mb-3" />
+                    <div className="text-2xl font-bold text-purple-400 mb-1">
+                      {formatCurrency(financialData.confirmedRevenue + financialData.expectedRevenue)}
+                    </div>
+                    <div className="text-sm text-slate-300">Projeção Total</div>
                   </div>
                 </div>
               </CardContent>
