@@ -100,6 +100,11 @@ export default function AppointmentsPage() {
     today.setHours(0, 0, 0, 0);
     
     switch (filterDateRange) {
+      case 'recent':
+        // Próximos agendamentos (a partir de agora)
+        const now = new Date();
+        return aptDate >= now;
+      
       case 'today':
         const todayStr = today.toISOString().split('T')[0];
         const aptStr = aptDate.toISOString().split('T')[0];
@@ -326,6 +331,7 @@ export default function AppointmentsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todas as datas</SelectItem>
+                        <SelectItem value="recent">Mais Recentes</SelectItem>
                         <SelectItem value="today">Hoje</SelectItem>
                         <SelectItem value="week">Próximos 7 dias</SelectItem>
                         <SelectItem value="month">Próximos 30 dias</SelectItem>
@@ -359,6 +365,7 @@ export default function AppointmentsPage() {
               {filterDateRange !== 'all' && (
                 <Badge variant="secondary" className="gap-1">
                   Período: {
+                    filterDateRange === 'recent' ? 'Mais Recentes' :
                     filterDateRange === 'today' ? 'Hoje' :
                     filterDateRange === 'week' ? 'Próximos 7 dias' :
                     filterDateRange === 'month' ? 'Próximos 30 dias' : ''
