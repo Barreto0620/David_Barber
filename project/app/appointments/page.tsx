@@ -43,12 +43,17 @@ export default function AppointmentsPage() {
   const { 
     appointments, 
     clients,
-    selectedDate, 
+    selectedDate: selectedDateFromStore, 
     setSelectedDate,
     completeAppointment,
     cancelAppointment,
     getClientById 
   } = useAppStore();
+
+  // Garantir que selectedDate seja sempre um objeto Date
+  const selectedDate = selectedDateFromStore instanceof Date 
+    ? selectedDateFromStore 
+    : new Date(selectedDateFromStore);
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [completionModalOpen, setCompletionModalOpen] = useState(false);
@@ -61,10 +66,8 @@ export default function AppointmentsPage() {
   // Estados para busca e filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [filterService, setFilterService] = useState<string>('all');
-  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [filterDateRange, setFilterDateRange] = useState<string>('all'); // today, week, month, all
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Lógica para definir a lista de agendamentos a ser exibida
   const displayAppointments = viewMode === 'all' 
@@ -140,21 +143,11 @@ export default function AppointmentsPage() {
       filtered = filtered.filter(apt => apt.service_type === filterService);
     }
     
-    // Filtro por data específica do calendário
-    if (filterDate) {
-      filtered = filtered.filter(apt => {
-        const aptDate = new Date(apt.scheduled_date);
-        const filterDateStr = filterDate.toISOString().split('T')[0];
-        const aptDateStr = aptDate.toISOString().split('T')[0];
-        return aptDateStr === filterDateStr;
-      });
-    }
-    
     // Filtro por range de data
     filtered = filtered.filter(filterByDateRange);
     
     return filtered;
-  }, [displayAppointments, activeTab, searchQuery, filterService, filterDate, filterDateRange, getClientById]);
+  }, [displayAppointments, activeTab, searchQuery, filterService, filterDateRange, getClientById]);
 
   const getStatusCount = (status: AppointmentStatus) => {
     return getAppointmentsByStatus(displayAppointments, status).length;
@@ -163,11 +156,10 @@ export default function AppointmentsPage() {
   const clearAllFilters = () => {
     setSearchQuery('');
     setFilterService('all');
-    setFilterDate(undefined);
     setFilterDateRange('all');
   };
   
-  const hasActiveFilters = searchQuery || filterService !== 'all' || filterDate !== undefined || filterDateRange !== 'all';
+  const hasActiveFilters = searchQuery || filterService !== 'all' || filterDateRange !== 'all';
 
   const handleCompleteAppointment = (id: string) => {
     const appointment = appointments.find(apt => apt.id === id);
@@ -340,47 +332,6 @@ export default function AppointmentsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Calendário para Data Específica */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Data Específica</label>
-                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {filterDate ? (
-                            filterDate.toLocaleDateString('pt-BR')
-                          ) : (
-                            <span>Selecione uma data</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={filterDate}
-                          onSelect={(date) => {
-                            setFilterDate(date);
-                            setCalendarOpen(false);
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    {filterDate && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setFilterDate(undefined)}
-                        className="w-full text-xs"
-                      >
-                        Limpar data
-                      </Button>
-                    )}
-                  </div>
                 </div>
               </PopoverContent>
             </Popover>
@@ -413,14 +364,6 @@ export default function AppointmentsPage() {
                     filterDateRange === 'month' ? 'Próximos 30 dias' : ''
                   }
                   <button onClick={() => setFilterDateRange('all')} className="ml-1 hover:text-destructive">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filterDate && (
-                <Badge variant="secondary" className="gap-1">
-                  Data: {filterDate.toLocaleDateString('pt-BR')}
-                  <button onClick={() => setFilterDate(undefined)} className="ml-1 hover:text-destructive">
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
@@ -480,40 +423,54 @@ export default function AppointmentsPage() {
         </CardHeader>
         {viewMode === 'daily' && (
           <CardContent className="pt-0">
-            <div className="flex items-center justify-between gap-3 p-4 bg-gradient-to-r from-muted/50 via-muted/30 to-muted/50 rounded-xl border">
+            <div className="flex items-center justify-center gap-2">
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={() => {
                   const yesterday = new Date(selectedDate);
                   yesterday.setDate(yesterday.getDate() - 1);
                   setSelectedDate(yesterday);
                 }}
-                className="flex-1 hover:bg-background/80 h-10 font-medium"
-                size="sm"
+                size="icon"
+                className="h-9 w-9"
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Anterior
+                <ChevronLeft className="h-4 w-4" />
               </Button>
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="min-w-[140px] font-medium justify-center"
+                    size="sm"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) setSelectedDate(date);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              
               <Button
-                variant="default"
-                onClick={() => setSelectedDate(new Date())}
-                className="flex-1 h-10 font-semibold shadow-sm"
-                size="sm"
-              >
-                📅 Hoje
-              </Button>
-              <Button
-                variant="ghost"
+                variant="outline"
                 onClick={() => {
                   const tomorrow = new Date(selectedDate);
                   tomorrow.setDate(tomorrow.getDate() + 1);
                   setSelectedDate(tomorrow);
                 }}
-                className="flex-1 hover:bg-background/80 h-10 font-medium"
-                size="sm"
+                size="icon"
+                className="h-9 w-9"
               >
-                Próximo
-                <ChevronRight className="h-4 w-4 ml-1" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </CardContent>
