@@ -7,40 +7,99 @@ import { ClientEditDialog } from '@/components/clients/ClientEditDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Plus, Users, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Search, Plus, Users, ArrowLeft, ArrowRight, TrendingUp, TrendingDown, Clock, DollarSign as Dollar } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Componentes Select simulados
 import { useAppStore } from '@/lib/store';
 import type { Client } from '@/types/database';
-import { cn } from '@/lib/utils'; // Assumindo que você tem um utilitário para concatenar classes
+import { cn } from '@/lib/utils'; 
 
 // Configuração da Paginação
 const CLIENTS_PER_PAGE = 12;
 
+// Tipos de Ordenação
+type SortOption = 
+  | 'recent'
+  | 'oldest'
+  | 'most_visits'
+  | 'least_visits'
+  | 'highest_spend'
+  | 'lowest_spend';
+
 export default function ClientsPage() {
   const { clients } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOption, setSortOption] = useState<SortOption>('recent'); // Novo estado de ordenação
   const [newClientModalOpen, setNewClientModalOpen] = useState(false);
   const [editClientDialogOpen, setEditClientDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [currentPage, setCurrentPage] = useState(1); // Novo estado para a página atual
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredClients = useMemo(() => {
-    // Sempre que o filtro mudar, voltamos para a primeira página
-    setCurrentPage(1);
-
-    return clients.filter(client =>
+  // Lógica de Filtragem e Ordenação
+  const sortedAndFilteredClients = useMemo(() => {
+    // 1. Filtragem por nome/telefone
+    let result = clients.filter(client =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.phone.includes(searchTerm)
     );
-  }, [clients, searchTerm]);
+    
+    // Se a busca mudar, voltamos para a primeira página.
+    // NOTE: Não chamamos setCurrentPage diretamente aqui dentro do useMemo,
+    // mas o reset é implícito, pois qualquer mudança no retorno do useMemo
+    // forçará o recálculo da paginação.
+
+    // 2. Ordenação
+    result.sort((a, b) => {
+      // Funções auxiliares para obter valores numéricos de forma segura
+      const getNumericValue = (value: any) => {
+        // Tenta converter para número, retornando 0 se for NaN, null, ou undefined
+        const num = Number(value);
+        return isNaN(num) ? 0 : num;
+      };
+      
+      const getVisits = (client: Client) => getNumericValue(client.total_visits);
+      const getSpent = (client: Client) => getNumericValue(client.total_spent);
+
+      switch (sortOption) {
+        case 'most_visits':
+          // Maior para Menor (b - a)
+          return getVisits(b) - getVisits(a);
+        case 'least_visits':
+          // Menor para Maior (a - b)
+          return getVisits(a) - getVisits(b);
+        case 'highest_spend':
+          // Maior para Menor
+          return getSpent(b) - getSpent(a);
+        case 'lowest_spend':
+          // Menor para Maior
+          return getSpent(a) - getSpent(b);
+        case 'recent':
+          // Mais Novos (Data de Criação: b - a)
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          // Mais Antigos (Data de Criação: a - b)
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [clients, searchTerm, sortOption]); // Depende do searchTerm e sortOption
+
+  // Resetar a página para 1 quando o filtro ou ordenação muda
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [sortedAndFilteredClients.length]);
+
 
   // Lógica para Paginação
-  const totalPages = Math.ceil(filteredClients.length / CLIENTS_PER_PAGE);
+  const totalPages = Math.ceil(sortedAndFilteredClients.length / CLIENTS_PER_PAGE);
 
   const paginatedClients = useMemo(() => {
     const startIndex = (currentPage - 1) * CLIENTS_PER_PAGE;
     const endIndex = startIndex + CLIENTS_PER_PAGE;
-    return filteredClients.slice(startIndex, endIndex);
-  }, [filteredClients, currentPage]);
+    return sortedAndFilteredClients.slice(startIndex, endIndex);
+  }, [sortedAndFilteredClients, currentPage]);
 
   const handleEditClient = (client: Client) => {
     setSelectedClient(client);
@@ -57,7 +116,6 @@ export default function ClientsPage() {
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
-      // Opcional: rolar para o topo da página após a mudança
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -83,8 +141,10 @@ export default function ClientsPage() {
         </Button>
       </div>
 
-      {/* Search and Stats */}
+      {/* Search, Filter and Stats */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+        
+        {/* Campo de Busca */}
         <div className="relative flex-1 w-full sm:max-w-md">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -94,15 +154,46 @@ export default function ClientsPage() {
             className="pl-8 w-full"
           />
         </div>
+
+        {/* Dropdown de Ordenação (Novo Componente) */}
+        <div className="w-full sm:w-auto flex items-center gap-2">
+          <label className="text-sm text-muted-foreground shrink-0 hidden sm:block">Ordenar por:</label>
+          {/* Implementação do Select de Ordenação */}
+          <Select value={sortOption} onValueChange={(value: SortOption) => setSortOption(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Selecione o filtro" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">
+                <Clock className="h-4 w-4 mr-2 inline-block" /> Mais Novos
+              </SelectItem>
+              <SelectItem value="oldest">
+                <Clock className="h-4 w-4 mr-2 inline-block" /> Mais Antigos
+              </SelectItem>
+              <SelectItem value="most_visits">
+                <TrendingUp className="h-4 w-4 mr-2 inline-block" /> Mais Visitas
+              </SelectItem>
+              <SelectItem value="least_visits">
+                <TrendingDown className="h-4 w-4 mr-2 inline-block" /> Menos Visitas
+              </SelectItem>
+              <SelectItem value="highest_spend">
+                <Dollar className="h-4 w-4 mr-2 inline-block" /> Maior Gasto Total
+              </SelectItem>
+              <SelectItem value="lowest_spend">
+                <Dollar className="h-4 w-4 mr-2 inline-block" /> Menor Gasto Total
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         
-        <div className="flex items-center space-x-2 text-sm text-muted-foreground shrink-0">
+        <div className="flex items-center space-x-2 text-sm text-muted-foreground shrink-0 mt-2 sm:mt-0">
           <Users className="h-4 w-4" />
-          <span>{filteredClients.length} clientes encontrados</span>
+          <span>{sortedAndFilteredClients.length} clientes encontrados</span>
         </div>
       </div>
 
       {/* Client List */}
-      {paginatedClients.length === 0 && filteredClients.length > 0 ? (
+      {paginatedClients.length === 0 && sortedAndFilteredClients.length > 0 ? (
           <Card>
             <CardContent className="p-8">
                 <div className="text-center">
@@ -114,7 +205,7 @@ export default function ClientsPage() {
                 </div>
               </CardContent>
           </Card>
-      ) : filteredClients.length === 0 ? (
+      ) : sortedAndFilteredClients.length === 0 ? (
         <Card>
           <CardContent className="p-8">
             <div className="text-center">
