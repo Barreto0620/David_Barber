@@ -1,4 +1,3 @@
-// components/layout/Sidebar.tsx
 'use client';
 
 import { useState } from 'react';
@@ -59,7 +58,7 @@ export function Sidebar({ className }: SidebarProps) {
               <Button
                 variant={isActive ? "default" : "ghost"}
                 className={cn(
-                  "w-full justify-start transition-all duration-200 hover:scale-105",
+                  "w-full justify-start transition-all duration-200 hover:scale-[1.02]",
                   isActive && "bg-primary text-primary-foreground shadow-lg"
                 )}
                 onClick={() => isMobile && setOpen(false)}
@@ -72,14 +71,15 @@ export function Sidebar({ className }: SidebarProps) {
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t">
+      {/* RODAPÉ: Bordas sutis (padrão) na parte superior e inferior para fechar o retângulo. */}
+      <div className="px-4 py-4 border-t border-b"> 
         {isMobile && (
           <div className="mb-4">
             <ThemeToggle />
           </div>
         )}
         <div className="text-xs text-muted-foreground text-center">
-          <p>WebCashCompany©</p>
+          <p>WebCashCompany©</p> 
         </div>
       </div>
     </div>
