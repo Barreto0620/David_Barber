@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AppointmentCard } from '@/components/appointments/AppointmentCard';
 import { ServiceCompletionModal } from '@/components/appointments/ServiceCompletionModal';
 import { NewAppointmentModal } from '@/components/forms/NewAppointmentModal';
@@ -8,6 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Calendar, Plus, Filter, Scissors, AlertTriangle } from 'lucide-react';
+import { Calendar, Plus, Filter, Scissors, AlertTriangle, Search, X, CalendarDays } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getAppointmentsByDate, getAppointmentsByStatus } from '@/lib/utils/appointments';
 import type { Appointment, PaymentMethod, AppointmentStatus } from '@/types/database';
@@ -43,20 +57,117 @@ export default function AppointmentsPage() {
   const [appointmentToCancel, setAppointmentToCancel] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AppointmentStatus | 'all'>('all');
   const [viewMode, setViewMode] = useState<'daily' | 'all'>('daily');
+  
+  // Estados para busca e filtros
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterService, setFilterService] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterDateRange, setFilterDateRange] = useState<string>('all'); // today, week, month, all
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Lógica para definir a lista de agendamentos a ser exibida
   const displayAppointments = viewMode === 'all' 
     ? appointments 
     : getAppointmentsByDate(appointments, selectedDate);
+  
+  // Obter lista única de serviços para o filtro
+  const uniqueServices = useMemo(() => {
+    const services = new Set(appointments.map(apt => apt.service_type));
+    return Array.from(services).sort();
+  }, [appointments]);
+  
+  // Obter lista única de datas para o filtro
+  const uniqueDates = useMemo(() => {
+    const dates = new Set(
+      appointments.map(apt => {
+        const date = new Date(apt.scheduled_date);
+        return date.toISOString().split('T')[0];
+      })
+    );
+    return Array.from(dates).sort().reverse();
+  }, [appointments]);
+  
+  // Função para filtrar por range de data
+  const filterByDateRange = (apt: Appointment) => {
+    if (filterDateRange === 'all') return true;
     
-  // Filtra os agendamentos com base na aba e no modo de visualização
-  const filteredAppointments = activeTab === 'all' 
-    ? displayAppointments 
-    : getAppointmentsByStatus(displayAppointments, activeTab);
+    const aptDate = new Date(apt.scheduled_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    switch (filterDateRange) {
+      case 'today':
+        const todayStr = today.toISOString().split('T')[0];
+        const aptStr = aptDate.toISOString().split('T')[0];
+        return todayStr === aptStr;
+      
+      case 'week':
+        const weekFromNow = new Date(today);
+        weekFromNow.setDate(today.getDate() + 7);
+        return aptDate >= today && aptDate <= weekFromNow;
+      
+      case 'month':
+        const monthFromNow = new Date(today);
+        monthFromNow.setMonth(today.getMonth() + 1);
+        return aptDate >= today && aptDate <= monthFromNow;
+      
+      default:
+        return true;
+    }
+  };
+  
+  // Aplicar busca e filtros
+  const filteredAppointments = useMemo(() => {
+    let filtered = activeTab === 'all' 
+      ? displayAppointments 
+      : getAppointmentsByStatus(displayAppointments, activeTab);
+    
+    // Filtro de busca por nome do cliente ou serviço
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(apt => {
+        const client = apt.client || (apt.client_id ? getClientById(apt.client_id) : null);
+        const clientName = client?.name?.toLowerCase() || '';
+        const serviceName = apt.service_type?.toLowerCase() || '';
+        
+        return clientName.includes(query) || serviceName.includes(query);
+      });
+    }
+    
+    // Filtro por serviço
+    if (filterService !== 'all') {
+      filtered = filtered.filter(apt => apt.service_type === filterService);
+    }
+    
+    // Filtro por data específica do calendário
+    if (filterDate) {
+      filtered = filtered.filter(apt => {
+        const aptDate = new Date(apt.scheduled_date);
+        const filterDateStr = filterDate.toISOString().split('T')[0];
+        const aptDateStr = aptDate.toISOString().split('T')[0];
+        return aptDateStr === filterDateStr;
+      });
+    }
+    
+    // Filtro por range de data
+    filtered = filtered.filter(filterByDateRange);
+    
+    return filtered;
+  }, [displayAppointments, activeTab, searchQuery, filterService, filterDate, filterDateRange, getClientById]);
 
   const getStatusCount = (status: AppointmentStatus) => {
     return getAppointmentsByStatus(displayAppointments, status).length;
   };
+  
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setFilterService('all');
+    setFilterDate(undefined);
+    setFilterDateRange('all');
+  };
+  
+  const hasActiveFilters = searchQuery || filterService !== 'all' || filterDate !== undefined || filterDateRange !== 'all';
 
   const handleCompleteAppointment = (id: string) => {
     const appointment = appointments.find(apt => apt.id === id);
@@ -140,84 +251,273 @@ export default function AppointmentsPage() {
             Gerencie todos os agendamentos da barbearia
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Filter className="h-4 w-4 mr-2" />
-            Filtros
-          </Button>
-          <Button onClick={() => setNewAppointmentModalOpen(true)} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Agendamento
-          </Button>
-        </div>
+        <Button onClick={() => setNewAppointmentModalOpen(true)} className="w-full sm:w-auto">
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Agendamento
+        </Button>
       </div>
 
-      {/* Date and View Mode Selection */}
+      {/* Barra de Busca e Filtros */}
       <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <CardTitle className="flex items-center space-x-2">
-              <Calendar className="h-5 w-5" />
-              <span className="text-base sm:text-lg">
-                {viewMode === 'daily' ? 'Data Selecionada' : 'Visualização Completa'}
-              </span>
-            </CardTitle>
-            <div className="text-sm text-muted-foreground">
-              {viewMode === 'daily' ? formatDate(selectedDate) : 'Todos os Agendamentos'}
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Barra de Busca */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por cliente ou serviço..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Botão de Filtros */}
+            <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-auto relative">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filtros
+                  {hasActiveFilters && (
+                    <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center" variant="destructive">
+                      !
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Filtros Avançados</h4>
+                    {hasActiveFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearAllFilters}
+                        className="h-8 px-2 text-xs"
+                      >
+                        Limpar tudo
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Filtro por Serviço */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Serviço</label>
+                    <Select value={filterService} onValueChange={setFilterService}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os serviços" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os serviços</SelectItem>
+                        {uniqueServices.map((service) => (
+                          <SelectItem key={service} value={service}>
+                            {service}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filtro por Data */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Período</label>
+                    <Select value={filterDateRange} onValueChange={setFilterDateRange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o período" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as datas</SelectItem>
+                        <SelectItem value="today">Hoje</SelectItem>
+                        <SelectItem value="week">Próximos 7 dias</SelectItem>
+                        <SelectItem value="month">Próximos 30 dias</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Calendário para Data Específica */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Data Específica</label>
+                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {filterDate ? (
+                            filterDate.toLocaleDateString('pt-BR')
+                          ) : (
+                            <span>Selecione uma data</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={filterDate}
+                          onSelect={(date) => {
+                            setFilterDate(date);
+                            setCalendarOpen(false);
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    {filterDate && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setFilterDate(undefined)}
+                        className="w-full text-xs"
+                      >
+                        Limpar data
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Indicadores de Filtros Ativos */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {searchQuery && (
+                <Badge variant="secondary" className="gap-1">
+                  Busca: "{searchQuery}"
+                  <button onClick={() => setSearchQuery('')} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filterService !== 'all' && (
+                <Badge variant="secondary" className="gap-1">
+                  Serviço: {filterService}
+                  <button onClick={() => setFilterService('all')} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filterDateRange !== 'all' && (
+                <Badge variant="secondary" className="gap-1">
+                  Período: {
+                    filterDateRange === 'today' ? 'Hoje' :
+                    filterDateRange === 'week' ? 'Próximos 7 dias' :
+                    filterDateRange === 'month' ? 'Próximos 30 dias' : ''
+                  }
+                  <button onClick={() => setFilterDateRange('all')} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filterDate && (
+                <Badge variant="secondary" className="gap-1">
+                  Data: {filterDate.toLocaleDateString('pt-BR')}
+                  <button onClick={() => setFilterDate(undefined)} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Date and View Mode Selection */}
+      <Card className="border-2">
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+                <CalendarDays className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-xl sm:text-2xl font-bold">
+                  {viewMode === 'daily' ? 'Agendamentos do Dia' : 'Todos os Agendamentos'}
+                </CardTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {viewMode === 'daily' 
+                      ? formatDate(selectedDate)
+                      : `${appointments.length} agendamento${appointments.length !== 1 ? 's' : ''} no total`
+                    }
+                  </p>
+                  {viewMode === 'daily' && (
+                    <Badge variant="outline" className="text-xs">
+                      {displayAppointments.length} agendamento{displayAppointments.length !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'daily' ? 'default' : 'outline'}
+                onClick={() => setViewMode('daily')}
+                size="sm"
+                className="flex-1 sm:flex-none"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Diária
+              </Button>
+              <Button
+                variant={viewMode === 'all' ? 'default' : 'outline'}
+                onClick={() => setViewMode('all')}
+                size="sm"
+                className="flex-1 sm:flex-none"
+              >
+                Ver Todos
+              </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-            <Button
-              variant={viewMode === 'daily' ? 'default' : 'outline'}
-              onClick={() => setViewMode('daily')}
-              className="w-full sm:w-auto"
-            >
-              Visualização Diária
-            </Button>
-            <Button
-              variant={viewMode === 'all' ? 'default' : 'outline'}
-              onClick={() => setViewMode('all')}
-              className="w-full sm:w-auto"
-            >
-              Visualização Completa
-            </Button>
-          </div>
-          {viewMode === 'daily' && (
-            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mt-4">
+        {viewMode === 'daily' && (
+          <CardContent className="pt-0">
+            <div className="flex flex-col sm:flex-row gap-2 p-3 bg-muted/30 rounded-lg">
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => {
                   const yesterday = new Date(selectedDate);
                   yesterday.setDate(yesterday.getDate() - 1);
                   setSelectedDate(yesterday);
                 }}
-                className="w-full sm:w-auto"
+                className="flex-1 sm:flex-none hover:bg-background"
+                size="sm"
               >
-                Dia Anterior
+                ← Anterior
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => setSelectedDate(new Date())}
-                className="w-full sm:w-auto"
+                className="flex-1 sm:flex-none hover:bg-background font-semibold"
+                size="sm"
               >
-                Hoje
+                • Hoje •
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => {
                   const tomorrow = new Date(selectedDate);
                   tomorrow.setDate(tomorrow.getDate() + 1);
                   setSelectedDate(tomorrow);
                 }}
-                className="w-full sm:w-auto"
+                className="flex-1 sm:flex-none hover:bg-background"
+                size="sm"
               >
-                Próximo Dia
+                Próximo →
               </Button>
             </div>
-          )}
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       {/* Status Tabs */}
@@ -264,22 +564,39 @@ export default function AppointmentsPage() {
           {filteredAppointments.length === 0 ? (
             <Card>
               <CardContent className="p-6 sm:p-8">
-                <p className="text-center text-sm sm:text-base text-muted-foreground">
-                  Nenhum agendamento encontrado para esta {viewMode === 'daily' ? 'data' : 'visualização'}.
-                </p>
+                <div className="text-center space-y-2">
+                  <p className="text-sm sm:text-base text-muted-foreground">
+                    {hasActiveFilters 
+                      ? 'Nenhum agendamento encontrado com os filtros aplicados.'
+                      : `Nenhum agendamento encontrado para esta ${viewMode === 'daily' ? 'data' : 'visualização'}.`
+                    }
+                  </p>
+                  {hasActiveFilters && (
+                    <Button variant="link" onClick={clearAllFilters} size="sm">
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredAppointments.map((appointment) => (
-                <AppointmentCard
-                  key={appointment.id}
-                  appointment={appointment}
-                  onComplete={handleCompleteAppointment}
-                  onCancel={handleCancelAppointment}
-                />
-              ))}
-            </div>
+            <>
+              <div className="flex items-center justify-between px-1">
+                <p className="text-sm text-muted-foreground">
+                  {filteredAppointments.length} agendamento{filteredAppointments.length !== 1 ? 's' : ''} encontrado{filteredAppointments.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredAppointments.map((appointment) => (
+                  <AppointmentCard
+                    key={appointment.id}
+                    appointment={appointment}
+                    onComplete={handleCompleteAppointment}
+                    onCancel={handleCancelAppointment}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </TabsContent>
       </Tabs>
