@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,11 +15,13 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatTime } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Dashboard() {
   const { 
@@ -37,33 +39,96 @@ export default function Dashboard() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [lastAppointmentCount, setLastAppointmentCount] = useState(0);
+  const syncIntervalRef = useRef(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
+  // Sincronização automática a cada 30 segundos
   useEffect(() => {
     const initializeData = async () => {
-      if (!lastSync || Date.now() - new Date(lastSync).getTime() > 5 * 60 * 1000) {
-        await syncWithSupabase();
-      } else {
-        calculateMetrics();
-      }
+      await syncWithSupabase();
     };
 
     initializeData();
 
-    const interval = setInterval(() => {
-      syncWithSupabase();
-    }, 5 * 60 * 1000);
+    // Limpa intervalo anterior se existir
+    if (syncIntervalRef.current) {
+      clearInterval(syncIntervalRef.current);
+    }
 
-    return () => clearInterval(interval);
-  }, [syncWithSupabase, calculateMetrics, lastSync]);
+    // Sincroniza a cada 30 segundos
+    syncIntervalRef.current = setInterval(() => {
+      syncWithSupabase();
+    }, 30000); // 30 segundos
+
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
+  }, [syncWithSupabase]);
+
+  // Detecta novos agendamentos e mostra notificação
+  useEffect(() => {
+    if (!isClient) return;
+
+    const currentCount = appointments.length;
+    
+    if (lastAppointmentCount > 0 && currentCount > lastAppointmentCount) {
+      const newAppointments = currentCount - lastAppointmentCount;
+      
+      // Mostra notificação
+      toast({
+        title: "🎉 Novo Agendamento!",
+        description: `${newAppointments} ${newAppointments === 1 ? 'novo agendamento chegou' : 'novos agendamentos chegaram'}!`,
+        duration: 5000,
+      });
+
+      // Notificação do navegador (se permitido)
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Novo Agendamento', {
+          body: `${newAppointments} ${newAppointments === 1 ? 'novo agendamento' : 'novos agendamentos'}`,
+          icon: '/icon.png',
+          badge: '/badge.png',
+          tag: 'new-appointment',
+          requireInteraction: false,
+        });
+      }
+
+      // Reproduz som de notificação (opcional)
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log('Não foi possível reproduzir o som'));
+      } catch (e) {
+        console.log('Som de notificação não disponível');
+      }
+    }
+    
+    setLastAppointmentCount(currentCount);
+  }, [appointments.length, isClient, toast, lastAppointmentCount]);
+
+  // Solicita permissão para notificações
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await syncWithSupabase();
     setIsRefreshing(false);
+    
+    toast({
+      title: "✓ Atualizado",
+      description: "Dados sincronizados com sucesso!",
+      duration: 2000,
+    });
   };
 
   const todaysAppointments = isClient ? getTodaysAppointments() : [];
@@ -128,6 +193,13 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className={cn(
+              "h-2 w-2 rounded-full animate-pulse",
+              isRefreshing ? "bg-yellow-500" : "bg-green-500"
+            )} />
+            <span>{isRefreshing ? "Sincronizando..." : "Sincronização automática ativa"}</span>
+          </div>
           <Button
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -141,8 +213,11 @@ export default function Dashboard() {
       </div>
 
       {lastSync && (
-        <div className="text-xs text-muted-foreground">
-          Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Bell className="h-3 w-3" />
+          <span>Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}</span>
+          <span className="mx-2">•</span>
+          <span>Próxima em: ~30s</span>
         </div>
       )}
 
