@@ -82,6 +82,7 @@ export default function FinancialPage() {
   const [chartType, setChartType] = useState('line');
   const [selectedMetric, setSelectedMetric] = useState('revenue');
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [topViewMode, setTopViewMode] = useState('services'); // 'services' or 'clients'
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -111,8 +112,18 @@ export default function FinancialPage() {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
+    // Filter by search term (client name)
+    let filteredAppointments = appointments;
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filteredAppointments = appointments.filter(apt => {
+        const client = clients.find(c => c.id === apt.client_id);
+        return client?.name.toLowerCase().includes(searchLower);
+      });
+    }
+
     // Completed appointments (confirmed revenue)
-    const completedAppointments = appointments.filter(apt => {
+    const completedAppointments = filteredAppointments.filter(apt => {
       const aptDate = new Date(apt.scheduled_date);
       const isInPeriod = aptDate >= startDate && aptDate <= now;
       const isCompleted = apt.status === 'completed';
@@ -122,7 +133,7 @@ export default function FinancialPage() {
     });
 
     // Future appointments (expected revenue)
-    const futureAppointments = appointments.filter(apt => {
+    const futureAppointments = filteredAppointments.filter(apt => {
       const aptDate = new Date(apt.scheduled_date);
       const isInFuture = aptDate > now;
       const isScheduled = apt.status === 'scheduled';
@@ -167,6 +178,24 @@ export default function FinancialPage() {
       .sort(([,a], [,b]) => b - a)
       .slice(0, 5);
 
+    // Top clients
+    const clientRevenue = completedAppointments.reduce((acc, apt) => {
+      const client = clients.find(c => c.id === apt.client_id);
+      if (client) {
+        if (!acc[client.id]) {
+          acc[client.id] = { name: client.name, revenue: 0, count: 0 };
+        }
+        acc[client.id].revenue += apt.price;
+        acc[client.id].count += 1;
+      }
+      return acc;
+    }, {});
+
+    const topClients = Object.entries(clientRevenue)
+      .map(([id, data]) => [data.name, data.revenue, data.count])
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5);
+
     return {
       confirmedRevenue,
       expectedRevenue,
@@ -175,10 +204,11 @@ export default function FinancialPage() {
       paymentMethods,
       chartData,
       topServices,
+      topClients,
       completedAppointments,
       futureAppointments
     };
-  }, [appointments, selectedPeriod, selectedPaymentMethod]);
+  }, [appointments, clients, selectedPeriod, selectedPaymentMethod, searchTerm]);
   
   const paymentMethodIcons = {
     dinheiro: <Banknote className="h-4 w-4" />,
@@ -202,21 +232,8 @@ export default function FinancialPage() {
   };
 
   const searchFilteredAppointments = useMemo(() => {
-    const allAppointments = [...financialData.completedAppointments, ...financialData.futureAppointments];
-    if (!searchTerm) return allAppointments;
-    
-    return allAppointments.filter(apt => {
-      const client = clients.find(c => c.id === apt.client_id);
-      const clientName = client?.name.toLowerCase() || '';
-      const serviceType = apt.service_type.toLowerCase();
-      const paymentMethod = apt.payment_method?.toLowerCase() || '';
-      const search = searchTerm.toLowerCase();
-      
-      return clientName.includes(search) || 
-               serviceType.includes(search) || 
-               paymentMethod.includes(search);
-    });
-  }, [financialData.completedAppointments, financialData.futureAppointments, searchTerm, clients]);
+    return [...financialData.completedAppointments, ...financialData.futureAppointments];
+  }, [financialData.completedAppointments, financialData.futureAppointments]);
 
   const handleSaveGoal = () => {
     const newGoal = parseFloat(tempGoal.replace(',', '.'));
@@ -416,14 +433,14 @@ export default function FinancialPage() {
             <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: 'white', 
-                border: '1px solid #e5e7eb',
+                backgroundColor: '#1e293b',
+                border: '1px solid #475569',
                 borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                color: '#1f2937'
+                padding: '8px 12px'
               }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-              itemStyle={{ color: '#374151' }}
+              labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
+              itemStyle={{ color: '#e2e8f0' }}
+              cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
             />
             <Legend wrapperStyle={{ color: '#1f2937' }} />
             {selectedMetric === 'revenue' && (
@@ -450,14 +467,14 @@ export default function FinancialPage() {
             <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: 'white', 
-                border: '1px solid #e5e7eb',
+                backgroundColor: '#1e293b',
+                border: '1px solid #475569',
                 borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                color: '#1f2937'
+                padding: '8px 12px'
               }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-              itemStyle={{ color: '#374151' }}
+              labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
+              itemStyle={{ color: '#e2e8f0' }}
+              cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
             />
             <Legend wrapperStyle={{ color: '#1f2937' }} />
             {selectedMetric === 'revenue' && (
@@ -494,14 +511,14 @@ export default function FinancialPage() {
             <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: 'white', 
-                border: '1px solid #e5e7eb',
+                backgroundColor: '#1e293b',
+                border: '1px solid #475569',
                 borderRadius: '8px',
-                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                color: '#1f2937'
+                padding: '8px 12px'
               }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-              itemStyle={{ color: '#374151' }}
+              labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
+              itemStyle={{ color: '#e2e8f0' }}
+              cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
             />
             <Legend wrapperStyle={{ color: '#1f2937' }} />
             {selectedMetric === 'revenue' && (
@@ -607,7 +624,7 @@ export default function FinancialPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">💼 Todos Pagamentos</SelectItem>
+                  <SelectItem value="all">💼 Todos</SelectItem>
                   <SelectItem value="dinheiro">💵 Dinheiro</SelectItem>
                   <SelectItem value="cartao">💳 Cartão</SelectItem>
                   <SelectItem value="pix">📱 PIX</SelectItem>
@@ -617,7 +634,7 @@ export default function FinancialPage() {
             </div>
 
             <Input
-              placeholder="🔍 Buscar transações..."
+              placeholder="🔍 Buscar por cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-64 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
@@ -813,35 +830,71 @@ export default function FinancialPage() {
               </CardContent>
             </Card>
 
-            {/* Top Services */}
+            {/* Top Services/Clients */}
             <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  Top Serviços
-                </CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-400">
-                  Serviços mais rentáveis do período
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                      <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      {topViewMode === 'services' ? 'Top Serviços' : 'Top Clientes'}
+                    </CardTitle>
+                    <CardDescription className="text-slate-600 dark:text-slate-400">
+                      {topViewMode === 'services' ? 'Serviços mais rentáveis do período' : 'Clientes que mais gastaram'}
+                    </CardDescription>
+                  </div>
+                  <Select value={topViewMode} onValueChange={setTopViewMode}>
+                    <SelectTrigger className="w-32 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="services">🔧 Serviços</SelectItem>
+                      <SelectItem value="clients">👥 Clientes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {financialData.topServices.length > 0 ? (
-                    financialData.topServices.map(([service, revenue], index) => (
-                      <div key={service} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="text-xs font-bold border-slate-300 dark:border-slate-600" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
-                            #{index + 1}
-                          </Badge>
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{service}</span>
+                  {topViewMode === 'services' ? (
+                    financialData.topServices.length > 0 ? (
+                      financialData.topServices.map(([service, revenue], index) => (
+                        <div key={service} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="text-xs font-bold border-slate-300 dark:border-slate-600" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
+                              #{index + 1}
+                            </Badge>
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{service}</span>
+                          </div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue)}</div>
                         </div>
-                        <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue)}</div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                        Nenhum serviço realizado no período
                       </div>
-                    ))
+                    )
                   ) : (
-                    <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                      Nenhum serviço realizado no período
-                    </div>
+                    financialData.topClients.length > 0 ? (
+                      financialData.topClients.map(([name, revenue, count], index) => (
+                        <div key={name} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="text-xs font-bold border-slate-300 dark:border-slate-600" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
+                              #{index + 1}
+                            </Badge>
+                            <div>
+                              <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{name}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">{count} atendimento{count > 1 ? 's' : ''}</div>
+                            </div>
+                          </div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue)}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                        Nenhum cliente encontrado no período
+                      </div>
+                    )
                   )}
                 </div>
               </CardContent>
@@ -875,13 +928,14 @@ export default function FinancialPage() {
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #e5e7eb',
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #475569',
                           borderRadius: '8px',
-                          color: '#1f2937'
+                          color: '#fff',
+                          padding: '8px 12px'
                         }}
-                        labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-                        itemStyle={{ color: '#374151' }}
+                        labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
+                        itemStyle={{ color: '#e2e8f0' }}
                         formatter={(value) => formatCurrency(value)}
                       />
                     </PieChart>
@@ -1010,13 +1064,14 @@ export default function FinancialPage() {
                     <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
                     <Tooltip 
                       contentStyle={{ 
-                        backgroundColor: 'white', 
-                        border: '1px solid #e5e7eb',
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #475569',
                         borderRadius: '8px',
-                        color: '#1f2937'
+                        color: '#fff',
+                        padding: '8px 12px'
                       }}
-                      labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-                      itemStyle={{ color: '#374151' }}
+                      labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
+                      itemStyle={{ color: '#e2e8f0' }}
                       formatter={(value) => formatCurrency(value)}
                     />
                     <Bar dataKey="value" radius={[8, 8, 0, 0]}>
@@ -1053,13 +1108,14 @@ export default function FinancialPage() {
                       <YAxis dataKey="name" type="category" stroke="#374151" className="dark:stroke-slate-400" fontSize={11} width={100} />
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #e5e7eb',
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #475569',
                           borderRadius: '8px',
-                          color: '#1f2937'
+                          color: '#fff',
+                          padding: '8px 12px'
                         }}
-                        labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-                        itemStyle={{ color: '#374151' }}
+                        labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
+                        itemStyle={{ color: '#e2e8f0' }}
                         formatter={(value) => formatCurrency(value)}
                       />
                       <Bar dataKey="value" radius={[0, 8, 8, 0]}>
