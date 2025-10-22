@@ -32,8 +32,20 @@ export function Header() {
     markAsRead,
     markAllAsRead,
     removeNotification,
-    clearAllNotifications
+    setNotifications
   } = useAppStore();
+
+  // Função para limpar todas as notificações
+  const clearAllNotifications = () => {
+    if (setNotifications) {
+      setNotifications([]);
+    } else {
+      // Fallback: remover uma por uma se setNotifications não existir
+      notifications.forEach(notification => {
+        removeNotification(notification.id);
+      });
+    }
+  };
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -147,8 +159,12 @@ export function Header() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={clearAllNotifications}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearAllNotifications();
+                          }}
                           className="text-xs text-destructive hover:text-destructive h-8"
+                          title="Limpar todas as notificações"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
