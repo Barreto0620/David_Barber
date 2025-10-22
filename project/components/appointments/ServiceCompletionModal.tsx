@@ -24,7 +24,7 @@ export function ServiceCompletionModal({
   onClose, 
   onComplete 
 }: ServiceCompletionModalProps) {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [finalPrice, setFinalPrice] = useState<string>('');
   const [notes, setNotes] = useState('');
   const getClientById = useAppStore((state) => state.getClientById);
@@ -36,7 +36,7 @@ export function ServiceCompletionModal({
     onComplete(paymentMethod, price, notes || undefined);
     
     // Reset form
-    setPaymentMethod('dinheiro');
+    setPaymentMethod('pix');
     setFinalPrice('');
     setNotes('');
     onClose();
