@@ -52,7 +52,6 @@ import {
   Filter,
   FileSpreadsheet,
   Printer,
-  Wallet
 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '@/lib/store';
@@ -82,7 +81,7 @@ export default function FinancialPage() {
   const [chartType, setChartType] = useState('line');
   const [selectedMetric, setSelectedMetric] = useState('revenue');
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [topViewMode, setTopViewMode] = useState('services'); // 'services' or 'clients'
+  const [topViewMode, setTopViewMode] = useState('services');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -151,10 +150,10 @@ export default function FinancialPage() {
       const method = apt.payment_method || 'não informado';
       acc[method] = (acc[method] || 0) + apt.price;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
 
     // Daily revenue for chart
-    const dailyData = {};
+    const dailyData: Record<string, { date: string; revenue: number; count: number }> = {};
     completedAppointments.forEach(apt => {
       const date = apt.scheduled_date.split('T')[0];
       if (!dailyData[date]) {
@@ -165,17 +164,17 @@ export default function FinancialPage() {
     });
 
     const chartData = Object.values(dailyData).sort((a, b) => 
-      new Date(a.date) - new Date(b.date)
+      new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
     // Top services
     const serviceRevenue = completedAppointments.reduce((acc, apt) => {
       acc[apt.service_type] = (acc[apt.service_type] || 0) + apt.price;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
 
     const topServices = Object.entries(serviceRevenue)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5);
 
     // Top clients
@@ -189,11 +188,11 @@ export default function FinancialPage() {
         acc[client.id].count += 1;
       }
       return acc;
-    }, {});
+    }, {} as Record<string, { name: string; revenue: number; count: number }>);
 
     const topClients = Object.entries(clientRevenue)
-      .map(([id, data]) => [data.name, data.revenue, data.count])
-      .sort(([,a], [,b]) => b - a)
+      .map(([id, data]) => [data.name, data.revenue, data.count] as [string, number, number])
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5);
 
     return {
@@ -210,21 +209,21 @@ export default function FinancialPage() {
     };
   }, [appointments, clients, selectedPeriod, selectedPaymentMethod, searchTerm]);
   
-  const paymentMethodIcons = {
+  const paymentMethodIcons: Record<string, React.ReactNode> = {
     dinheiro: <Banknote className="h-4 w-4" />,
     cartao: <CreditCard className="h-4 w-4" />,
     pix: <Smartphone className="h-4 w-4" />,
     transferencia: <ArrowUpDown className="h-4 w-4" />
   };
 
-  const paymentMethodLabels = {
+  const paymentMethodLabels: Record<string, string> = {
     dinheiro: 'Dinheiro',
     cartao: 'Cartão',
     pix: 'PIX',
     transferencia: 'Transferência'
   };
 
-  const paymentMethodColors = {
+  const paymentMethodColors: Record<string, string> = {
     dinheiro: CHART_COLORS.primary,
     cartao: CHART_COLORS.secondary,
     pix: CHART_COLORS.tertiary,
@@ -261,7 +260,7 @@ export default function FinancialPage() {
       ['RESUMO'],
       ['Receita Confirmada:', formatCurrency(financialData.confirmedRevenue)],
       ['Receita a Receber:', formatCurrency(financialData.expectedRevenue)],
-      ['Total de Atendimentos:', financialData.totalAppointments],
+      ['Total de Atendimentos:', financialData.totalAppointments.toString()],
       ['Ticket Médio:', formatCurrency(financialData.averageTicket)],
       [''],
       ['TRANSAÇÕES DETALHADAS'],
@@ -424,6 +423,15 @@ export default function FinancialPage() {
       'Atendimentos': d.count
     }));
 
+    const customTooltipFormatter = (value: unknown, name: string) => {
+      if (name === 'Receita (R$)') {
+        return [formatCurrency(value as number), 'Receita'];
+      } else if (name === 'Atendimentos') {
+        return [value, 'Atendimentos'];
+      }
+      return [value, name];
+    };
+
     if (chartType === 'line') {
       return (
         <ResponsiveContainer width="100%" height={300}>
@@ -442,14 +450,7 @@ export default function FinancialPage() {
               itemStyle={{ color: '#e2e8f0' }}
               cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
               position={{ y: 0 }}
-              formatter={(value, name) => {
-                if (name === 'Receita (R$)') {
-                  return [formatCurrency(value), 'Receita'];
-                } else if (name === 'Atendimentos') {
-                  return [value, 'Atendimentos'];
-                }
-                return [value, name];
-              }}
+              formatter={customTooltipFormatter}
             />
             <Legend wrapperStyle={{ color: '#1f2937' }} />
             {selectedMetric === 'revenue' && (
@@ -484,6 +485,7 @@ export default function FinancialPage() {
               labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
               itemStyle={{ color: '#e2e8f0' }}
               cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+              formatter={customTooltipFormatter}
             />
             <Legend wrapperStyle={{ color: '#1f2937' }} />
             {selectedMetric === 'revenue' && (
@@ -528,6 +530,7 @@ export default function FinancialPage() {
               labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
               itemStyle={{ color: '#e2e8f0' }}
               cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+              formatter={customTooltipFormatter}
             />
             <Legend wrapperStyle={{ color: '#1f2937' }} />
             {selectedMetric === 'revenue' && (
@@ -875,7 +878,7 @@ export default function FinancialPage() {
                             </Badge>
                             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{service}</span>
                           </div>
-                          <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue)}</div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue as number)}</div>
                         </div>
                       ))
                     ) : (
@@ -926,7 +929,7 @@ export default function FinancialPage() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
@@ -945,7 +948,7 @@ export default function FinancialPage() {
                         }}
                         labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
                         itemStyle={{ color: '#e2e8f0' }}
-                        formatter={(value) => formatCurrency(value)}
+                        formatter={(value: unknown) => formatCurrency(value as number)}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1064,9 +1067,9 @@ export default function FinancialPage() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={[
-                    { name: 'Confirmada', value: financialData.confirmedRevenue, fill: CHART_COLORS.primary },
-                    { name: 'Futura', value: financialData.expectedRevenue, fill: CHART_COLORS.secondary },
-                    { name: 'Meta', value: monthlyGoal, fill: CHART_COLORS.quaternary }
+                    { name: 'Confirmada', valor: financialData.confirmedRevenue, fill: CHART_COLORS.primary },
+                    { name: 'Futura', valor: financialData.expectedRevenue, fill: CHART_COLORS.secondary },
+                    { name: 'Meta', valor: monthlyGoal, fill: CHART_COLORS.quaternary }
                   ]}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-slate-700" />
                     <XAxis dataKey="name" stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
@@ -1081,13 +1084,13 @@ export default function FinancialPage() {
                       }}
                       labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
                       itemStyle={{ color: '#e2e8f0' }}
-                      formatter={(value) => formatCurrency(value)}
+                      formatter={(value: unknown) => formatCurrency(value as number)}
                     />
-                    <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                    <Bar dataKey="valor" radius={[8, 8, 0, 0]}>
                       {[
-                        { name: 'Confirmada', value: financialData.confirmedRevenue, fill: CHART_COLORS.primary },
-                        { name: 'Futura', value: financialData.expectedRevenue, fill: CHART_COLORS.secondary },
-                        { name: 'Meta', value: monthlyGoal, fill: CHART_COLORS.quaternary }
+                        { name: 'Confirmada', valor: financialData.confirmedRevenue, fill: CHART_COLORS.primary },
+                        { name: 'Futura', valor: financialData.expectedRevenue, fill: CHART_COLORS.secondary },
+                        { name: 'Meta', valor: monthlyGoal, fill: CHART_COLORS.quaternary }
                       ].map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
@@ -1109,7 +1112,7 @@ export default function FinancialPage() {
                 {financialData.topServices.length > 0 ? (
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart 
-                      data={financialData.topServices.map(([name, value]) => ({ name, value }))}
+                      data={financialData.topServices.map(([name, value]) => ({ name, valor: value }))}
                       layout="vertical"
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-slate-700" />
@@ -1125,9 +1128,9 @@ export default function FinancialPage() {
                         }}
                         labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
                         itemStyle={{ color: '#e2e8f0' }}
-                        formatter={(value) => formatCurrency(value)}
+                        formatter={(value: unknown) => formatCurrency(value as number)}
                       />
-                      <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                      <Bar dataKey="valor" radius={[0, 8, 8, 0]}>
                         {financialData.topServices.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={Object.values(CHART_COLORS)[index % 4]} />
                         ))}
@@ -1158,10 +1161,6 @@ export default function FinancialPage() {
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    {financialData.completedAppointments.length} confirmadas
-                  </Badge>
                   <Badge variant="outline" className="bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/30">
                     <Clock className="h-3 w-3 mr-1" />
                     {financialData.futureAppointments.length} futuras
@@ -1260,6 +1259,146 @@ export default function FinancialPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Summary Cards */}
+            <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-emerald-900 dark:text-white">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  Resumo de Receitas Confirmadas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                    <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">
+                      {formatCurrency(financialData.confirmedRevenue)}
+                    </div>
+                    <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">Receita Total</div>
+                  </div>
+                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                    <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">
+                      {financialData.totalAppointments}
+                    </div>
+                    <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">Atendimentos</div>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Ticket Médio</span>
+                    <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                      {formatCurrency(financialData.averageTicket)}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400">
+                    Por atendimento realizado
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Goal Progress */}
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <Target className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  Progresso da Meta Mensal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-800/20 rounded-lg">
+                    <div className="text-5xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+                      {goalProgress.toFixed(1)}%
+                    </div>
+                    <div className="text-sm text-slate-700 dark:text-slate-300">
+                      da meta alcançada
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Progresso</span>
+                      <div className="flex items-center gap-2">
+                        {goalProgress >= 100 ? (
+                          <span className="font-medium text-emerald-600 dark:text-emerald-400">Meta atingida! 🎉</span>
+                        ) : goalProgress >= 75 ? (
+                          <span className="font-medium text-orange-600 dark:text-orange-400">Quase lá!</span>
+                        ) : (
+                          <span className="font-medium text-cyan-600 dark:text-cyan-400">Continue assim!</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
+                      <div 
+                        className={`h-4 rounded-full transition-all duration-500 ${
+                          goalProgress >= 100 
+                            ? "bg-gradient-to-r from-emerald-500 to-emerald-600" 
+                            : goalProgress >= 75
+                            ? "bg-gradient-to-r from-orange-500 to-red-600"
+                            : "bg-gradient-to-r from-cyan-500 to-cyan-600"
+                        }`}
+                        style={{ width: `${Math.min(goalProgress, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+                      <span>Meta: {formatCurrency(monthlyGoal)}</span>
+                      <span>
+                        {goalProgress >= 100 
+                          ? `Superou em: ${formatCurrency(financialData.confirmedRevenue - monthlyGoal)}`
+                          : `Faltam: ${formatCurrency(Math.max(0, monthlyGoal - financialData.confirmedRevenue))}`
+                        }
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Revenue Projection */}
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                  <TrendingUp className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                  Projeção de Receita Total
+                </CardTitle>
+                <CardDescription className="text-slate-600 dark:text-slate-400">
+                  Receita confirmada + receita futura esperada
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-3" />
+                    <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mb-1">
+                      {formatCurrency(financialData.confirmedRevenue)}
+                    </div>
+                    <div className="text-sm text-slate-700 dark:text-slate-300">Receita Confirmada</div>
+                  </div>
+                  
+                  <div className="text-center p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/20 rounded-lg">
+                    <Clock className="h-8 w-8 text-cyan-600 dark:text-cyan-400 mx-auto mb-3" />
+                    <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400 mb-1">
+                      {formatCurrency(financialData.expectedRevenue)}
+                    </div>
+                    <div className="text-sm text-slate-700 dark:text-slate-300">Receita Futura</div>
+                  </div>
+                  
+                  <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg">
+                    <DollarSign className="h-8 w-8 text-purple-600 dark:text-purple-400 mx-auto mb-3" />
+                    <div className="text-2xl font-bold text-purple-700 dark:text-purple-400 mb-1">
+                      {formatCurrency(financialData.confirmedRevenue + financialData.expectedRevenue)}
+                    </div>
+                    <div className="text-sm text-slate-700 dark:text-slate-300">Projeção Total</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
