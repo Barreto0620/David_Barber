@@ -436,11 +436,20 @@ export default function FinancialPage() {
                 backgroundColor: '#1e293b',
                 border: '1px solid #475569',
                 borderRadius: '8px',
-                padding: '8px 12px'
+                padding: '12px'
               }}
               labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
               itemStyle={{ color: '#e2e8f0' }}
               cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+              position={{ y: 0 }}
+              formatter={(value, name) => {
+                if (name === 'Receita (R$)') {
+                  return [formatCurrency(value), 'Receita'];
+                } else if (name === 'Atendimentos') {
+                  return [value, 'Atendimentos'];
+                }
+                return [value, name];
+              }}
             />
             <Legend wrapperStyle={{ color: '#1f2937' }} />
             {selectedMetric === 'revenue' && (
