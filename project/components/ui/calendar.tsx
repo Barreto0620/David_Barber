@@ -13,7 +13,7 @@ export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 function Calendar({
   className,
   classNames,
-  showOutsideDays = true,
+  showOutsideDays = false,
   ...props
 }: CalendarProps) {
   return (
@@ -43,7 +43,7 @@ function Calendar({
             caption_label: 'text-base font-semibold capitalize',
             nav: 'flex items-center gap-1',
             nav_button: cn(
-              'h-9 w-9 p-0 rounded-lg transition-all duration-200',
+              'h-9 w-9 p-0 rounded-lg transition-all duration-100',
               'bg-transparent hover:bg-slate-100',
               'border border-transparent hover:border-slate-200'
             ),
@@ -55,33 +55,36 @@ function Calendar({
             row: 'flex w-full mt-1 gap-1',
             cell: 'relative text-center text-sm focus-within:relative',
             day: cn(
-              'h-9 w-9 p-0 font-medium rounded-lg transition-all duration-200',
+              'h-9 w-9 p-0 font-medium rounded-lg transition-all duration-100',
               'hover:bg-slate-100',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white'
+              'focus:outline-none',
+              'cursor-pointer'
             ),
             day_range_end: 'day-range-end',
-            day_selected: cn(
-              'bg-blue-600 text-white font-semibold',
-              'hover:bg-blue-700',
-              'focus:ring-blue-500'
-            ),
+            day_selected: 'bg-slate-200 text-slate-900 font-semibold hover:bg-slate-300',
             day_today: cn(
-              'bg-slate-100',
+              'bg-blue-50',
               'text-blue-600 font-semibold',
-              'ring-1 ring-blue-600'
+              'ring-1 ring-blue-300'
             ),
-            day_outside: 'opacity-50',
+            day_outside: 'invisible',
             day_disabled: 'opacity-50 cursor-not-allowed hover:bg-transparent',
-            day_range_middle: 'aria-selected:bg-blue-100 aria-selected:text-blue-900',
+            day_range_middle: 'aria-selected:bg-slate-100 aria-selected:text-slate-900',
             day_hidden: 'invisible',
             ...classNames,
+          }}
+          modifiersStyles={{
+            selected: {
+              backgroundColor: '#e2e8f0',
+              color: '#0f172a',
+              fontWeight: '600'
+            }
           }}
           styles={{
             root: { backgroundColor: '#ffffff' },
             caption_label: { color: '#0f172a' },
             head_cell: { color: '#475569' },
             day: { color: '#0f172a' },
-            day_outside: { color: '#94a3b8' },
             nav_button: { color: '#475569' },
           }}
           components={{
