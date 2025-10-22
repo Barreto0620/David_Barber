@@ -1,438 +1,654 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useState, useMemo, useEffect } from 'react';
+import { AppointmentCard } from '@/components/appointments/AppointmentCard';
+import { ServiceCompletionModal } from '@/components/appointments/ServiceCompletionModal';
+import { NewAppointmentModal } from '@/components/forms/NewAppointmentModal';
 import { Button } from '@/components/ui/button';
-import { MetricCard } from '@/components/dashboard/MetricCard';
-import { RevenueChart } from '@/components/dashboard/RevenueChart';
-import { Timer } from '@/components/appointments/Timer';
-import { 
-  DollarSign, 
-  Calendar, 
-  Users, 
-  TrendingUp, 
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
-  Bell
-} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Calendar, Plus, Filter, Scissors, AlertTriangle, Search, X, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { formatCurrency, formatTime } from '@/lib/utils/currency';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { getAppointmentsByDate, getAppointmentsByStatus } from '@/lib/utils/appointments';
+import type { Appointment, PaymentMethod, AppointmentStatus } from '@/types/database';
+import { toast } from 'sonner';
+import { formatDate } from '@/lib/utils/currency';
 
-export default function Dashboard() {
+export default function AppointmentsPage() {
   const { 
     appointments, 
-    clients, 
-    services,
-    metrics, 
-    isLoading,
-    getTodaysAppointments,
-    getRecentClients,
-    syncWithSupabase,
-    calculateMetrics,
-    lastSync
+    clients,
+    selectedDate: selectedDateFromStore, 
+    setSelectedDate,
+    completeAppointment,
+    cancelAppointment,
+    getClientById,
+    addNotification,
   } = useAppStore();
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  const [lastAppointmentCount, setLastAppointmentCount] = useState(0);
-  const syncIntervalRef = useRef(null);
-  const { toast } = useToast();
+  const selectedDate = selectedDateFromStore instanceof Date 
+    ? selectedDateFromStore 
+    : new Date(selectedDateFromStore);
+
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  const [newAppointmentModalOpen, setNewAppointmentModalOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<AppointmentStatus | 'all'>('all');
+  const [viewMode, setViewMode] = useState<'daily' | 'all'>('daily');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterService, setFilterService] = useState<string>('all');
+  const [filterDateRange, setFilterDateRange] = useState<string>('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Sincronização automática a cada 30 segundos
-  useEffect(() => {
-    const initializeData = async () => {
-      await syncWithSupabase();
-    };
-
-    initializeData();
-
-    // Limpa intervalo anterior se existir
-    if (syncIntervalRef.current) {
-      clearInterval(syncIntervalRef.current);
-    }
-
-    // Sincroniza a cada 30 segundos
-    syncIntervalRef.current = setInterval(() => {
-      syncWithSupabase();
-    }, 30000); // 30 segundos
-
-    return () => {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-      }
-    };
-  }, [syncWithSupabase]);
-
-  // Detecta novos agendamentos e mostra notificação
-  useEffect(() => {
-    if (!isClient) return;
-
-    const currentCount = appointments.length;
-    
-    if (lastAppointmentCount > 0 && currentCount > lastAppointmentCount) {
-      const newAppointments = currentCount - lastAppointmentCount;
+    const checkUpcomingAppointments = () => {
+      const now = new Date();
       
-      // Mostra notificação
-      toast({
-        title: "🎉 Novo Agendamento!",
-        description: `${newAppointments} ${newAppointments === 1 ? 'novo agendamento chegou' : 'novos agendamentos chegaram'}!`,
-        duration: 5000,
+      appointments.forEach(apt => {
+        if (apt.status !== 'scheduled') return;
+        
+        const scheduledDate = new Date(apt.scheduled_date);
+        const diffMinutes = Math.round((scheduledDate.getTime() - now.getTime()) / (1000 * 60));
+        
+        if (diffMinutes === 30 || diffMinutes === 15 || diffMinutes === 5) {
+          const client = apt.client || getClientById(apt.client_id);
+          
+          addNotification({
+            type: 'reminder',
+            title: '⏰ Lembrete de Agendamento',
+            message: `${client?.name || 'Cliente'} tem agendamento em ${diffMinutes} minutos`,
+            appointmentId: apt.id,
+            clientName: client?.name || 'Cliente',
+            serviceType: apt.service_type,
+            scheduledDate: apt.scheduled_date,
+          });
+        }
+        
+        if (diffMinutes === -5) {
+          const client = apt.client || getClientById(apt.client_id);
+          
+          addNotification({
+            type: 'reminder',
+            title: '⚠️ Agendamento Atrasado',
+            message: `O agendamento de ${client?.name || 'Cliente'} está 5 minutos atrasado`,
+            appointmentId: apt.id,
+            clientName: client?.name || 'Cliente',
+            serviceType: apt.service_type,
+            scheduledDate: apt.scheduled_date,
+          });
+        }
       });
+    };
 
-      // Notificação do navegador (se permitido)
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Novo Agendamento', {
-          body: `${newAppointments} ${newAppointments === 1 ? 'novo agendamento' : 'novos agendamentos'}`,
-          icon: '/icon.png',
-          badge: '/badge.png',
-          tag: 'new-appointment',
-          requireInteraction: false,
-        });
-      }
+    checkUpcomingAppointments();
+    const interval = setInterval(checkUpcomingAppointments, 60000);
+    return () => clearInterval(interval);
+  }, [appointments, addNotification, getClientById]);
 
-      // Reproduz som de notificação (opcional)
-      try {
-        const audio = new Audio('/notification.mp3');
-        audio.volume = 0.5;
-        audio.play().catch(e => console.log('Não foi possível reproduzir o som'));
-      } catch (e) {
-        console.log('Som de notificação não disponível');
-      }
-    }
-    
-    setLastAppointmentCount(currentCount);
-  }, [appointments.length, isClient, toast, lastAppointmentCount]);
-
-  // Solicita permissão para notificações
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await syncWithSupabase();
-    setIsRefreshing(false);
-    
-    toast({
-      title: "✓ Atualizado",
-      description: "Dados sincronizados com sucesso!",
-      duration: 2000,
-    });
-  };
-
-  const todaysAppointments = isClient ? getTodaysAppointments() : [];
-  const recentClients = isClient ? getRecentClients() : [];
+  const displayAppointments = viewMode === 'all' 
+    ? appointments 
+    : getAppointmentsByDate(appointments, selectedDate);
   
-  const nextAppointment = todaysAppointments
-    .filter(apt => apt.status === 'scheduled')
-    .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())[0];
-
-  const currentAppointment = todaysAppointments
-    .find(apt => apt.status === 'in_progress');
-
-  const SafeBadge = ({ count, children }) => {
-    if (!isClient) {
-      return <Badge variant="secondary">0</Badge>;
-    }
-    return (
-      <Badge variant="secondary">
-        {count} {children}
-      </Badge>
-    );
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'scheduled': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'in_progress': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-    }
-  };
-
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case 'scheduled': return 'Agendado';
-      case 'in_progress': return 'Em Andamento';
-      case 'completed': return 'Concluído';
-      case 'cancelled': return 'Cancelado';
-      default: return status;
+  const uniqueServices = useMemo(() => {
+    const services = new Set(appointments.map(apt => apt.service_type));
+    return Array.from(services).sort();
+  }, [appointments]);
+  
+  const filterByDateRange = (apt: Appointment) => {
+    if (filterDateRange === 'all') return true;
+    
+    const aptDate = new Date(apt.scheduled_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    switch (filterDateRange) {
+      case 'recent':
+        const now = new Date();
+        return aptDate >= now;
+      case 'today':
+        const todayStr = today.toISOString().split('T')[0];
+        const aptStr = aptDate.toISOString().split('T')[0];
+        return todayStr === aptStr;
+      case 'week':
+        const weekFromNow = new Date(today);
+        weekFromNow.setDate(today.getDate() + 7);
+        return aptDate >= today && aptDate <= weekFromNow;
+      case 'month':
+        const monthFromNow = new Date(today);
+        monthFromNow.setMonth(today.getMonth() + 1);
+        return aptDate >= today && aptDate <= monthFromNow;
+      default:
+        return true;
     }
   };
+  
+  const filteredAppointments = useMemo(() => {
+    let filtered = activeTab === 'all' 
+      ? displayAppointments 
+      : getAppointmentsByStatus(displayAppointments, activeTab);
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(apt => {
+        const client = apt.client || (apt.client_id ? getClientById(apt.client_id) : null);
+        const clientName = client?.name?.toLowerCase() || '';
+        const serviceName = apt.service_type?.toLowerCase() || '';
+        return clientName.includes(query) || serviceName.includes(query);
+      });
+    }
+    
+    if (filterService !== 'all') {
+      filtered = filtered.filter(apt => apt.service_type === filterService);
+    }
+    
+    filtered = filtered.filter(filterByDateRange);
+    return filtered;
+  }, [displayAppointments, activeTab, searchQuery, filterService, filterDateRange, getClientById]);
 
-  if (isLoading && !lastSync) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="text-muted-foreground">Carregando dados...</p>
-        </div>
-      </div>
-    );
-  }
+  const getStatusCount = (status: AppointmentStatus) => {
+    return getAppointmentsByStatus(displayAppointments, status).length;
+  };
+  
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setFilterService('all');
+    setFilterDateRange('all');
+  };
+  
+  const hasActiveFilters = searchQuery || filterService !== 'all' || filterDateRange !== 'all';
+
+  const handleCompleteAppointment = (id: string) => {
+    const appointment = appointments.find(apt => apt.id === id);
+    if (appointment) {
+      setSelectedAppointment(appointment);
+      setCompletionModalOpen(true);
+    }
+  };
+
+  const handleServiceCompletion = async (paymentMethod: PaymentMethod, finalPrice: number, notes?: string) => {
+    if (!selectedAppointment) return;
+    
+    const success = await completeAppointment(selectedAppointment.id, paymentMethod, finalPrice);
+    
+    if (success) {
+      toast.success('Atendimento finalizado com sucesso!');
+      setSelectedAppointment(null);
+      setCompletionModalOpen(false);
+    } else {
+      toast.error('Erro ao finalizar atendimento. Tente novamente.');
+    }
+  };
+
+  const handleCancelAppointment = (id: string) => {
+    setAppointmentToCancel(id);
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancelAppointment = async () => {
+    if (appointmentToCancel) {
+      const success = await cancelAppointment(appointmentToCancel);
+      
+      if (success) {
+        toast.success('Agendamento cancelado com sucesso!');
+        setAppointmentToCancel(null);
+        setCancelDialogOpen(false);
+      } else {
+        toast.error('Erro ao cancelar agendamento. Tente novamente.');
+      }
+    }
+  };
+
+  const getCancelAppointmentDetails = () => {
+    if (!appointmentToCancel) return null;
+    
+    const appointment = appointments.find(apt => apt.id === appointmentToCancel);
+    if (!appointment) return null;
+
+    const client = appointment.client || (appointment.client_id ? getClientById(appointment.client_id) : null);
+    const clientName = client?.name || 'Cliente não identificado';
+
+    const scheduledDate = new Date(appointment.scheduled_date);
+    const dateStr = scheduledDate.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    const timeStr = scheduledDate.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    return {
+      clientName,
+      serviceName: appointment.service_type || 'Serviço não especificado',
+      date: dateStr,
+      time: timeStr,
+      dateTime: `${dateStr} às ${timeStr}`
+    };
+  };
 
   return (
-    <div className="flex-1 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground">
-            Visão geral da sua barbearia
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Agendamentos</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Gerencie todos os agendamentos da barbearia
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className={cn(
-              "h-2 w-2 rounded-full animate-pulse",
-              isRefreshing ? "bg-yellow-500" : "bg-green-500"
-            )} />
-            <span>{isRefreshing ? "Sincronizando..." : "Sincronização automática ativa"}</span>
-          </div>
-          <Button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            variant="outline"
-            size="sm"
-          >
-            <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
-            Atualizar
-          </Button>
-        </div>
+        <Button onClick={() => setNewAppointmentModalOpen(true)} className="w-full sm:w-auto">
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Agendamento
+        </Button>
       </div>
 
-      {lastSync && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Bell className="h-3 w-3" />
-          <span>Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}</span>
-          <span className="mx-2">•</span>
-          <span>Próxima em: ~30s</span>
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Receita Hoje"
-          value={isClient ? metrics.todayRevenue : 0}
-          type="currency"
-          trend="up"
-          trendValue="+12.5% vs ontem"
-          icon={<DollarSign className="h-4 w-4" />}
-          className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
-        />
-        
-        <MetricCard
-          title="Agendamentos Hoje"
-          value={isClient ? metrics.todayAppointments : 0}
-          trend="up"
-          trendValue={isClient ? `${metrics.completedToday} concluídos` : "0 concluídos"}
-          icon={<Calendar className="h-4 w-4" />}
-          className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
-        />
-        
-        <MetricCard
-          title="Receita Semanal"
-          value={isClient ? metrics.weeklyRevenue : 0}
-          type="currency"
-          trend="neutral"
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
-        
-        <MetricCard
-          title="Total de Clientes"
-          value={isClient ? clients.length : 0}
-          trend="up"
-          trendValue="+3 este mês"
-          icon={<Users className="h-4 w-4" />}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1 space-y-4">
-          {currentAppointment && (
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Atendimento em Andamento
-              </h3>
-              <div className="space-y-4">
-                <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center justify-between">
-                      <span>{clients.find(c => c.id === currentAppointment.client_id)?.name || 'Cliente'}</span>
-                      <Badge className={getStatusColor(currentAppointment.status)}>
-                        {getStatusLabel(currentAppointment.status)}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>
-                      {currentAppointment.service_type} • {formatTime(currentAppointment.scheduled_date)}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-                
-                <Timer
-                  appointment={currentAppointment}
-                  serviceDuration={services.find(s => s.name === currentAppointment.service_type)?.duration_minutes || 30}
-                />
-              </div>
-            </div>
-          )}
-
-          {nextAppointment && !currentAppointment && (
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Próximo Agendamento
-              </h3>
-              <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span>{clients.find(c => c.id === nextAppointment.client_id)?.name || 'Cliente'}</span>
-                    <Badge className={getStatusColor(nextAppointment.status)}>
-                      {getStatusLabel(nextAppointment.status)}
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>
-                    {nextAppointment.service_type} • {formatTime(nextAppointment.scheduled_date)}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <Timer
-                    appointment={nextAppointment}
-                    serviceDuration={services.find(s => s.name === nextAppointment.service_type)?.duration_minutes || 30}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {!currentAppointment && !nextAppointment && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  Sem agendamentos pendentes
-                </CardTitle>
-                <CardDescription>
-                  Todos os atendimentos de hoje foram concluídos!
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
-        </div>
-
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Agendamentos de Hoje</span>
-                <SafeBadge count={todaysAppointments.length}>total</SafeBadge>
-              </CardTitle>
-              <CardDescription>
-                {isClient ? `${metrics.completedToday} concluídos • ${metrics.scheduledToday} pendentes` : '0 concluídos • 0 pendentes'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {todaysAppointments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Nenhum agendamento para hoje</p>
-                  </div>
-                ) : (
-                  todaysAppointments.map((appointment) => {
-                    const client = clients.find(c => c.id === appointment.client_id);
-                    const service = services.find(s => s.name === appointment.service_type);
-                    
-                    return (
-                      <div
-                        key={appointment.id}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">
-                              {client?.name || 'Cliente não encontrado'}
-                            </span>
-                            <Badge className={getStatusColor(appointment.status)}>
-                              {getStatusLabel(appointment.status)}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {appointment.service_type} • {formatTime(appointment.scheduled_date)}
-                            {service && ` • ${service.duration_minutes}min`}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">{formatCurrency(appointment.price)}</div>
-                          {appointment.payment_method && (
-                            <div className="text-xs text-muted-foreground capitalize">
-                              {appointment.payment_method}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RevenueChart />
-        </div>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Clientes Recentes</CardTitle>
-            <CardDescription>
-              Últimos clientes atendidos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentClients.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum cliente recente</p>
-                </div>
-              ) : (
-                recentClients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{client.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {client.last_visit && `Última visita: ${new Date(client.last_visit).toLocaleDateString('pt-BR')}`}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium">{client.total_visits} visitas</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatCurrency(client.total_spent)}
-                      </div>
-                    </div>
-                  </div>
-                ))
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por cliente ou serviço..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               )}
             </div>
+
+            <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-auto relative">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filtros
+                  {hasActiveFilters && (
+                    <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center" variant="destructive">
+                      !
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Filtros Avançados</h4>
+                    {hasActiveFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearAllFilters}
+                        className="h-8 px-2 text-xs"
+                      >
+                        Limpar tudo
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Serviço</label>
+                    <Select value={filterService} onValueChange={setFilterService}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os serviços" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os serviços</SelectItem>
+                        {uniqueServices.map((service) => (
+                          <SelectItem key={service} value={service}>
+                            {service}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Período</label>
+                    <Select value={filterDateRange} onValueChange={setFilterDateRange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o período" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as datas</SelectItem>
+                        <SelectItem value="recent">Mais Recentes</SelectItem>
+                        <SelectItem value="today">Hoje</SelectItem>
+                        <SelectItem value="week">Próximos 7 dias</SelectItem>
+                        <SelectItem value="month">Próximos 30 dias</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {searchQuery && (
+                <Badge variant="secondary" className="gap-1">
+                  Busca: &quot;{searchQuery}&quot;
+                  <button onClick={() => setSearchQuery('')} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filterService !== 'all' && (
+                <Badge variant="secondary" className="gap-1">
+                  Serviço: {filterService}
+                  <button onClick={() => setFilterService('all')} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filterDateRange !== 'all' && (
+                <Badge variant="secondary" className="gap-1">
+                  Período: {
+                    filterDateRange === 'recent' ? 'Mais Recentes' :
+                    filterDateRange === 'today' ? 'Hoje' :
+                    filterDateRange === 'week' ? 'Próximos 7 dias' :
+                    filterDateRange === 'month' ? 'Próximos 30 dias' : ''
+                  }
+                  <button onClick={() => setFilterDateRange('all')} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-2">
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+                <CalendarDays className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-xl sm:text-2xl font-bold">
+                  {viewMode === 'daily' ? 'Agendamentos do Dia' : 'Todos os Agendamentos'}
+                </CardTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {viewMode === 'daily' 
+                      ? formatDate(selectedDate)
+                      : `${appointments.length} agendamento${appointments.length !== 1 ? 's' : ''} no total`
+                    }
+                  </p>
+                  {viewMode === 'daily' && (
+                    <Badge variant="outline" className="text-xs">
+                      {displayAppointments.length} agendamento{displayAppointments.length !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === 'daily' ? 'default' : 'outline'}
+                onClick={() => setViewMode('daily')}
+                size="sm"
+                className="flex-1 sm:flex-none"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Diária
+              </Button>
+              <Button
+                variant={viewMode === 'all' ? 'default' : 'outline'}
+                onClick={() => setViewMode('all')}
+                size="sm"
+                className="flex-1 sm:flex-none"
+              >
+                Ver Todos
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        {viewMode === 'daily' && (
+          <CardContent className="pt-0">
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const yesterday = new Date(selectedDate);
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  setSelectedDate(yesterday);
+                }}
+                size="icon"
+                className="h-9 w-9"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="min-w-[140px] font-medium justify-center hover:bg-primary/10 hover:text-primary hover:border-primary transition-colors"
+                    size="sm"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {selectedDate.toDateString() === new Date().toDateString() 
+                      ? 'HOJE' 
+                      : selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '')
+                    }
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) setSelectedDate(date);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const tomorrow = new Date(selectedDate);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  setSelectedDate(tomorrow);
+                }}
+                size="icon"
+                className="h-9 w-9"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </CardContent>
-        </Card>
-      </div>
+        )}
+      </Card>
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AppointmentStatus | 'all')}>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto">
+          <TabsTrigger value="all" className="text-xs sm:text-sm gap-1">
+            📋
+            <span className="hidden sm:inline">Todos</span>
+            <span className="sm:hidden">Todos</span>
+            <Badge variant="secondary" className="ml-1 text-xs">
+              {displayAppointments.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="scheduled" className="text-xs sm:text-sm gap-1">
+            🗓️
+            <span className="hidden sm:inline">Agendados</span>
+            <span className="sm:hidden">Agend.</span>
+            <Badge variant="secondary" className="ml-1 text-xs">
+              {getStatusCount('scheduled')}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="in_progress" className="text-xs sm:text-sm gap-1">
+            ✂️
+            <span className="hidden sm:inline">Em Andamento</span>
+            <span className="sm:hidden">Ativo</span>
+            <Badge variant="secondary" className="ml-1 text-xs">
+              {getStatusCount('in_progress')}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="text-xs sm:text-sm gap-1">
+            ✅
+            <span className="hidden sm:inline">Concluídos</span>
+            <span className="sm:hidden">Concl.</span>
+            <Badge variant="secondary" className="ml-1 text-xs">
+              {getStatusCount('completed')}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" className="text-xs sm:text-sm gap-1">
+            ❌
+            <span className="hidden sm:inline">Cancelados</span>
+            <span className="sm:hidden">Canc.</span>
+            <Badge variant="secondary" className="ml-1 text-xs">
+              {getStatusCount('cancelled')}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="space-y-4">
+          {filteredAppointments.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 sm:p-8">
+                <div className="text-center space-y-2">
+                  <p className="text-sm sm:text-base text-muted-foreground">
+                    {hasActiveFilters 
+                      ? 'Nenhum agendamento encontrado com os filtros aplicados.'
+                      : `Nenhum agendamento encontrado para esta ${viewMode === 'daily' ? 'data' : 'visualização'}.`
+                    }
+                  </p>
+                  {hasActiveFilters && (
+                    <Button variant="link" onClick={clearAllFilters} size="sm">
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-1">
+                <p className="text-sm text-muted-foreground">
+                  {filteredAppointments.length} agendamento{filteredAppointments.length !== 1 ? 's' : ''} encontrado{filteredAppointments.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredAppointments.map((appointment) => (
+                  <AppointmentCard
+                    key={appointment.id}
+                    appointment={appointment}
+                    onComplete={handleCompleteAppointment}
+                    onCancel={handleCancelAppointment}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent className="max-w-md mx-4 sm:mx-auto">
+          <AlertDialogHeader>
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
+              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-500" />
+            </div>
+            <AlertDialogTitle className="text-center text-xl sm:text-2xl">
+              Cancelar Agendamento?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center space-y-3 pt-2">
+              <div className="flex items-center justify-center gap-2 text-base font-medium text-foreground">
+                <Scissors className="w-4 h-4" />
+                <span>Confirme o cancelamento</span>
+              </div>
+              {getCancelAppointmentDetails() && (
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cliente:</span>
+                    <span className="font-medium text-foreground">
+                      {getCancelAppointmentDetails()?.clientName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Serviço:</span>
+                    <span className="font-medium text-foreground">
+                      {getCancelAppointmentDetails()?.serviceName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Data/Hora:</span>
+                    <span className="font-medium text-foreground">
+                      {getCancelAppointmentDetails()?.dateTime}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground pt-2">
+                Esta ação não poderá ser desfeita. O agendamento será marcado como cancelado.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto mt-0">
+              Manter Agendamento
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelAppointment}
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
+            >
+              Sim, Cancelar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ServiceCompletionModal
+        appointment={selectedAppointment}
+        open={completionModalOpen}
+        onClose={() => setCompletionModalOpen(false)}
+        onComplete={handleServiceCompletion}
+      />
+
+      <NewAppointmentModal
+        open={newAppointmentModalOpen}
+        onClose={() => setNewAppointmentModalOpen(false)}
+        onSuccess={() => {}}
+      />
     </div>
   );
 }
