@@ -104,7 +104,7 @@ export function Header() {
                   className="cursor-pointer flex items-center h-full hover:opacity-80 transition-opacity"
                 >
                   <img 
-                    src="https://github.com/Lusxka/img_public/blob/main/logo_david_barber.png?raw=true"
+                    src="/logo_david_barber.png"
                     alt="David Barber Logo"
                     // Tamanho w-12 h-12 mantido. Renderização ajustada: Borda fina e shadow.
                     className="w-12 h-12 rounded-full object-cover shadow-md border border-zinc-700" 
