@@ -479,14 +479,22 @@ export default function MonthlyClientsPage() {
                     <CalendarClock className="w-4 h-4" />
                     Horários Semanais:
                   </div>
-                  <div className="space-y-1">
-                    {client.weeklySchedules.map((schedule, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs bg-muted/50 rounded p-2">
-                        <span className="font-medium">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
-                        <span>{schedule.time}</span>
-                        <span className="text-muted-foreground">{schedule.serviceType}</span>
+                  <div className="space-y-1 min-h-[80px]">
+                    {client.weeklySchedules.length > 0 ? (
+                      client.weeklySchedules.map((schedule, idx) => (
+                        <div key={idx} className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
+                          <span className="font-medium">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
+                          <span className="text-center">{schedule.time}</span>
+                          <span className="text-muted-foreground text-right truncate">{schedule.serviceType}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
+                        <span className="font-medium">-</span>
+                        <span className="text-center text-muted-foreground italic">A definir</span>
+                        <span className="text-muted-foreground text-right">-</span>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
