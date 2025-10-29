@@ -46,7 +46,9 @@ import {
   CreditCard,
   Eye,
   Trash2,
-  CalendarClock
+  CalendarClock,
+  Pause,
+  Play
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -170,6 +172,8 @@ export default function MonthlyClientsPage() {
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [clientToCancel, setClientToCancel] = useState<string | null>(null);
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [clientToSuspend, setClientToSuspend] = useState<string | null>(null);
 
   // Estatísticas
   const stats = useMemo(() => {
@@ -207,14 +211,35 @@ export default function MonthlyClientsPage() {
     setCancelDialogOpen(true);
   };
 
-  const confirmCancelPlan = () => {
-    if (clientToCancel) {
+  const handleSuspendPlan = (clientId: string) => {
+    setClientToSuspend(clientId);
+    setSuspendDialogOpen(true);
+  };
+
+  const confirmSuspendPlan = () => {
+    if (clientToSuspend) {
+      const client = clients.find(c => c.id === clientToSuspend);
+      const newStatus = client?.status === 'suspended' ? 'active' : 'suspended';
+      
       setClients(prev => prev.map(c => 
-        c.id === clientToCancel 
-          ? { ...c, status: 'inactive' as const }
+        c.id === clientToSuspend 
+          ? { ...c, status: newStatus as const }
           : c
       ));
-      toast.success('Plano mensal cancelado com sucesso!');
+      
+      toast.success(newStatus === 'suspended' 
+        ? 'Plano suspenso com sucesso!' 
+        : 'Plano reativado com sucesso!'
+      );
+      setSuspendDialogOpen(false);
+      setClientToSuspend(null);
+    }
+  };
+
+  const confirmCancelPlan = () => {
+    if (clientToCancel) {
+      setClients(prev => prev.filter(c => c.id !== clientToCancel));
+      toast.success('Plano mensal cancelado e removido com sucesso!');
       setCancelDialogOpen(false);
       setClientToCancel(null);
     }
@@ -232,6 +257,25 @@ export default function MonthlyClientsPage() {
         : c
     ));
     toast.success('Pagamento registrado com sucesso!');
+  };
+
+  const getStatusColor = (client: MonthlyClient) => {
+    // Se estiver atrasado, vermelho
+    if (client.paymentStatus === 'overdue') {
+      return 'bg-red-500';
+    }
+    
+    // Verificar se está na semana do pagamento (próximos 7 dias) OU se está pendente
+    const today = new Date();
+    const nextPayment = new Date(client.nextPaymentDate);
+    const daysUntilPayment = Math.ceil((nextPayment.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if ((daysUntilPayment <= 7 && daysUntilPayment >= 0) || client.paymentStatus === 'pending') {
+      return 'bg-yellow-500';
+    }
+    
+    // Se está tudo ok, verde
+    return 'bg-green-500';
   };
 
   const getPaymentStatusBadge = (status: string) => {
@@ -399,7 +443,7 @@ export default function MonthlyClientsPage() {
                       {client.clientPhone}
                     </CardDescription>
                   </div>
-                  <div className={cn("w-3 h-3 rounded-full", PLAN_INFO[client.planType].color)} />
+                  <div className={cn("w-3 h-3 rounded-full", getStatusColor(client))} />
                 </div>
                 
                 <div className="flex gap-2 pt-2">
@@ -476,15 +520,28 @@ export default function MonthlyClientsPage() {
                     </Button>
                   )}
                   
-                  {client.status === 'active' && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleCancelPlan(client.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
+                  <Button
+                    variant={client.status === 'suspended' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleSuspendPlan(client.id)}
+                    className={client.status === 'suspended' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+                    title={client.status === 'suspended' ? 'Reativar plano' : 'Suspender plano'}
+                  >
+                    {client.status === 'suspended' ? (
+                      <Play className="w-4 h-4" />
+                    ) : (
+                      <Pause className="w-4 h-4" />
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleCancelPlan(client.id)}
+                    title="Cancelar e excluir plano"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -643,6 +700,48 @@ export default function MonthlyClientsPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Sim, Cancelar Plano
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Suspend/Resume Plan Dialog */}
+      <AlertDialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-orange-100 dark:bg-orange-900/20">
+              {clients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? (
+                <Play className="w-6 h-6 text-green-600 dark:text-green-500" />
+              ) : (
+                <Pause className="w-6 h-6 text-orange-600 dark:text-orange-500" />
+              )}
+            </div>
+            <AlertDialogTitle className="text-center text-xl">
+              {clients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
+                ? 'Reativar Plano Mensal?' 
+                : 'Suspender Plano Mensal?'
+              }
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              {clients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
+                ? 'Esta ação irá reativar o plano mensal e os agendamentos recorrentes do cliente.'
+                : 'Esta ação irá suspender temporariamente o plano mensal e os agendamentos recorrentes. Você pode reativá-lo a qualquer momento.'
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmSuspendPlan}
+              className={clients.find(c => c.id === clientToSuspend)?.status === 'suspended'
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-orange-600 hover:bg-orange-700"
+              }
+            >
+              {clients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
+                ? 'Sim, Reativar Plano' 
+                : 'Sim, Suspender Plano'
+              }
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
