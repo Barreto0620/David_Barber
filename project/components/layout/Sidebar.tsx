@@ -13,7 +13,8 @@ import {
   DollarSign, 
   Settings, 
   Menu,
-  Scissors
+  Scissors,
+  UserCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
   { name: 'Clientes', href: '/clients', icon: Users },
+  { name: 'Clientes Mensais', href: '/monthly-clients', icon: UserCheck },
   { name: 'Financeiro', href: '/financial', icon: DollarSign },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
