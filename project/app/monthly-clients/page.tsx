@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { AddMonthlyClientModal } from '@/components/monthly-clients/forms';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -45,7 +45,6 @@ import {
   Users,
   CreditCard,
   Eye,
-  Edit,
   Trash2,
   CalendarClock
 } from 'lucide-react';
@@ -67,7 +66,7 @@ interface MonthlyClient {
   lastPaymentDate?: string;
   nextPaymentDate: string;
   weeklySchedules: {
-    dayOfWeek: number; // 0-6 (domingo-sábado)
+    dayOfWeek: number;
     time: string;
     serviceType: string;
   }[];
@@ -649,25 +648,35 @@ export default function MonthlyClientsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Add Client Dialog - Placeholder */}
-      <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar Cliente Mensal</DialogTitle>
-            <DialogDescription>
-              Transforme um cliente existente em cliente mensal
-            </DialogDescription>
-          </DialogHeader>
-          <div className="text-center py-8 text-muted-foreground">
-            Componente de formulário será implementado aqui
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddClientOpen(false)}>
-              Cancelar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Add Client Modal */}
+      <AddMonthlyClientModal
+        open={addClientOpen}
+        onClose={() => setAddClientOpen(false)}
+        onSuccess={(data) => {
+          const newClient: MonthlyClient = {
+            id: `mc_${Date.now()}`,
+            clientId: data.clientId,
+            clientName: data.clientName,
+            clientPhone: data.clientPhone,
+            clientEmail: data.clientEmail,
+            planType: data.planType,
+            monthlyPrice: data.monthlyPrice,
+            startDate: data.startDate,
+            status: 'active',
+            paymentStatus: 'pending',
+            nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            weeklySchedules: data.schedules.map((s: any) => ({
+              dayOfWeek: s.dayOfWeek,
+              time: s.time,
+              serviceType: s.serviceType
+            })),
+            totalVisits: 0,
+            notes: data.notes
+          };
+          
+          setClients(prev => [...prev, newClient]);
+        }}
+      />
     </div>
   );
 }
