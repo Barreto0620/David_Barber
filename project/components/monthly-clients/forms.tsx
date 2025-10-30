@@ -13,22 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   UserCheck, 
   Calendar, 
   DollarSign, 
-  Clock, 
-  Plus, 
-  Trash2,
   AlertCircle,
   CheckCircle2,
   Sparkles,
@@ -37,16 +27,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
-
-const DAYS_OF_WEEK = [
-  { value: 0, label: 'Domingo' },
-  { value: 1, label: 'Segunda-feira' },
-  { value: 2, label: 'Terça-feira' },
-  { value: 3, label: 'Quarta-feira' },
-  { value: 4, label: 'Quinta-feira' },
-  { value: 5, label: 'Sexta-feira' },
-  { value: 6, label: 'Sábado' },
-];
+import { MonthlySchedulePicker } from '@/components/monthly-clients/schedule-picker';
 
 const PLAN_TYPES = [
   { 
@@ -55,7 +36,9 @@ const PLAN_TYPES = [
     price: 80, 
     description: '1 visita por semana',
     color: 'bg-blue-500',
-    icon: '🔷'
+    icon: '🔷',
+    minSchedules: 1,
+    maxSchedules: 1
   },
   { 
     value: 'premium', 
@@ -63,43 +46,35 @@ const PLAN_TYPES = [
     price: 150, 
     description: '2 visitas por semana',
     color: 'bg-purple-500',
-    icon: '💎'
+    icon: '💎',
+    minSchedules: 2,
+    maxSchedules: 2
   },
   { 
     value: 'vip', 
     label: 'VIP', 
     price: 250, 
-    description: '2 visitas + benefícios extras',
+    description: 'Até 4 visitas por semana',
     color: 'bg-amber-500',
-    icon: '👑'
+    icon: '👑',
+    minSchedules: 2,
+    maxSchedules: 4
   },
 ];
-
-const SERVICE_TYPES = [
-  'Corte Simples',
-  'Corte + Barba',
-  'Corte Premium',
-  'Corte Premium + Barba',
-  'Barba',
-  'Sobrancelha',
-  'Luzes',
-  'Hidratação',
-];
-
-interface WeeklySchedule {
-  id: string;
-  dayOfWeek: number;
-  time: string;
-  serviceType: string;
-}
 
 interface AddMonthlyClientModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  preSelectedClientId?: string;
 }
 
-export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyClientModalProps) {
+export function AddMonthlyClientModal({ 
+  open, 
+  onClose, 
+  onSuccess,
+  preSelectedClientId
+}: AddMonthlyClientModalProps) {
   const { clients, addMonthlyClient, monthlyClients } = useAppStore();
   
   const [step, setStep] = useState(1);
@@ -107,7 +82,11 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
   const [planType, setPlanType] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [schedules, setSchedules] = useState<WeeklySchedule[]>([]);
+  const [schedules, setSchedules] = useState<Array<{
+    dayOfWeek: number;
+    time: string;
+    serviceType: string;
+  }>>([]);
   const [notes, setNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,10 +107,17 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
     }
   }, [open]);
 
+  // Pré-selecionar cliente
+  useEffect(() => {
+    if (open && preSelectedClientId) {
+      setSelectedClientId(preSelectedClientId);
+      setStep(2);
+    }
+  }, [open, preSelectedClientId]);
+
   const selectedClient = clients.find(c => c.id === selectedClientId);
   const selectedPlan = PLAN_TYPES.find(p => p.value === planType);
 
-  // Filtra clientes que NÃO são mensais ativos
   const availableClients = clients.filter(client => {
     const hasActivePlan = monthlyClients.some(
       mc => mc.client_id === client.id && mc.status === 'active'
@@ -144,31 +130,11 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
     client.phone.includes(searchTerm)
   );
 
-  const addSchedule = () => {
-    const newSchedule: WeeklySchedule = {
-      id: Math.random().toString(36).substr(2, 9),
-      dayOfWeek: 1,
-      time: '09:00',
-      serviceType: SERVICE_TYPES[0],
-    };
-    setSchedules([...schedules, newSchedule]);
-  };
-
-  const removeSchedule = (id: string) => {
-    setSchedules(schedules.filter(s => s.id !== id));
-  };
-
-  const updateSchedule = (id: string, field: keyof WeeklySchedule, value: any) => {
-    setSchedules(schedules.map(s => 
-      s.id === id ? { ...s, [field]: value } : s
-    ));
-  };
-
   const canProceedStep1 = selectedClientId !== '';
   const canProceedStep2 = planType !== '';
-  const canProceedStep3 = schedules.length > 0 && schedules.every(s => 
-    s.dayOfWeek !== null && s.time !== '' && s.serviceType !== ''
-  );
+  const canProceedStep3 = selectedPlan && 
+    schedules.length >= selectedPlan.minSchedules && 
+    schedules.length <= selectedPlan.maxSchedules;
 
   const handleSubmit = async () => {
     if (!selectedClient || !selectedPlan) return;
@@ -183,11 +149,7 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
         planType: planType as 'basic' | 'premium' | 'vip',
         monthlyPrice: finalPrice,
         startDate: startDate,
-        schedules: schedules.map(s => ({
-          dayOfWeek: s.dayOfWeek,
-          time: s.time,
-          serviceType: s.serviceType
-        })),
+        schedules: schedules,
         notes: notes || undefined
       });
 
@@ -200,13 +162,6 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const getMinSchedules = () => {
-    if (planType === 'basic') return 1;
-    if (planType === 'premium') return 2;
-    if (planType === 'vip') return 2;
-    return 1;
   };
 
   const renderStepIndicator = () => (
@@ -236,7 +191,7 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-primary" />
@@ -397,7 +352,7 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
           </div>
         )}
 
-        {/* STEP 3: Configurar Agendamentos */}
+        {/* STEP 3: Configurar Agendamentos com Seletor Visual */}
         {step === 3 && (
           <div className="space-y-4">
             <div>
@@ -406,7 +361,7 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
                 Agendamentos Semanais
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Configure os horários fixos semanais do cliente
+                Selecione os horários fixos semanais do cliente
               </p>
             </div>
 
@@ -420,7 +375,10 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
                         Plano {selectedPlan.label}
                       </p>
                       <p className="text-blue-700 dark:text-blue-300">
-                        Mínimo de {getMinSchedules()} agendamento(s) semanal(is)
+                        {selectedPlan.minSchedules === selectedPlan.maxSchedules
+                          ? `Selecione ${selectedPlan.minSchedules} horário(s)`
+                          : `Selecione de ${selectedPlan.minSchedules} a ${selectedPlan.maxSchedules} horários`
+                        }
                       </p>
                     </div>
                   </div>
@@ -428,92 +386,15 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
               </Card>
             )}
 
-            <div className="space-y-3">
-              {schedules.map((schedule, index) => (
-                <Card key={schedule.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-bold">{index + 1}</span>
-                      </div>
-                      <h4 className="font-medium">Agendamento {index + 1}</h4>
-                      {schedules.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ml-auto"
-                          onClick={() => removeSchedule(schedule.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label>Dia da Semana</Label>
-                        <Select
-                          value={schedule.dayOfWeek.toString()}
-                          onValueChange={(v) => updateSchedule(schedule.id, 'dayOfWeek', parseInt(v))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {DAYS_OF_WEEK.map((day) => (
-                              <SelectItem key={day.value} value={day.value.toString()}>
-                                {day.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Horário</Label>
-                        <Input
-                          type="time"
-                          value={schedule.time}
-                          onChange={(e) => updateSchedule(schedule.id, 'time', e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Serviço</Label>
-                        <Select
-                          value={schedule.serviceType}
-                          onValueChange={(v) => updateSchedule(schedule.id, 'serviceType', v)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SERVICE_TYPES.map((service) => (
-                              <SelectItem key={service} value={service}>
-                                {service}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={addSchedule}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Outro Horário
-            </Button>
+            <MonthlySchedulePicker
+              maxSchedules={selectedPlan?.maxSchedules || 4}
+              selectedSchedules={schedules}
+              onSchedulesChange={setSchedules}
+            />
           </div>
         )}
 
-        {/* STEP 4: Revisão e Observações */}
+        {/* STEP 4: Revisão */}
         {step === 4 && (
           <div className="space-y-4">
             <div>
@@ -526,7 +407,6 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
               </p>
             </div>
 
-            {/* Cliente */}
             <Card>
               <CardContent className="p-4">
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -543,7 +423,6 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
               </CardContent>
             </Card>
 
-            {/* Plano */}
             <Card>
               <CardContent className="p-4">
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -573,7 +452,6 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
               </CardContent>
             </Card>
 
-            {/* Agendamentos */}
             <Card>
               <CardContent className="p-4">
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -581,25 +459,22 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
                   Agendamentos Semanais ({schedules.length})
                 </h4>
                 <div className="space-y-2">
-                  {schedules.map((schedule) => (
-                    <div key={schedule.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                  {schedules.map((schedule, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded">
                       <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
                         <span className="font-medium">
-                          {DAYS_OF_WEEK[schedule.dayOfWeek].label}
+                          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][schedule.dayOfWeek]}
                         </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span>{schedule.time}</span>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">{schedule.time}</p>
-                        <p className="text-xs text-muted-foreground">{schedule.serviceType}</p>
-                      </div>
+                      <span className="text-sm text-muted-foreground">{schedule.serviceType}</span>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Observações */}
             <div className="space-y-2">
               <Label>Observações (opcional)</Label>
               <Textarea
