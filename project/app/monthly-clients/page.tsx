@@ -48,7 +48,9 @@ import {
   Trash2,
   CalendarClock,
   Pause,
-  Play
+  Play,
+  Edit,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -174,6 +176,13 @@ export default function MonthlyClientsPage() {
   const [clientToCancel, setClientToCancel] = useState<string | null>(null);
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [clientToSuspend, setClientToSuspend] = useState<string | null>(null);
+  const [editSchedulesOpen, setEditSchedulesOpen] = useState(false);
+  const [clientToEdit, setClientToEdit] = useState<MonthlyClient | null>(null);
+  const [editingSchedules, setEditingSchedules] = useState<{
+    dayOfWeek: number;
+    time: string;
+    serviceType: string;
+  }[]>([]);
 
   // Estatísticas
   const stats = useMemo(() => {
@@ -257,6 +266,45 @@ export default function MonthlyClientsPage() {
         : c
     ));
     toast.success('Pagamento registrado com sucesso!');
+  };
+
+  const handleEditSchedules = (client: MonthlyClient) => {
+    setClientToEdit(client);
+    setEditingSchedules([...client.weeklySchedules]);
+    setEditSchedulesOpen(true);
+  };
+
+  const handleAddSchedule = () => {
+    setEditingSchedules(prev => [...prev, {
+      dayOfWeek: 1,
+      time: '09:00',
+      serviceType: ''
+    }]);
+  };
+
+  const handleRemoveSchedule = (index: number) => {
+    setEditingSchedules(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleScheduleChange = (index: number, field: string, value: any) => {
+    setEditingSchedules(prev => prev.map((schedule, i) => 
+      i === index ? { ...schedule, [field]: value } : schedule
+    ));
+  };
+
+  const handleSaveSchedules = () => {
+    if (!clientToEdit) return;
+
+    setClients(prev => prev.map(c => 
+      c.id === clientToEdit.id 
+        ? { ...c, weeklySchedules: editingSchedules }
+        : c
+    ));
+
+    toast.success('Horários atualizados com sucesso!');
+    setEditSchedulesOpen(false);
+    setClientToEdit(null);
+    setEditingSchedules([]);
   };
 
   const getStatusColor = (client: MonthlyClient) => {
@@ -513,18 +561,26 @@ export default function MonthlyClientsPage() {
                     onClick={() => handleViewDetails(client)}
                   >
                     <Eye className="w-4 h-4 mr-1" />
-                    Ver Detalhes
+                    Detalhes
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditSchedules(client)}
+                    title="Editar horários"
+                  >
+                    <Edit className="w-4 h-4" />
                   </Button>
                   
                   {client.paymentStatus !== 'paid' && client.status === 'active' && (
                     <Button
                       variant="default"
                       size="sm"
-                      className="flex-1"
                       onClick={() => handleMarkAsPaid(client.id)}
+                      title="Marcar como pago"
                     >
-                      <CreditCard className="w-4 h-4 mr-1" />
-                      Marcar Pago
+                      <CreditCard className="w-4 h-4" />
                     </Button>
                   )}
                   
@@ -679,6 +735,100 @@ export default function MonthlyClientsPage() {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>
                   Fechar
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Schedules Dialog */}
+      <Dialog open={editSchedulesOpen} onOpenChange={setEditSchedulesOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {clientToEdit && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl">Editar Horários</DialogTitle>
+                <DialogDescription>
+                  {clientToEdit.clientName} - Gerencie os horários semanais
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                {editingSchedules.map((schedule, index) => (
+                  <Card key={index}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Dia da Semana</label>
+                              <Select
+                                value={schedule.dayOfWeek.toString()}
+                                onValueChange={(v) => handleScheduleChange(index, 'dayOfWeek', parseInt(v))}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {DAYS_OF_WEEK.map((day, idx) => (
+                                    <SelectItem key={idx} value={idx.toString()}>
+                                      {day}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Horário</label>
+                              <Input
+                                type="time"
+                                value={schedule.time}
+                                onChange={(e) => handleScheduleChange(index, 'time', e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Tipo de Serviço</label>
+                            <Input
+                              placeholder="Ex: Corte + Barba"
+                              value={schedule.serviceType}
+                              onChange={(e) => handleScheduleChange(index, 'serviceType', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => handleRemoveSchedule(index)}
+                          disabled={editingSchedules.length === 1}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleAddSchedule}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar Horário
+                </Button>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditSchedulesOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveSchedules}>
+                  Salvar Alterações
                 </Button>
               </DialogFooter>
             </>
