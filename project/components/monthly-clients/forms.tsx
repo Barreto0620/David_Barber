@@ -31,21 +31,12 @@ import { MonthlySchedulePicker } from '@/components/monthly-clients/schedule-pic
 
 const PLAN_TYPES = [
   { 
-    value: 'basic', 
-    label: 'Básico', 
-    price: 80, 
-    description: '1 visita por semana',
-    color: 'bg-blue-500',
-    icon: '🔷',
-    minSchedules: 1,
-    maxSchedules: 1
-  },
-  { 
     value: 'premium', 
     label: 'Premium', 
     price: 150, 
     description: '2 visitas por semana',
     color: 'bg-purple-500',
+    gradient: 'from-purple-500 to-pink-500',
     icon: '💎',
     minSchedules: 2,
     maxSchedules: 2
@@ -56,6 +47,7 @@ const PLAN_TYPES = [
     price: 250, 
     description: 'Até 4 visitas por semana',
     color: 'bg-amber-500',
+    gradient: 'from-amber-500 to-orange-500',
     icon: '👑',
     minSchedules: 2,
     maxSchedules: 4
@@ -146,7 +138,7 @@ export function AddMonthlyClientModal({
 
       const result = await addMonthlyClient({
         clientId: selectedClient.id,
-        planType: planType as 'basic' | 'premium' | 'vip',
+        planType: planType as 'premium' | 'vip',
         monthlyPrice: finalPrice,
         startDate: startDate,
         schedules: schedules,
@@ -297,28 +289,35 @@ export function AddMonthlyClientModal({
               </Card>
             )}
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               {PLAN_TYPES.map((plan) => (
                 <Card
                   key={plan.value}
                   className={cn(
-                    "cursor-pointer transition-all hover:shadow-lg",
-                    planType === plan.value && "ring-2 ring-primary"
+                    "cursor-pointer transition-all hover:shadow-lg hover:scale-105",
+                    planType === plan.value && "ring-4 ring-primary shadow-xl"
                   )}
                   onClick={() => setPlanType(plan.value)}
                 >
-                  <CardContent className="p-6 text-center space-y-2">
-                    <div className="text-4xl mb-2">{plan.icon}</div>
-                    <h4 className="font-bold text-lg">{plan.label}</h4>
-                    <p className="text-sm text-muted-foreground">{plan.description}</p>
+                  <CardContent className="p-8 text-center space-y-4">
+                    <div className={cn(
+                      "w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br flex items-center justify-center text-5xl shadow-lg",
+                      plan.gradient
+                    )}>
+                      {plan.icon}
+                    </div>
+                    <h4 className="font-bold text-2xl">{plan.label}</h4>
+                    <p className="text-base text-muted-foreground">{plan.description}</p>
                     <div className="pt-4">
-                      <div className="text-3xl font-bold text-green-600">
+                      <div className="text-4xl font-bold text-green-600">
                         R$ {plan.price}
                       </div>
-                      <p className="text-xs text-muted-foreground">por mês</p>
+                      <p className="text-sm text-muted-foreground">por mês</p>
                     </div>
                     {planType === plan.value && (
-                      <Badge className="mt-2">Selecionado</Badge>
+                      <Badge className="mt-2 bg-green-500 text-base py-1 px-4">
+                        ✓ Selecionado
+                      </Badge>
                     )}
                   </CardContent>
                 </Card>
@@ -390,6 +389,7 @@ export function AddMonthlyClientModal({
               maxSchedules={selectedPlan?.maxSchedules || 4}
               selectedSchedules={schedules}
               onSchedulesChange={setSchedules}
+              currentClientId={selectedClientId}
             />
           </div>
         )}
