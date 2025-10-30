@@ -12,6 +12,8 @@ import {
 import { Calendar, Clock, CheckCircle2, X, AlertCircle, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
+import { format, addDays, startOfMonth, endOfMonth, parse } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Domingo', short: 'Dom' },
@@ -34,7 +36,6 @@ const SERVICE_TYPES = [
   'Hidratação',
 ];
 
-// Gera horários de 8h às 20h (a cada 30 min)
 const generateTimeSlots = () => {
   const slots = [];
   for (let hour = 8; hour <= 20; hour++) {
@@ -73,46 +74,111 @@ export function MonthlySchedulePicker({
 }: MonthlySchedulePickerProps) {
   const { monthlyClients } = useAppStore();
   
-  // Estado para o formulário de adição
+  // Valida e converte a data de início para objeto Date
+  const validStartDate = useMemo(() => {
+    try {
+      if (!startDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return today;
+      }
+
+      let parsedDate: Date;
+
+      // Tenta diferentes formatos de entrada
+      if (startDate.includes('/')) {
+        // Formato BR: dd/MM/yyyy
+        parsedDate = parse(startDate, 'dd/MM/yyyy', new Date());
+      } else if (startDate.includes('-')) {
+        if (startDate.includes('T')) {
+          // ISO format: 2024-11-01T00:00:00
+          parsedDate = new Date(startDate);
+        } else {
+          // Formato: yyyy-MM-dd
+          parsedDate = parse(startDate, 'yyyy-MM-dd', new Date());
+        }
+      } else {
+        parsedDate = new Date();
+      }
+
+      if (isNaN(parsedDate.getTime())) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return today;
+      }
+
+      parsedDate.setHours(0, 0, 0, 0);
+      return parsedDate;
+    } catch (error) {
+      console.error('Erro ao processar data:', error);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return today;
+    }
+  }, [startDate]);
+
+  // Formata a data para exibição
+  const validStartDateFormatted = format(validStartDate, 'dd/MM/yyyy');
+  
   const [newSchedule, setNewSchedule] = useState({
     dayOfWeek: 1,
     time: '09:00',
     serviceType: SERVICE_TYPES[0]
   });
 
-  // Calcula a próxima data para um dia da semana específico
-  const getNextDateForDay = (dayOfWeek: number): string => {
+  // Calcula TODAS as datas do mês para um dia da semana específico
+  const getAllDatesForDayInMonth = (dayOfWeek: number): Date[] => {
     try {
-      const start = new Date(startDate);
-      
-      // Validação da data
+      // Parse da data
+      const start = new Date(validStartDate);
+
       if (isNaN(start.getTime())) {
-        return 'Data inválida';
+        console.error('Data inválida:', validStartDate);
+        return [];
       }
 
-      const currentDay = start.getDay();
-      let daysToAdd = dayOfWeek - currentDay;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       
-      // Se o dia já passou nesta semana, vai para a próxima
-      if (daysToAdd < 0) {
-        daysToAdd += 7;
+      // Se a data de início for no passado, usa hoje
+      const effectiveStart = start < today ? today : start;
+
+      const monthStart = startOfMonth(effectiveStart);
+      const monthEnd = endOfMonth(effectiveStart);
+      
+      const dates: Date[] = [];
+      let currentDate = new Date(monthStart);
+
+      // Avança até o primeiro dia da semana desejado
+      while (currentDate.getDay() !== dayOfWeek) {
+        currentDate = addDays(currentDate, 1);
       }
-      
-      const nextDate = new Date(start);
-      nextDate.setDate(start.getDate() + daysToAdd);
-      
-      return nextDate.toLocaleDateString('pt-BR', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric' 
-      });
+
+      // Coleta todas as ocorrências deste dia no mês
+      while (currentDate <= monthEnd) {
+        if (currentDate >= effectiveStart) {
+          dates.push(new Date(currentDate));
+        }
+        currentDate = addDays(currentDate, 7);
+      }
+
+      console.log(`📅 Datas calculadas para ${DAYS_OF_WEEK[dayOfWeek]?.label}:`, dates.map(d => format(d, 'dd/MM/yyyy')));
+      return dates;
     } catch (error) {
-      console.error('Erro ao calcular data:', error);
-      return 'Data inválida';
+      console.error('Erro ao calcular datas:', error);
+      return [];
     }
   };
 
-  // Verifica se um horário já está ocupado
+  // Formata múltiplas datas no formato PT-BR
+  const formatMultipleDates = (dates: Date[]): string => {
+    if (dates.length === 0) return 'Nenhuma data disponível';
+    if (dates.length === 1) return format(dates[0], 'dd/MM/yyyy', { locale: ptBR });
+    
+    return dates.map(d => format(d, 'dd/MM')).join(', ');
+  };
+
+  // Verifica se horário está ocupado
   const isSlotOccupied = (dayOfWeek: number, time: string): boolean => {
     return monthlyClients.some(mc => {
       if (currentClientId && mc.client_id === currentClientId) return false;
@@ -124,16 +190,15 @@ export function MonthlySchedulePicker({
     });
   };
 
-  // Verifica se já existe esse horário nas seleções
   const isAlreadySelected = (dayOfWeek: number, time: string): boolean => {
     return selectedSchedules.some(
       s => s.dayOfWeek === dayOfWeek && s.time === time
     );
   };
 
-  // Adiciona um novo horário
   const handleAddSchedule = () => {
     if (selectedSchedules.length >= maxSchedules) {
+      alert(`Você já atingiu o limite de ${maxSchedules} horários para este plano!`);
       return;
     }
 
@@ -148,21 +213,24 @@ export function MonthlySchedulePicker({
     }
 
     onSchedulesChange([...selectedSchedules, { ...newSchedule }]);
+    
+    // Reset para próxima seleção
+    setNewSchedule({
+      ...newSchedule,
+      time: '09:00'
+    });
   };
 
-  // Remove um horário
   const removeSchedule = (index: number) => {
     onSchedulesChange(selectedSchedules.filter((_, i) => i !== index));
   };
 
-  // Atualiza serviço de um horário
   const updateScheduleService = (index: number, serviceType: string) => {
     onSchedulesChange(
       selectedSchedules.map((s, i) => i === index ? { ...s, serviceType } : s)
     );
   };
 
-  // Ordena horários
   const sortedSchedules = useMemo(() => {
     return [...selectedSchedules].sort((a, b) => {
       if (a.dayOfWeek !== b.dayOfWeek) {
@@ -172,7 +240,6 @@ export function MonthlySchedulePicker({
     });
   }, [selectedSchedules]);
 
-  // Info do plano
   const getPlanInfo = () => {
     switch (maxSchedules) {
       case 1:
@@ -188,6 +255,11 @@ export function MonthlySchedulePicker({
 
   const planInfo = getPlanInfo();
   const canAddMore = selectedSchedules.length < maxSchedules;
+
+  // Preview das datas do dia selecionado
+  const previewDates = useMemo(() => {
+    return getAllDatesForDayInMonth(newSchedule.dayOfWeek);
+  }, [newSchedule.dayOfWeek, validStartDate]);
 
   return (
     <div className="space-y-6">
@@ -235,29 +307,41 @@ export function MonthlySchedulePicker({
             <div className="space-y-3">
               {sortedSchedules.map((schedule, index) => {
                 const dayInfo = DAYS_OF_WEEK.find(d => d.value === schedule.dayOfWeek);
-                const nextDate = getNextDateForDay(schedule.dayOfWeek);
+                const allDates = getAllDatesForDayInMonth(schedule.dayOfWeek);
                 
                 return (
                   <div 
                     key={index} 
                     className="group relative p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-xl border-2 border-blue-200 dark:border-blue-800 hover:shadow-md transition-all"
                   >
-                    <div className="flex items-center gap-4">
-                      {/* Dia da Semana */}
-                      <div className="flex flex-col items-center min-w-[100px]">
-                        <Calendar className="w-5 h-5 text-blue-600 mb-1" />
-                        <span className="font-bold text-sm">{dayInfo?.label}</span>
-                        <span className="text-xs text-muted-foreground">{nextDate}</span>
+                    <div className="flex items-start gap-4">
+                      {/* Dia da Semana + Datas */}
+                      <div className="flex flex-col min-w-[140px]">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <span className="font-bold">{dayInfo?.label}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div className="font-medium text-blue-600">
+                            {allDates.length} {allDates.length === 1 ? 'data' : 'datas'} no mês:
+                          </div>
+                          {allDates.map((date, idx) => (
+                            <div key={idx} className="flex items-center gap-1">
+                              <span className="w-1 h-1 rounded-full bg-blue-500"></span>
+                              {format(date, "dd/MM/yyyy (EEE)", { locale: ptBR })}
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
                       {/* Horário */}
-                      <div className="flex flex-col items-center min-w-[80px]">
+                      <div className="flex flex-col items-center justify-center min-w-[80px] pt-2">
                         <Clock className="w-5 h-5 text-purple-600 mb-1" />
                         <span className="text-2xl font-bold text-purple-600">{schedule.time}</span>
                       </div>
 
                       {/* Serviço */}
-                      <div className="flex-1">
+                      <div className="flex-1 pt-2">
                         <label className="text-xs text-muted-foreground mb-1 block">Serviço</label>
                         <Select
                           value={schedule.serviceType}
@@ -281,7 +365,7 @@ export function MonthlySchedulePicker({
                         variant="ghost"
                         size="icon"
                         onClick={() => removeSchedule(index)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-950/50"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-950/50 mt-2"
                       >
                         <X className="w-5 h-5" />
                       </Button>
@@ -310,29 +394,37 @@ export function MonthlySchedulePicker({
                 <label className="text-sm font-medium">Dia da Semana</label>
                 <Select
                   value={newSchedule.dayOfWeek.toString()}
-                  onValueChange={(value) => setNewSchedule({ 
-                    ...newSchedule, 
-                    dayOfWeek: parseInt(value) 
-                  })}
+                  onValueChange={(value) => {
+                    const dayValue = parseInt(value);
+                    console.log('Dia selecionado:', dayValue, 'startDate:', validStartDate);
+                    setNewSchedule({ 
+                      ...newSchedule, 
+                      dayOfWeek: dayValue 
+                    });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {DAYS_OF_WEEK.map(day => (
-                      <SelectItem key={day.value} value={day.value.toString()}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{day.label}</span>
-                          {isSlotOccupied(day.value, newSchedule.time) && (
-                            <Badge variant="outline" className="ml-2 text-xs">Ocupado</Badge>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {DAYS_OF_WEEK.map(day => {
+                      const datesCount = getAllDatesForDayInMonth(day.value).length;
+                      console.log(`${day.label}: ${datesCount} datas`);
+                      return (
+                        <SelectItem key={day.value} value={day.value.toString()}>
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{day.label}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {datesCount}x no mês
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Próximo: {getNextDateForDay(newSchedule.dayOfWeek)}
+                  Data início: {validStartDateFormatted}
                 </p>
               </div>
 
@@ -396,6 +488,28 @@ export function MonthlySchedulePicker({
               </div>
             </div>
 
+            {/* Preview das Datas */}
+            {previewDates.length > 0 && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                      Este horário será agendado em {previewDates.length} {previewDates.length === 1 ? 'data' : 'datas'} do mês:
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                      {previewDates.map((date, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {format(date, "dd/MM/yyyy", { locale: ptBR })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Botão Adicionar */}
             <Button 
               onClick={handleAddSchedule}
@@ -403,11 +517,12 @@ export function MonthlySchedulePicker({
               size="lg"
               disabled={
                 isSlotOccupied(newSchedule.dayOfWeek, newSchedule.time) ||
-                isAlreadySelected(newSchedule.dayOfWeek, newSchedule.time)
+                isAlreadySelected(newSchedule.dayOfWeek, newSchedule.time) ||
+                previewDates.length === 0
               }
             >
               <Plus className="w-5 h-5 mr-2" />
-              Adicionar Horário
+              Adicionar Horário ({previewDates.length} {previewDates.length === 1 ? 'agendamento' : 'agendamentos'})
             </Button>
 
             {/* Avisos */}
@@ -442,7 +557,7 @@ export function MonthlySchedulePicker({
                 Plano Completo!
               </h3>
               <p className="text-sm text-green-700 dark:text-green-300">
-                Você atingiu o limite de {maxSchedules} {maxSchedules === 1 ? 'horário' : 'horários'} por semana para o plano {planInfo.name}
+                Você atingiu o limite de {maxSchedules} {maxSchedules === 1 ? 'horário' : 'horários'} por semana
               </p>
             </div>
           </CardContent>
@@ -457,10 +572,13 @@ export function MonthlySchedulePicker({
               <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-semibold mb-2">Nenhum horário selecionado</h3>
               <p className="text-sm">
-                Selecione até {maxSchedules} {maxSchedules === 1 ? 'horário' : 'horários'} recorrentes por semana
+                Selecione até {maxSchedules} {maxSchedules === 1 ? 'horário semanal' : 'horários semanais'}
               </p>
               <p className="text-xs mt-2">
-                Os horários serão repetidos automaticamente toda semana
+                Cada horário será repetido em TODAS as ocorrências desse dia no mês
+              </p>
+              <p className="text-xs mt-1 font-semibold">
+                Ex: Toda sexta às 14h = Todas as 4 sextas do mês às 14h
               </p>
             </div>
           </CardContent>
