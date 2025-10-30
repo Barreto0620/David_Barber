@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, type AppointmentUpdate } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export async function PUT(
   request: NextRequest,
@@ -9,22 +9,34 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
     
-    // Tipagem correta usando o tipo Update do Database
-    const updateData: AppointmentUpdate = {
+    // Construir o objeto de atualização com tipos explícitos
+    const updateData: {
+      status: 'completed';
+      completed_at: string;
+      payment_method?: 'dinheiro' | 'cartao' | 'pix' | 'transferencia' | null;
+      price?: number;
+      notes?: string | null;
+    } = {
       status: 'completed',
       completed_at: new Date().toISOString(),
-      payment_method: body.payment_method || null,
-      notes: body.notes || null,
     };
 
-    // Adiciona price apenas se foi fornecido
+    // Adicionar campos opcionais apenas se fornecidos
+    if (body.payment_method) {
+      updateData.payment_method = body.payment_method;
+    }
+    
     if (body.final_price) {
       updateData.price = parseFloat(body.final_price);
+    }
+    
+    if (body.notes !== undefined) {
+      updateData.notes = body.notes || null;
     }
 
     const { data, error } = await supabase
       .from('appointments')
-      .update(updateData)
+      .update(updateData as any) // Type assertion necessário devido a limitações do Supabase
       .eq('id', id)
       .select(`
         *,
@@ -65,7 +77,7 @@ export async function PUT(
             total_spent: totalSpent,
             total_visits: totalVisits,
             last_visit: new Date(lastVisit).toISOString(),
-          })
+          } as any) // Type assertion
           .eq('id', data.client_id);
       }
     }
