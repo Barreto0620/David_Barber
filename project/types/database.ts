@@ -51,3 +51,35 @@ export interface DashboardMetrics {
 
 export type AppointmentStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 export type PaymentMethod = 'dinheiro' | 'cartao' | 'pix' | 'transferencia';
+
+// Clientes Mensais
+export interface MonthlyClient {
+  id: string;
+  client_id: string;
+  plan_type: 'basic' | 'premium' | 'vip';
+  monthly_price: number;
+  start_date: string;
+  status: 'active' | 'inactive' | 'suspended';
+  payment_status: 'paid' | 'pending' | 'overdue';
+  last_payment_date?: string;
+  next_payment_date: string;
+  total_visits: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlySchedule {
+  id: string;
+  monthly_client_id: string;
+  day_of_week: number;
+  time: string;
+  service_type: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface MonthlyClientWithDetails extends MonthlyClient {
+  client: Client;
+  schedules: MonthlySchedule[];
+}

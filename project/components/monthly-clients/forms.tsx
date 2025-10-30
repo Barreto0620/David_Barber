@@ -31,19 +31,12 @@ import {
   Trash2,
   AlertCircle,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-
-// DADOS MOCKADOS de clientes existentes
-const mockClients = [
-  { id: 'c1', name: 'João Silva', phone: '(11) 98765-4321', email: 'joao@email.com' },
-  { id: 'c2', name: 'Maria Santos', phone: '(11) 91234-5678', email: 'maria@email.com' },
-  { id: 'c3', name: 'Pedro Oliveira', phone: '(11) 99876-5432', email: 'pedro@email.com' },
-  { id: 'c4', name: 'Ana Costa', phone: '(11) 97654-3210', email: 'ana@email.com' },
-  { id: 'c5', name: 'Carlos Ferreira', phone: '(11) 96543-2109', email: 'carlos@email.com' },
-];
+import { useAppStore } from '@/lib/store';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Domingo' },
@@ -103,10 +96,12 @@ interface WeeklySchedule {
 interface AddMonthlyClientModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: (data: any) => void;
+  onSuccess?: () => void;
 }
 
 export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyClientModalProps) {
+  const { clients, addMonthlyClient, monthlyClients } = useAppStore();
+  
   const [step, setStep] = useState(1);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [planType, setPlanType] = useState('');
@@ -115,6 +110,7 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
   const [schedules, setSchedules] = useState<WeeklySchedule[]>([]);
   const [notes, setNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Limpar formulário ao fechar
   useEffect(() => {
@@ -132,10 +128,18 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
     }
   }, [open]);
 
-  const selectedClient = mockClients.find(c => c.id === selectedClientId);
+  const selectedClient = clients.find(c => c.id === selectedClientId);
   const selectedPlan = PLAN_TYPES.find(p => p.value === planType);
 
-  const filteredClients = mockClients.filter(client =>
+  // Filtra clientes que NÃO são mensais ativos
+  const availableClients = clients.filter(client => {
+    const hasActivePlan = monthlyClients.some(
+      mc => mc.client_id === client.id && mc.status === 'active'
+    );
+    return !hasActivePlan;
+  });
+
+  const filteredClients = availableClients.filter(client =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.phone.includes(searchTerm)
   );
@@ -166,27 +170,36 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
     s.dayOfWeek !== null && s.time !== '' && s.serviceType !== ''
   );
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedClient || !selectedPlan) return;
 
-    const finalPrice = customPrice ? parseFloat(customPrice) : selectedPlan.price;
+    setIsSubmitting(true);
 
-    const data = {
-      clientId: selectedClient.id,
-      clientName: selectedClient.name,
-      clientPhone: selectedClient.phone,
-      clientEmail: selectedClient.email,
-      planType: planType,
-      monthlyPrice: finalPrice,
-      startDate: startDate,
-      schedules: schedules,
-      notes: notes,
-    };
+    try {
+      const finalPrice = customPrice ? parseFloat(customPrice) : selectedPlan.price;
 
-    console.log('Dados do plano mensal:', data);
-    toast.success(`${selectedClient.name} agora é cliente mensal! 🎉`);
-    onSuccess(data);
-    onClose();
+      const result = await addMonthlyClient({
+        clientId: selectedClient.id,
+        planType: planType as 'basic' | 'premium' | 'vip',
+        monthlyPrice: finalPrice,
+        startDate: startDate,
+        schedules: schedules.map(s => ({
+          dayOfWeek: s.dayOfWeek,
+          time: s.time,
+          serviceType: s.serviceType
+        })),
+        notes: notes || undefined
+      });
+
+      if (result) {
+        onSuccess?.();
+        onClose();
+      }
+    } catch (error) {
+      console.error('Erro ao criar plano mensal:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getMinSchedules = () => {
@@ -262,7 +275,12 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
               {filteredClients.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum cliente encontrado</p>
+                  <p>
+                    {availableClients.length === 0 
+                      ? 'Todos os clientes já possuem planos mensais ativos'
+                      : 'Nenhum cliente encontrado'
+                    }
+                  </p>
                 </div>
               ) : (
                 filteredClients.map((client) => (
@@ -563,7 +581,7 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
                   Agendamentos Semanais ({schedules.length})
                 </h4>
                 <div className="space-y-2">
-                  {schedules.map((schedule, idx) => (
+                  {schedules.map((schedule) => (
                     <div key={schedule.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-muted-foreground" />
@@ -600,6 +618,7 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
               variant="outline"
               onClick={() => setStep(step - 1)}
               className="w-full sm:w-auto"
+              disabled={isSubmitting}
             >
               Voltar
             </Button>
@@ -620,10 +639,20 @@ export function AddMonthlyClientModal({ open, onClose, onSuccess }: AddMonthlyCl
           ) : (
             <Button
               onClick={handleSubmit}
+              disabled={isSubmitting}
               className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
             >
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Confirmar e Criar Plano
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Confirmar e Criar Plano
+                </>
+              )}
             </Button>
           )}
         </DialogFooter>
