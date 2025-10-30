@@ -9,12 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, XCircle, AlertCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 
 const DAYS_OF_WEEK = [
-  { value: 0, label: 'Domingo', short: 'Dom' },
   { value: 1, label: 'Segunda', short: 'Seg' },
   { value: 2, label: 'Terça', short: 'Ter' },
   { value: 3, label: 'Quarta', short: 'Qua' },
@@ -46,90 +45,113 @@ const generateTimeSlots = () => {
 
 const TIME_SLOTS = generateTimeSlots();
 
+// Tipo para seleção com data específica
 interface ScheduleSelection {
   dayOfWeek: number;
   time: string;
   serviceType: string;
+  specificDate: string; // Data específica DD/MM/AAAA
 }
 
 interface MonthlySchedulePickerProps {
   maxSchedules?: number;
   selectedSchedules: ScheduleSelection[];
   onSchedulesChange: (schedules: ScheduleSelection[]) => void;
-  currentClientId?: string; // Para edição
+  currentClientId?: string;
+  startDate: string; // Data de início do plano
 }
 
 export function MonthlySchedulePicker({
   maxSchedules = 4,
   selectedSchedules,
   onSchedulesChange,
-  currentClientId
+  currentClientId,
+  startDate
 }: MonthlySchedulePickerProps) {
   const { appointments, monthlyClients } = useAppStore();
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [selectedService, setSelectedService] = useState<string>(SERVICE_TYPES[0]);
+  const [availableWeeks, setAvailableWeeks] = useState<Date[]>([]);
 
-  // Calcula horários ocupados
-  const occupiedSlots = useMemo(() => {
-    const occupied: Record<number, Set<string>> = {};
+  // Calcula as próximas 4 semanas a partir da data de início
+  useEffect(() => {
+    const start = new Date(startDate);
+    const weeks: Date[] = [];
     
-    // Inicializa sets para cada dia
-    DAYS_OF_WEEK.forEach(day => {
-      occupied[day.value] = new Set();
-    });
+    for (let i = 0; i < 4; i++) {
+      const weekDate = new Date(start);
+      weekDate.setDate(start.getDate() + (i * 7));
+      weeks.push(weekDate);
+    }
+    
+    setAvailableWeeks(weeks);
+  }, [startDate]);
 
-    // 1. Marca horários de clientes mensais
-    monthlyClients.forEach(mc => {
-      // Ignora o cliente atual se estiver editando
-      if (currentClientId && mc.client_id === currentClientId) return;
-      
-      if (mc.status === 'active') {
-        mc.schedules.forEach(schedule => {
-          occupied[schedule.day_of_week]?.add(schedule.time);
-        });
-      }
-    });
-
-    // 2. Marca horários de agendamentos futuros
-    const today = new Date();
-    const futureAppointments = appointments.filter(apt => {
-      if (apt.status === 'cancelled' || apt.status === 'completed') return false;
-      
-      const aptDate = new Date(apt.scheduled_date);
-      return aptDate >= today;
-    });
-
-    futureAppointments.forEach(apt => {
-      const aptDate = new Date(apt.scheduled_date);
-      const dayOfWeek = aptDate.getDay();
-      const time = aptDate.toTimeString().slice(0, 5); // HH:MM
-      
-      occupied[dayOfWeek]?.add(time);
-    });
-
-    return occupied;
-  }, [appointments, monthlyClients, currentClientId]);
-
-  // Verifica se um slot está ocupado
-  const isSlotOccupied = (day: number, time: string) => {
-    return occupiedSlots[day]?.has(time) || false;
+  // Gera todas as datas possíveis para o dia da semana selecionado
+  const getAvailableDatesForDay = (dayOfWeek: number): Date[] => {
+    return availableWeeks.map(weekStart => {
+      const date = new Date(weekStart);
+      const currentDay = date.getDay();
+      const diff = dayOfWeek - currentDay;
+      date.setDate(date.getDate() + diff);
+      return date;
+    }).filter(date => date >= new Date(startDate));
   };
 
-  // Verifica se um slot está selecionado
-  const isSlotSelected = (day: number, time: string) => {
+  // Verifica se um horário específico está ocupado no BD
+  const isSlotOccupied = (date: Date, time: string): boolean => {
+    const dateStr = date.toISOString().split('T')[0];
+    const dateTimeStr = `${dateStr}T${time}:00`;
+    
+    // Verifica appointments existentes
+    const hasAppointment = appointments.some(apt => {
+      if (apt.status === 'cancelled') return false;
+      
+      const aptDate = new Date(apt.scheduled_date);
+      const aptTime = aptDate.toTimeString().slice(0, 5);
+      const aptDateStr = aptDate.toISOString().split('T')[0];
+      
+      return aptDateStr === dateStr && aptTime === time;
+    });
+
+    if (hasAppointment) return true;
+
+    // Verifica outros clientes mensais (exceto o atual)
+    const hasMonthlyClient = monthlyClients.some(mc => {
+      if (currentClientId && mc.client_id === currentClientId) return false;
+      if (mc.status !== 'active') return false;
+      
+      return mc.schedules.some(schedule => {
+        if (schedule.day_of_week !== date.getDay()) return false;
+        if (schedule.time !== time) return false;
+        
+        const mcStartDate = new Date(mc.start_date);
+        return date >= mcStartDate;
+      });
+    });
+
+    return hasMonthlyClient;
+  };
+
+  // Verifica se uma data/hora específica já foi selecionada
+  const isSlotSelected = (date: Date, time: string): boolean => {
+    const dateStr = date.toLocaleDateString('pt-BR');
     return selectedSchedules.some(
-      s => s.dayOfWeek === day && s.time === time
+      s => s.specificDate === dateStr && s.time === time
     );
   };
 
-  // Toggle de seleção de horário
-  const toggleSlot = (day: number, time: string) => {
-    const isSelected = isSlotSelected(day, time);
+  // Toggle de seleção de horário com data específica
+  const toggleSlot = (date: Date, time: string) => {
+    const dateStr = date.toLocaleDateString('pt-BR');
+    const isSelected = isSlotSelected(date, time);
     
     if (isSelected) {
       // Remove seleção
       onSchedulesChange(
-        selectedSchedules.filter(s => !(s.dayOfWeek === day && s.time === time))
+        selectedSchedules.filter(s => 
+          !(s.specificDate === dateStr && s.time === time)
+        )
       );
     } else {
       // Adiciona seleção (se não atingiu o limite)
@@ -139,7 +161,12 @@ export function MonthlySchedulePicker({
       
       onSchedulesChange([
         ...selectedSchedules,
-        { dayOfWeek: day, time, serviceType: selectedService }
+        { 
+          dayOfWeek: date.getDay(), 
+          time, 
+          serviceType: selectedService,
+          specificDate: dateStr
+        }
       ]);
     }
   };
@@ -156,15 +183,36 @@ export function MonthlySchedulePicker({
     );
   };
 
+  // Ordena horários selecionados por data
+  const sortedSchedules = useMemo(() => {
+    return [...selectedSchedules].sort((a, b) => {
+      const [dayA, monthA, yearA] = a.specificDate.split('/').map(Number);
+      const [dayB, monthB, yearB] = b.specificDate.split('/').map(Number);
+      const dateA = new Date(yearA, monthA - 1, dayA);
+      const dateB = new Date(yearB, monthB - 1, dayB);
+      
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateA.getTime() - dateB.getTime();
+      }
+      
+      return a.time.localeCompare(b.time);
+    });
+  }, [selectedSchedules]);
+
+  // Datas disponíveis para o dia selecionado
+  const availableDates = useMemo(() => {
+    return getAvailableDatesForDay(selectedDay);
+  }, [selectedDay, availableWeeks]);
+
   return (
     <div className="space-y-6">
       {/* Seleções Atuais */}
-      {selectedSchedules.length > 0 && (
+      {sortedSchedules.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center justify-between">
-              <span>Horários Selecionados ({selectedSchedules.length}/{maxSchedules})</span>
-              {selectedSchedules.length === maxSchedules && (
+              <span>Horários Selecionados ({sortedSchedules.length}/{maxSchedules})</span>
+              {sortedSchedules.length === maxSchedules && (
                 <Badge variant="outline" className="border-green-500 text-green-500">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
                   Completo
@@ -174,14 +222,19 @@ export function MonthlySchedulePicker({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {selectedSchedules.map((schedule, index) => (
+              {sortedSchedules.map((schedule, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex-1 grid grid-cols-3 gap-3 items-center">
+                  <div className="flex-1 grid grid-cols-4 gap-3 items-center">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">
-                        {DAYS_OF_WEEK[schedule.dayOfWeek].label}
-                      </span>
+                      <div>
+                        <div className="font-medium">
+                          {DAYS_OF_WEEK.find(d => d.value === schedule.dayOfWeek)?.label}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {schedule.specificDate}
+                        </div>
+                      </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -204,16 +257,16 @@ export function MonthlySchedulePicker({
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeSchedule(index)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <XCircle className="w-4 h-4" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeSchedule(index)}
+                      className="text-destructive hover:text-destructive ml-auto"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -249,7 +302,7 @@ export function MonthlySchedulePicker({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center justify-between">
-            <span>Selecione os Horários Semanais</span>
+            <span>Selecione os Horários (Próximas 4 Semanas)</span>
             <Badge variant="outline">
               {selectedSchedules.length}/{maxSchedules} selecionados
             </Badge>
@@ -258,7 +311,7 @@ export function MonthlySchedulePicker({
         <CardContent>
           {/* Abas de Dias da Semana */}
           <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-            {DAYS_OF_WEEK.slice(1, 6).map(day => { // Segunda a Sexta
+            {DAYS_OF_WEEK.map(day => {
               const daySchedules = selectedSchedules.filter(s => s.dayOfWeek === day.value);
               return (
                 <Button
@@ -295,51 +348,63 @@ export function MonthlySchedulePicker({
             </div>
           </div>
 
-          {/* Grade de Horários */}
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-[400px] overflow-y-auto">
-            {TIME_SLOTS.map(time => {
-              const occupied = isSlotOccupied(selectedDay, time);
-              const selected = isSlotSelected(selectedDay, time);
-              const canSelect = !occupied && (selected || selectedSchedules.length < maxSchedules);
+          {/* Grade de Horários - Agora com datas específicas */}
+          <div className="space-y-6 max-h-[500px] overflow-y-auto">
+            {availableDates.map((date, weekIndex) => (
+              <div key={weekIndex} className="space-y-2">
+                <h4 className="font-semibold text-sm flex items-center gap-2 sticky top-0 bg-background py-2">
+                  <Calendar className="w-4 h-4" />
+                  Semana {weekIndex + 1} - {date.toLocaleDateString('pt-BR')}
+                </h4>
+                
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                  {TIME_SLOTS.map(time => {
+                    const occupied = isSlotOccupied(date, time);
+                    const selected = isSlotSelected(date, time);
+                    const canSelect = !occupied && (selected || selectedSchedules.length < maxSchedules);
 
-              return (
-                <button
-                  key={time}
-                  onClick={() => {
-                    if (!occupied && canSelect) {
-                      toggleSlot(selectedDay, time);
-                    }
-                  }}
-                  disabled={occupied || (!selected && selectedSchedules.length >= maxSchedules)}
-                  className={cn(
-                    "p-3 rounded-lg text-sm font-medium transition-all",
-                    "hover:scale-105 active:scale-95",
-                    "disabled:cursor-not-allowed disabled:hover:scale-100",
-                    selected && "bg-blue-500 text-white shadow-md",
-                    !selected && !occupied && canSelect && "bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400",
-                    occupied && "bg-gray-400/20 text-gray-500 dark:text-gray-600"
-                  )}
-                  title={
-                    occupied
-                      ? "Horário ocupado"
-                      : selected
-                      ? "Clique para remover"
-                      : "Clique para selecionar"
-                  }
-                >
-                  <div className="flex flex-col items-center">
-                    <Clock className="w-3 h-3 mb-1" />
-                    {time}
-                  </div>
-                </button>
-              );
-            })}
+                    return (
+                      <button
+                        key={`${weekIndex}-${time}`}
+                        onClick={() => {
+                          if (!occupied && canSelect) {
+                            toggleSlot(date, time);
+                          }
+                        }}
+                        disabled={occupied || (!selected && selectedSchedules.length >= maxSchedules)}
+                        className={cn(
+                          "p-3 rounded-lg text-sm font-medium transition-all",
+                          "hover:scale-105 active:scale-95",
+                          "disabled:cursor-not-allowed disabled:hover:scale-100",
+                          selected && "bg-blue-500 text-white shadow-md",
+                          !selected && !occupied && canSelect && "bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400",
+                          occupied && "bg-gray-400/20 text-gray-500 dark:text-gray-600"
+                        )}
+                        title={
+                          occupied
+                            ? "Horário ocupado"
+                            : selected
+                            ? "Clique para remover"
+                            : "Clique para selecionar"
+                        }
+                      >
+                        <div className="flex flex-col items-center">
+                          <Clock className="w-3 h-3 mb-1" />
+                          {time}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           {selectedSchedules.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Selecione até {maxSchedules} horários semanais</p>
+              <p className="text-sm">Selecione até {maxSchedules} horários nas próximas 4 semanas</p>
+              <p className="text-xs mt-1">Você pode escolher múltiplos horários no mesmo dia da semana</p>
             </div>
           )}
         </CardContent>
