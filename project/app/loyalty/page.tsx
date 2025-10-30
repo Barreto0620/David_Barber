@@ -271,15 +271,25 @@ export default function LoyaltyPage() {
     }
 
     setSpinning(true);
-    const randomIndex = Math.floor(Math.random() * weeklyClients.length);
+    
+    // Gera um índice aleatório mais distribuído
+    const randomValue = Math.random();
+    const randomIndex = Math.floor(randomValue * weeklyClients.length);
     const selectedClient = weeklyClients[randomIndex];
+    
+    console.log('🎲 Sorteio:', { randomValue, randomIndex, total: weeklyClients.length, cliente: selectedClient.name });
     
     const segmentAngle = 360 / weeklyClients.length;
     const targetOffset = (randomIndex * segmentAngle) + (segmentAngle / 2);
     const targetStopAngle = 360 - targetOffset; 
-    const fullRotations = 5; 
+    
+    // Adiciona rotações extras aleatórias (entre 5 e 8 voltas completas)
+    const fullRotations = 5 + Math.floor(Math.random() * 4);
     const currentFullTurns = Math.floor(rotation / 360);
-    const targetRotation = (currentFullTurns + fullRotations) * 360 + targetStopAngle;
+    
+    // Adiciona um offset aleatório pequeno para variar onde para
+    const randomOffset = (Math.random() - 0.5) * (segmentAngle * 0.3);
+    const targetRotation = (currentFullTurns + fullRotations) * 360 + targetStopAngle + randomOffset;
     
     setRotation(targetRotation);
 
