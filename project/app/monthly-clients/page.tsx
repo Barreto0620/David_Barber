@@ -1,7 +1,8 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useAppStore } from '@/lib/store';
 import { AddMonthlyClientModal } from '@/components/monthly-clients/forms';
 import { MonthlyAppointmentsView } from '@/components/monthly-clients/monthly-appointments-view';
 import { Button } from '@/components/ui/button';
@@ -39,7 +40,6 @@ import {
   Plus, 
   UserCheck, 
   Calendar, 
-  DollarSign, 
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -58,107 +58,6 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-// TIPOS MOCKADOS
-interface MonthlyClient {
-  id: string;
-  clientId: string;
-  clientName: string;
-  clientPhone: string;
-  clientEmail?: string;
-  planType: 'basic' | 'premium' | 'vip';
-  monthlyPrice: number;
-  startDate: string;
-  status: 'active' | 'inactive' | 'suspended';
-  paymentStatus: 'paid' | 'pending' | 'overdue';
-  lastPaymentDate?: string;
-  nextPaymentDate: string;
-  weeklySchedules: {
-    dayOfWeek: number;
-    time: string;
-    serviceType: string;
-  }[];
-  totalVisits: number;
-  notes?: string;
-}
-
-// DADOS MOCKADOS
-const mockMonthlyClients: MonthlyClient[] = [
-  {
-    id: '1',
-    clientId: 'c1',
-    clientName: 'João Silva',
-    clientPhone: '(11) 98765-4321',
-    clientEmail: 'joao.silva@email.com',
-    planType: 'premium',
-    monthlyPrice: 150.00,
-    startDate: '2024-01-15',
-    status: 'active',
-    paymentStatus: 'paid',
-    lastPaymentDate: '2024-10-01',
-    nextPaymentDate: '2024-11-01',
-    weeklySchedules: [
-      { dayOfWeek: 2, time: '14:00', serviceType: 'Corte + Barba' },
-      { dayOfWeek: 5, time: '10:00', serviceType: 'Corte Simples' }
-    ],
-    totalVisits: 42,
-    notes: 'Cliente VIP, sempre pontual'
-  },
-  {
-    id: '2',
-    clientId: 'c2',
-    clientName: 'Pedro Santos',
-    clientPhone: '(11) 91234-5678',
-    planType: 'basic',
-    monthlyPrice: 80.00,
-    startDate: '2024-03-20',
-    status: 'active',
-    paymentStatus: 'pending',
-    nextPaymentDate: '2024-11-01',
-    weeklySchedules: [
-      { dayOfWeek: 3, time: '16:00', serviceType: 'Corte Simples' }
-    ],
-    totalVisits: 28
-  },
-  {
-    id: '3',
-    clientId: 'c3',
-    clientName: 'Carlos Oliveira',
-    clientPhone: '(11) 99876-5432',
-    clientEmail: 'carlos.oliveira@email.com',
-    planType: 'vip',
-    monthlyPrice: 250.00,
-    startDate: '2024-02-10',
-    status: 'active',
-    paymentStatus: 'overdue',
-    lastPaymentDate: '2024-09-01',
-    nextPaymentDate: '2024-10-01',
-    weeklySchedules: [
-      { dayOfWeek: 1, time: '09:00', serviceType: 'Corte Premium + Barba' },
-      { dayOfWeek: 4, time: '18:00', serviceType: 'Barba' }
-    ],
-    totalVisits: 35,
-    notes: 'Pagamento em atraso - entrar em contato'
-  },
-  {
-    id: '4',
-    clientId: 'c4',
-    clientName: 'Ricardo Almeida',
-    clientPhone: '(11) 97654-3210',
-    planType: 'basic',
-    monthlyPrice: 80.00,
-    startDate: '2024-05-01',
-    status: 'suspended',
-    paymentStatus: 'overdue',
-    lastPaymentDate: '2024-08-01',
-    nextPaymentDate: '2024-09-01',
-    weeklySchedules: [
-      { dayOfWeek: 2, time: '11:00', serviceType: 'Corte Simples' }
-    ],
-    totalVisits: 18,
-    notes: 'Suspenso por inadimplência'
-  }
-];
-
 const PLAN_INFO = {
   basic: { name: 'Básico', color: 'bg-blue-500', visits: '1x/semana', icon: '🔷' },
   premium: { name: 'Premium', color: 'bg-purple-500', visits: '2x/semana', icon: '💎' },
@@ -168,11 +67,24 @@ const PLAN_INFO = {
 const DAYS_OF_WEEK = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export default function MonthlyClientsPage() {
-  const [clients, setClients] = useState<MonthlyClient[]>(mockMonthlyClients);
+  // 🔥 PUXANDO DO STORE
+  const { 
+    monthlyClients, 
+    monthlyClientsLoading,
+    fetchMonthlyClients,
+    updateMonthlyClient,
+    updateMonthlySchedules,
+    deleteMonthlyClient,
+    suspendMonthlyClient,
+    reactivateMonthlyClient,
+    markMonthlyPaymentAsPaid,
+    setupMonthlyClientsRealtime
+  } = useAppStore();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
   const [filterPayment, setFilterPayment] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
-  const [selectedClient, setSelectedClient] = useState<MonthlyClient | null>(null);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -180,38 +92,41 @@ export default function MonthlyClientsPage() {
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [clientToSuspend, setClientToSuspend] = useState<string | null>(null);
   const [editSchedulesOpen, setEditSchedulesOpen] = useState(false);
-  const [clientToEdit, setClientToEdit] = useState<MonthlyClient | null>(null);
-  const [editingSchedules, setEditingSchedules] = useState<{
-    dayOfWeek: number;
-    time: string;
-    serviceType: string;
-  }[]>([]);
+  const [clientToEdit, setClientToEdit] = useState<any>(null);
+  const [editingSchedules, setEditingSchedules] = useState<any[]>([]);
+
+  // 🔥 CARREGA DADOS DO BD
+  useEffect(() => {
+    fetchMonthlyClients();
+    const unsubscribe = setupMonthlyClientsRealtime();
+    return () => unsubscribe?.();
+  }, []);
 
   const stats = useMemo(() => {
-    const active = clients.filter(c => c.status === 'active').length;
-    const totalRevenue = clients
+    const active = monthlyClients.filter(c => c.status === 'active').length;
+    const totalRevenue = monthlyClients
       .filter(c => c.status === 'active')
-      .reduce((sum, c) => sum + c.monthlyPrice, 0);
-    const pendingPayments = clients.filter(c => c.paymentStatus === 'pending').length;
-    const overduePayments = clients.filter(c => c.paymentStatus === 'overdue').length;
+      .reduce((sum, c) => sum + Number(c.monthly_price), 0);
+    const pendingPayments = monthlyClients.filter(c => c.payment_status === 'pending').length;
+    const overduePayments = monthlyClients.filter(c => c.payment_status === 'overdue').length;
 
     return { active, totalRevenue, pendingPayments, overduePayments };
-  }, [clients]);
+  }, [monthlyClients]);
 
   const filteredClients = useMemo(() => {
-    return clients.filter(client => {
+    return monthlyClients.filter(mc => {
       const matchesSearch = 
-        client.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.clientPhone.includes(searchTerm);
+        mc.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        mc.client.phone.includes(searchTerm);
       
-      const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
-      const matchesPayment = filterPayment === 'all' || client.paymentStatus === filterPayment;
+      const matchesStatus = filterStatus === 'all' || mc.status === filterStatus;
+      const matchesPayment = filterPayment === 'all' || mc.payment_status === filterPayment;
 
       return matchesSearch && matchesStatus && matchesPayment;
     });
-  }, [clients, searchTerm, filterStatus, filterPayment]);
+  }, [monthlyClients, searchTerm, filterStatus, filterPayment]);
 
-  const handleViewDetails = (client: MonthlyClient) => {
+  const handleViewDetails = (client: any) => {
     setSelectedClient(client);
     setViewDetailsOpen(true);
   };
@@ -226,52 +141,42 @@ export default function MonthlyClientsPage() {
     setSuspendDialogOpen(true);
   };
 
-  const confirmSuspendPlan = () => {
-    if (clientToSuspend) {
-      const client = clients.find(c => c.id === clientToSuspend);
-      const newStatus = client?.status === 'suspended' ? 'active' : 'suspended';
-      
-      setClients(prev => prev.map(c => 
-        c.id === clientToSuspend 
-          ? { ...c, status: newStatus }
-          : c
-      ));
-      
-      toast.success(newStatus === 'suspended' 
-        ? 'Plano suspenso com sucesso!' 
-        : 'Plano reativado com sucesso!'
-      );
+  const confirmSuspendPlan = async () => {
+    if (!clientToSuspend) return;
+    
+    const client = monthlyClients.find(c => c.id === clientToSuspend);
+    const success = client?.status === 'suspended' 
+      ? await reactivateMonthlyClient(clientToSuspend)
+      : await suspendMonthlyClient(clientToSuspend);
+    
+    if (success) {
       setSuspendDialogOpen(false);
       setClientToSuspend(null);
     }
   };
 
-  const confirmCancelPlan = () => {
-    if (clientToCancel) {
-      setClients(prev => prev.filter(c => c.id !== clientToCancel));
-      toast.success('Plano mensal cancelado e removido com sucesso!');
+  const confirmCancelPlan = async () => {
+    if (!clientToCancel) return;
+    
+    const success = await deleteMonthlyClient(clientToCancel);
+    
+    if (success) {
       setCancelDialogOpen(false);
       setClientToCancel(null);
     }
   };
 
-  const handleMarkAsPaid = (clientId: string) => {
-    setClients(prev => prev.map(c => 
-      c.id === clientId 
-        ? { 
-            ...c, 
-            paymentStatus: 'paid',
-            lastPaymentDate: new Date().toISOString().split('T')[0],
-            nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          }
-        : c
-    ));
-    toast.success('Pagamento registrado com sucesso!');
+  const handleMarkAsPaid = async (clientId: string) => {
+    await markMonthlyPaymentAsPaid(clientId);
   };
 
-  const handleEditSchedules = (client: MonthlyClient) => {
+  const handleEditSchedules = (client: any) => {
     setClientToEdit(client);
-    setEditingSchedules([...client.weeklySchedules]);
+    setEditingSchedules(client.schedules.map((s: any) => ({
+      dayOfWeek: s.day_of_week,
+      time: s.time,
+      serviceType: s.service_type
+    })));
     setEditSchedulesOpen(true);
   };
 
@@ -293,31 +198,28 @@ export default function MonthlyClientsPage() {
     ));
   };
 
-  const handleSaveSchedules = () => {
+  const handleSaveSchedules = async () => {
     if (!clientToEdit) return;
 
-    setClients(prev => prev.map(c => 
-      c.id === clientToEdit.id 
-        ? { ...c, weeklySchedules: editingSchedules }
-        : c
-    ));
-
-    toast.success('Horários atualizados com sucesso!');
-    setEditSchedulesOpen(false);
-    setClientToEdit(null);
-    setEditingSchedules([]);
+    const success = await updateMonthlySchedules(clientToEdit.id, editingSchedules);
+    
+    if (success) {
+      setEditSchedulesOpen(false);
+      setClientToEdit(null);
+      setEditingSchedules([]);
+    }
   };
 
-  const getStatusColor = (client: MonthlyClient) => {
-    if (client.paymentStatus === 'overdue') {
+  const getStatusColor = (mc: any) => {
+    if (mc.payment_status === 'overdue') {
       return 'bg-red-500';
     }
     
     const today = new Date();
-    const nextPayment = new Date(client.nextPaymentDate);
+    const nextPayment = new Date(mc.next_payment_date);
     const daysUntilPayment = Math.ceil((nextPayment.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
-    if ((daysUntilPayment <= 7 && daysUntilPayment >= 0) || client.paymentStatus === 'pending') {
+    if ((daysUntilPayment <= 7 && daysUntilPayment >= 0) || mc.payment_status === 'pending') {
       return 'bg-yellow-500';
     }
     
@@ -350,6 +252,19 @@ export default function MonthlyClientsPage() {
     }
   };
 
+  if (monthlyClientsLoading && monthlyClients.length === 0) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando clientes mensais...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -375,7 +290,7 @@ export default function MonthlyClientsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.active}</div>
             <p className="text-xs text-muted-foreground">
-              {clients.length} total
+              {monthlyClients.length} total
             </p>
           </CardContent>
         </Card>
@@ -478,24 +393,24 @@ export default function MonthlyClientsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map((client) => (
-            <Card key={client.id} className="hover:shadow-lg transition-shadow">
+          {filteredClients.map((mc) => (
+            <Card key={mc.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1">
-                    <CardTitle className="text-lg">{client.clientName}</CardTitle>
+                    <CardTitle className="text-lg">{mc.client.name}</CardTitle>
                     <CardDescription className="text-sm">
-                      {client.clientPhone}
+                      {mc.client.phone}
                     </CardDescription>
                   </div>
-                  <div className={cn("w-3 h-3 rounded-full", getStatusColor(client))} />
+                  <div className={cn("w-3 h-3 rounded-full", getStatusColor(mc))} />
                 </div>
                 
                 <div className="flex gap-2 pt-2 flex-wrap">
-                  {getStatusBadge(client.status)}
-                  {getPaymentStatusBadge(client.paymentStatus)}
-                  <Badge className={PLAN_INFO[client.planType].color}>
-                    {PLAN_INFO[client.planType].icon} {PLAN_INFO[client.planType].name}
+                  {getStatusBadge(mc.status)}
+                  {getPaymentStatusBadge(mc.payment_status)}
+                  <Badge className={PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].color}>
+                    {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].icon} {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].name}
                   </Badge>
                 </div>
               </CardHeader>
@@ -506,13 +421,13 @@ export default function MonthlyClientsPage() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Valor:</span>
                     <span className="font-bold text-green-600">
-                      R$ {client.monthlyPrice.toFixed(2)}/mês
+                      R$ {Number(mc.monthly_price).toFixed(2)}/mês
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Próximo Venc.:</span>
                     <span className="font-medium">
-                      {new Date(client.nextPaymentDate).toLocaleDateString('pt-BR')}
+                      {new Date(mc.next_payment_date).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
                 </div>
@@ -521,15 +436,15 @@ export default function MonthlyClientsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <CalendarClock className="w-4 h-4" />
-                    Horários ({client.weeklySchedules.length}):
+                    Horários ({mc.schedules.length}):
                   </div>
                   <div className="space-y-1 min-h-[80px]">
-                    {client.weeklySchedules.length > 0 ? (
-                      client.weeklySchedules.map((schedule, idx) => (
+                    {mc.schedules.length > 0 ? (
+                      mc.schedules.slice(0, 3).map((schedule: any, idx: number) => (
                         <div key={idx} className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
-                          <span className="font-medium">{DAYS_OF_WEEK[schedule.dayOfWeek]}</span>
+                          <span className="font-medium">{DAYS_OF_WEEK[schedule.day_of_week]}</span>
                           <span className="text-center">{schedule.time}</span>
-                          <span className="text-muted-foreground text-right truncate">{schedule.serviceType}</span>
+                          <span className="text-muted-foreground text-right truncate">{schedule.service_type}</span>
                         </div>
                       ))
                     ) : (
@@ -539,13 +454,18 @@ export default function MonthlyClientsPage() {
                         <span className="text-muted-foreground text-right">-</span>
                       </div>
                     )}
+                    {mc.schedules.length > 3 && (
+                      <div className="text-xs text-center text-muted-foreground pt-1">
+                        +{mc.schedules.length - 3} mais
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Stats */}
                 <div className="flex items-center justify-between text-sm pt-2 border-t">
                   <span className="text-muted-foreground">Total de visitas:</span>
-                  <span className="font-bold">{client.totalVisits}</span>
+                  <span className="font-bold">{mc.total_visits}</span>
                 </div>
 
                 {/* Actions */}
@@ -554,7 +474,7 @@ export default function MonthlyClientsPage() {
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    onClick={() => handleViewDetails(client)}
+                    onClick={() => handleViewDetails(mc)}
                   >
                     <Eye className="w-4 h-4 mr-1" />
                     Detalhes
@@ -563,17 +483,17 @@ export default function MonthlyClientsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleEditSchedules(client)}
+                    onClick={() => handleEditSchedules(mc)}
                     title="Editar horários"
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
                   
-                  {client.paymentStatus !== 'paid' && client.status === 'active' && (
+                  {mc.payment_status !== 'paid' && mc.status === 'active' && (
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => handleMarkAsPaid(client.id)}
+                      onClick={() => handleMarkAsPaid(mc.id)}
                       title="Marcar como pago"
                     >
                       <CreditCard className="w-4 h-4" />
@@ -581,13 +501,13 @@ export default function MonthlyClientsPage() {
                   )}
                   
                   <Button
-                    variant={client.status === 'suspended' ? 'default' : 'outline'}
+                    variant={mc.status === 'suspended' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => handleSuspendPlan(client.id)}
-                    className={client.status === 'suspended' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
-                    title={client.status === 'suspended' ? 'Reativar plano' : 'Suspender plano'}
+                    onClick={() => handleSuspendPlan(mc.id)}
+                    className={mc.status === 'suspended' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+                    title={mc.status === 'suspended' ? 'Reativar plano' : 'Suspender plano'}
                   >
-                    {client.status === 'suspended' ? (
+                    {mc.status === 'suspended' ? (
                       <Play className="w-4 h-4" />
                     ) : (
                       <Pause className="w-4 h-4" />
@@ -597,7 +517,7 @@ export default function MonthlyClientsPage() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleCancelPlan(client.id)}
+                    onClick={() => handleCancelPlan(mc.id)}
                     title="Cancelar e excluir plano"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -615,118 +535,126 @@ export default function MonthlyClientsPage() {
           {selectedClient && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl">{selectedClient.clientName}</DialogTitle>
+                <DialogTitle className="text-2xl">{selectedClient.client.name}</DialogTitle>
                 <DialogDescription>
                   Detalhes completos do plano mensal
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-6">
-                {/* Status Badges */}
-                <div className="flex gap-2">
-                  {getStatusBadge(selectedClient.status)}
-                  {getPaymentStatusBadge(selectedClient.paymentStatus)}
-                  <Badge className={PLAN_INFO[selectedClient.planType].color}>
-                    {PLAN_INFO[selectedClient.planType].name}
-                  </Badge>
-                </div>
+              <Tabs defaultValue="info" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="info">Informações</TabsTrigger>
+                  <TabsTrigger value="appointments">Agendamentos</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="info" className="space-y-4 mt-4">
+                  <div className="flex gap-2 flex-wrap">
+                    {getStatusBadge(selectedClient.status)}
+                    {getPaymentStatusBadge(selectedClient.payment_status)}
+                    <Badge className={PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].color}>
+                      {PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].name}
+                    </Badge>
+                  </div>
 
-                {/* Contact Info */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Informações de Contato</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Telefone:</span>
-                      <span className="font-medium">{selectedClient.clientPhone}</span>
-                    </div>
-                    {selectedClient.clientEmail && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Email:</span>
-                        <span className="font-medium">{selectedClient.clientEmail}</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Plan Details */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Detalhes do Plano</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Valor Mensal:</span>
-                      <span className="font-bold text-green-600">
-                        R$ {selectedClient.monthlyPrice.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Data de Início:</span>
-                      <span className="font-medium">
-                        {new Date(selectedClient.startDate).toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Último Pagamento:</span>
-                      <span className="font-medium">
-                        {selectedClient.lastPaymentDate 
-                          ? new Date(selectedClient.lastPaymentDate).toLocaleDateString('pt-BR')
-                          : 'Nenhum pagamento registrado'
-                        }
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Próximo Vencimento:</span>
-                      <span className="font-medium">
-                        {new Date(selectedClient.nextPaymentDate).toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total de Visitas:</span>
-                      <span className="font-bold">{selectedClient.totalVisits}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Weekly Schedules */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Agendamentos Semanais</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {selectedClient.weeklySchedules.map((schedule, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <Calendar className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                              <div className="font-medium">{DAYS_OF_WEEK[schedule.dayOfWeek]}-feira</div>
-                              <div className="text-sm text-muted-foreground">{schedule.serviceType}</div>
-                            </div>
-                          </div>
-                          <div className="text-lg font-bold">{schedule.time}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Notes */}
-                {selectedClient.notes && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Observações</CardTitle>
+                      <CardTitle className="text-lg">Informações de Contato</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">{selectedClient.notes}</p>
+                    <CardContent className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Telefone:</span>
+                        <span className="font-medium">{selectedClient.client.phone}</span>
+                      </div>
+                      {selectedClient.client.email && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Email:</span>
+                          <span className="font-medium">{selectedClient.client.email}</span>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
-                )}
-              </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Detalhes do Plano</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Valor Mensal:</span>
+                        <span className="font-bold text-green-600">
+                          R$ {Number(selectedClient.monthly_price).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Data de Início:</span>
+                        <span className="font-medium">
+                          {new Date(selectedClient.start_date).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      {selectedClient.last_payment_date && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Último Pagamento:</span>
+                          <span className="font-medium">
+                            {new Date(selectedClient.last_payment_date).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Próximo Vencimento:</span>
+                        <span className="font-medium">
+                          {new Date(selectedClient.next_payment_date).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total de Visitas:</span>
+                        <span className="font-bold">{selectedClient.total_visits}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Horários Recorrentes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {selectedClient.schedules.map((schedule: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Calendar className="w-5 h-5 text-primary" />
+                              </div>
+                              <div>
+                                <div className="font-medium">{DAYS_OF_WEEK[schedule.day_of_week]}-feira</div>
+                                <div className="text-sm text-muted-foreground">{schedule.service_type}</div>
+                              </div>
+                            </div>
+                            <div className="text-lg font-bold">{schedule.time}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {selectedClient.notes && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Observações</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">{selectedClient.notes}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="appointments" className="space-y-4 mt-4">
+                  <MonthlyAppointmentsView 
+                    clientId={selectedClient.client_id}
+                    schedules={selectedClient.schedules}
+                  />
+                </TabsContent>
+              </Tabs>
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>
@@ -746,7 +674,7 @@ export default function MonthlyClientsPage() {
               <DialogHeader>
                 <DialogTitle className="text-2xl">Editar Horários</DialogTitle>
                 <DialogDescription>
-                  {clientToEdit.clientName} - Gerencie os horários semanais
+                  {clientToEdit.client.name} - Gerencie os horários semanais
                 </DialogDescription>
               </DialogHeader>
 
@@ -864,20 +792,20 @@ export default function MonthlyClientsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-orange-100 dark:bg-orange-900/20">
-              {clients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? (
+              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? (
                 <Play className="w-6 h-6 text-green-600 dark:text-green-500" />
               ) : (
                 <Pause className="w-6 h-6 text-orange-600 dark:text-orange-500" />
               )}
             </div>
             <AlertDialogTitle className="text-center text-xl">
-              {clients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
+              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
                 ? 'Reativar Plano Mensal?' 
                 : 'Suspender Plano Mensal?'
               }
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              {clients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
+              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
                 ? 'Esta ação irá reativar o plano mensal e os agendamentos recorrentes do cliente.'
                 : 'Esta ação irá suspender temporariamente o plano mensal e os agendamentos recorrentes. Você pode reativá-lo a qualquer momento.'
               }
@@ -887,12 +815,12 @@ export default function MonthlyClientsPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmSuspendPlan}
-              className={clients.find(c => c.id === clientToSuspend)?.status === 'suspended'
+              className={monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended'
                 ? "bg-green-600 hover:bg-green-700"
                 : "bg-orange-600 hover:bg-orange-700"
               }
             >
-              {clients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
+              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
                 ? 'Sim, Reativar Plano' 
                 : 'Sim, Suspender Plano'
               }
@@ -905,29 +833,9 @@ export default function MonthlyClientsPage() {
       <AddMonthlyClientModal
         open={addClientOpen}
         onClose={() => setAddClientOpen(false)}
-        onSuccess={(data) => {
-          const newClient: MonthlyClient = {
-            id: `mc_${Date.now()}`,
-            clientId: data.clientId,
-            clientName: data.clientName,
-            clientPhone: data.clientPhone,
-            clientEmail: data.clientEmail,
-            planType: data.planType,
-            monthlyPrice: data.monthlyPrice,
-            startDate: data.startDate,
-            status: 'active',
-            paymentStatus: 'pending',
-            nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            weeklySchedules: data.schedules.map((s: any) => ({
-              dayOfWeek: s.dayOfWeek,
-              time: s.time,
-              serviceType: s.serviceType
-            })),
-            totalVisits: 0,
-            notes: data.notes
-          };
-          
-          setClients(prev => [...prev, newClient]);
+        onSuccess={() => {
+          setAddClientOpen(false);
+          fetchMonthlyClients();
         }}
       />
     </div>
