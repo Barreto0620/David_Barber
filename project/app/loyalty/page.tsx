@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/lib/store';
 
 interface LoyaltyClient {
   id: string;
@@ -243,6 +244,8 @@ export default function LoyaltyPage() {
   const [rotation, setRotation] = useState(0);
   const [winner, setWinner] = useState<LoyaltyClient | null>(null);
   const [winnerDialogOpen, setWinnerDialogOpen] = useState(false);
+  
+  const { addNotification } = useAppStore();
 
   const weeklyClients = clients.filter(client => {
     const lastVisit = new Date(client.lastVisit);
@@ -290,6 +293,21 @@ export default function LoyaltyPage() {
           ? { ...c, freeHaircuts: c.freeHaircuts + 1 }
           : c
       ));
+      
+      // Adicionar notificação do sorteio
+      try {
+        addNotification({
+          type: 'system',
+          title: '🎉 Vencedor da Roleta da Sorte!',
+          message: `${selectedClient.name} ganhou 1 corte grátis no sorteio semanal!`,
+          clientName: selectedClient.name,
+          serviceType: 'Corte Grátis - Roleta',
+          scheduledDate: new Date(),
+        });
+        console.log('✅ Notificação criada com sucesso para:', selectedClient.name);
+      } catch (error) {
+        console.error('❌ Erro ao criar notificação:', error);
+      }
       
       toast.success(`🎉 ${selectedClient.name} ganhou 1 Corte Grátis na Roleta!`);
     }, 5000);
