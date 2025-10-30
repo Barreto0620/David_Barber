@@ -542,92 +542,114 @@ export default function LoyaltyPage() {
                   </CardContent>
                 </Card>
 
-                <div className="relative w-96 h-96 flex items-center justify-center">
+                <div className="relative w-[450px] h-[450px] flex items-center justify-center" style={{ marginTop: '50px' }}>
                   {weeklyClients.length > 0 ? (
                     <>
-                      <div className="absolute w-[360px] h-[360px] rounded-full border-4 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.5)] animate-pulse" />
+                      <div className="absolute w-[420px] h-[420px] rounded-full border-4 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.5)] animate-pulse" />
                       
-                      <div
-                        className="w-80 h-80 rounded-full border-8 border-amber-500 shadow-2xl relative overflow-hidden"
+                      <svg 
+                        className="w-[400px] h-[400px] absolute" 
+                        viewBox="0 0 400 400"
                         style={{
                           transform: `rotate(${rotation}deg)`,
                           transition: spinning ? 'transform 5s cubic-bezier(0.25, 0.1, 0.25, 1)' : 'none',
-                          background: `conic-gradient(${weeklyClients
-                            .map(
-                              (_, idx) => {
-                                const startPercent = (idx * 100) / weeklyClients.length;
-                                const endPercent = ((idx + 1) * 100) / weeklyClients.length;
-                                const colors = [
-                                  ['#ef4444', '#dc2626'],
-                                  ['#f59e0b', '#d97706'],
-                                  ['#10b981', '#059669'],
-                                  ['#3b82f6', '#2563eb'],
-                                  ['#8b5cf6', '#7c3aed'],
-                                  ['#ec4899', '#db2777'],
-                                  ['#14b8a6', '#0d9488'],
-                                  ['#f97316', '#ea580c'],
-                                ];
-                                const colorPair = colors[idx % colors.length];
-                                return `${colorPair[0]} ${startPercent}%, ${colorPair[1]} ${endPercent}%`;
-                              }
-                            )
-                            .join(', ')})`,
                           transformOrigin: 'center center'
                         }}
                       >
+                        <defs>
+                          {weeklyClients.map((_, idx) => {
+                            const colors = [
+                              ['#ef4444', '#dc2626'],
+                              ['#f59e0b', '#d97706'],
+                              ['#10b981', '#059669'],
+                              ['#3b82f6', '#2563eb'],
+                              ['#8b5cf6', '#7c3aed'],
+                              ['#ec4899', '#db2777'],
+                              ['#14b8a6', '#0d9488'],
+                              ['#f97316', '#ea580c'],
+                            ];
+                            const colorPair = colors[idx % colors.length];
+                            return (
+                              <linearGradient key={`grad-${idx}`} id={`grad-${idx}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style={{ stopColor: colorPair[0], stopOpacity: 1 }} />
+                                <stop offset="100%" style={{ stopColor: colorPair[1], stopOpacity: 1 }} />
+                              </linearGradient>
+                            );
+                          })}
+                        </defs>
+                        
                         {weeklyClients.map((client, idx) => {
-                          const angle = (idx * 360) / weeklyClients.length;
-                          const midAngle = angle + (180 / weeklyClients.length);
+                          const segmentAngle = 360 / weeklyClients.length;
+                          const startAngle = idx * segmentAngle - 90;
+                          const endAngle = (idx + 1) * segmentAngle - 90;
+                          
+                          const startX = 200 + 190 * Math.cos((startAngle * Math.PI) / 180);
+                          const startY = 200 + 190 * Math.sin((startAngle * Math.PI) / 180);
+                          const endX = 200 + 190 * Math.cos((endAngle * Math.PI) / 180);
+                          const endY = 200 + 190 * Math.sin((endAngle * Math.PI) / 180);
+                          const largeArcFlag = segmentAngle > 180 ? 1 : 0;
+                          
+                          const midAngle = startAngle + segmentAngle / 2;
+                          const textRadius = 140;
+                          const textX = 200 + textRadius * Math.cos((midAngle * Math.PI) / 180);
+                          const textY = 200 + textRadius * Math.sin((midAngle * Math.PI) / 180);
                           
                           return (
-                            <div key={client.id}>
-                              <div
-                                className="absolute w-full h-full flex items-center justify-center pointer-events-none"
+                            <g key={client.id}>
+                              <path
+                                d={`M 200 200 L ${startX} ${startY} A 190 190 0 ${largeArcFlag} 1 ${endX} ${endY} Z`}
+                                fill={`url(#grad-${idx})`}
+                              />
+                              <line
+                                x1="200"
+                                y1="200"
+                                x2={startX}
+                                y2={startY}
+                                stroke="rgba(255,255,255,0.3)"
+                                strokeWidth="2"
+                              />
+                              <text
+                                x={textX}
+                                y={textY}
+                                fill="white"
+                                fontSize="13"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                transform={`rotate(${midAngle}, ${textX}, ${textY})`}
                                 style={{
-                                  transform: `rotate(${midAngle}deg)`
+                                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))'
                                 }}
                               >
-                                <div 
-                                  className="text-[9px] font-extrabold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,1)] whitespace-nowrap tracking-tight"
-                                  style={{ 
-                                    transform: `translateY(-135px) rotate(90deg)`,
-                                    transformOrigin: 'center'
-                                  }}
-                                >
-                                  {client.name.split(' ')[0]}
-                                </div>
-                              </div>
-                              
-                              <div
-                                className="absolute top-0 left-1/2 w-0.5 h-full bg-white/30"
-                                style={{
-                                  transform: `rotate(${angle}deg)`,
-                                  transformOrigin: 'center'
-                                }}
-                              />
-                            </div>
+                                {client.name.split(' ')[0]}
+                              </text>
+                            </g>
                           );
                         })}
                         
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-amber-500 border-4 border-white shadow-lg flex items-center justify-center z-10">
-                          <Sparkles className="w-10 h-10 text-white" />
-                        </div>
+                        <circle cx="200" cy="200" r="190" fill="none" stroke="#f59e0b" strokeWidth="10" />
+                        <circle cx="200" cy="200" r="50" fill="#f59e0b" />
+                        <circle cx="200" cy="200" r="50" fill="none" stroke="white" strokeWidth="5" />
+                      </svg>
+                      
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20">
+                        <Sparkles className="w-12 h-12 text-white drop-shadow-lg" />
                       </div>
                       
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 z-20">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 z-30">
                         <div className="relative">
-                          <div className="w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[48px] border-t-red-600 drop-shadow-2xl" />
-                          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[40px] border-t-red-500" />
+                          <div className="w-0 h-0 border-l-[30px] border-l-transparent border-r-[30px] border-r-transparent border-t-[60px] border-t-red-600 drop-shadow-2xl" />
+                          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[48px] border-t-red-500" />
                         </div>
                       </div>
                       
                       {spinning && (
-                        <div className="absolute w-96 h-96 rounded-full bg-gradient-radial from-amber-500/20 to-transparent animate-ping" />
+                        <div className="absolute w-[450px] h-[450px] rounded-full bg-gradient-radial from-amber-500/20 to-transparent animate-ping pointer-events-none" />
                       )}
                     </>
                   ) : (
-                    <div className="w-80 h-80 rounded-full border-8 border-muted bg-muted/20 flex items-center justify-center">
-                      <p className="text-muted-foreground text-center">
+                    <div className="w-[400px] h-[400px] rounded-full border-8 border-muted bg-muted/20 flex items-center justify-center">
+                      <p className="text-muted-foreground text-center text-lg">
                         Nenhum cliente<br />elegível
                       </p>
                     </div>
