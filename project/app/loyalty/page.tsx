@@ -30,7 +30,6 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-// TIPOS MOCKADOS
 interface LoyaltyClient {
   id: string;
   name: string;
@@ -45,7 +44,6 @@ interface LoyaltySettings {
   cutsForFree: number;
 }
 
-// DADOS MOCKADOS - Datas ajustadas para esta semana
 const today = new Date();
 const getRecentDate = (daysAgo: number) => {
   const date = new Date(today);
@@ -162,6 +160,78 @@ const mockLoyaltyClients: LoyaltyClient[] = [
     lastVisit: getRecentDate(2),
     freeHaircuts: 0
   },
+  {
+    id: 'c13',
+    name: 'Bruno Alves',
+    phone: '(11) 98888-7777',
+    points: 4,
+    totalVisits: 21,
+    lastVisit: getRecentDate(1),
+    freeHaircuts: 0
+  },
+  {
+    id: 'c14',
+    name: 'Daniela Souza',
+    phone: '(11) 97777-6666',
+    points: 7,
+    totalVisits: 29,
+    lastVisit: getRecentDate(0),
+    freeHaircuts: 1
+  },
+  {
+    id: 'c15',
+    name: 'Eduardo Pires',
+    phone: '(11) 96666-5555',
+    points: 2,
+    totalVisits: 14,
+    lastVisit: getRecentDate(2),
+    freeHaircuts: 0
+  },
+  {
+    id: 'c16',
+    name: 'Fernanda Dias',
+    phone: '(11) 95555-4444',
+    points: 6,
+    totalVisits: 24,
+    lastVisit: getRecentDate(1),
+    freeHaircuts: 1
+  },
+  {
+    id: 'c17',
+    name: 'Gustavo Ribeiro',
+    phone: '(11) 94444-3333',
+    points: 3,
+    totalVisits: 17,
+    lastVisit: getRecentDate(3),
+    freeHaircuts: 0
+  },
+  {
+    id: 'c18',
+    name: 'Helena Castro',
+    phone: '(11) 93333-2222',
+    points: 8,
+    totalVisits: 33,
+    lastVisit: getRecentDate(0),
+    freeHaircuts: 1
+  },
+  {
+    id: 'c19',
+    name: 'Igor Moreira',
+    phone: '(11) 92222-1111',
+    points: 5,
+    totalVisits: 19,
+    lastVisit: getRecentDate(2),
+    freeHaircuts: 0
+  },
+  {
+    id: 'c20',
+    name: 'Julia Cardoso',
+    phone: '(11) 91111-0000',
+    points: 9,
+    totalVisits: 38,
+    lastVisit: getRecentDate(1),
+    freeHaircuts: 2
+  },
 ];
 
 export default function LoyaltyPage() {
@@ -169,14 +239,11 @@ export default function LoyaltyPage() {
   const [settings, setSettings] = useState<LoyaltySettings>({ cutsForFree: 10 });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tempCutsForFree, setTempCutsForFree] = useState(settings.cutsForFree);
-  
-  // Roleta
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [winner, setWinner] = useState<LoyaltyClient | null>(null);
   const [winnerDialogOpen, setWinnerDialogOpen] = useState(false);
 
-  // Clientes da semana (últimos 7 dias)
   const weeklyClients = clients.filter(client => {
     const lastVisit = new Date(client.lastVisit);
     const weekAgo = new Date();
@@ -184,7 +251,6 @@ export default function LoyaltyPage() {
     return lastVisit >= weekAgo;
   });
 
-  // Stats
   const totalPoints = clients.reduce((sum, c) => sum + c.points, 0);
   const totalFreeHaircuts = clients.reduce((sum, c) => sum + c.freeHaircuts, 0);
   const clientsNearReward = clients.filter(c => c.points >= settings.cutsForFree - 2).length;
@@ -202,30 +268,24 @@ export default function LoyaltyPage() {
     }
 
     setSpinning(true);
-    
-    // Sortear um cliente aleatório
     const randomIndex = Math.floor(Math.random() * weeklyClients.length);
     const selectedClient = weeklyClients[randomIndex];
-    
-    // Calcular rotação (múltiplos de 360 + posição do cliente)
     const segmentAngle = 360 / weeklyClients.length;
-    const targetRotation = 360 * 5 + (randomIndex * segmentAngle) + (segmentAngle / 2);
+    const targetAngle = 360 - (randomIndex * segmentAngle) - (segmentAngle / 2);
+    const targetRotation = rotation + 360 * 5 + targetAngle;
     
     setRotation(targetRotation);
     
-    // Após 4 segundos, mostrar vencedor
     setTimeout(() => {
       setSpinning(false);
       setWinner(selectedClient);
       setWinnerDialogOpen(true);
-      
-      // Adicionar corte grátis ao cliente
       setClients(prev => prev.map(c => 
         c.id === selectedClient.id 
           ? { ...c, freeHaircuts: c.freeHaircuts + 1 }
           : c
       ));
-    }, 4000);
+    }, 5000);
   };
 
   const redeemFreeHaircut = (clientId: string) => {
@@ -241,7 +301,6 @@ export default function LoyaltyPage() {
     setClients(prev => prev.map(c => {
       if (c.id === clientId) {
         const newPoints = c.points + 1;
-        const newFreeHaircuts = Math.floor(newPoints / settings.cutsForFree);
         const remainingPoints = newPoints % settings.cutsForFree;
         
         if (newPoints % settings.cutsForFree === 0 && newPoints > 0) {
@@ -262,7 +321,6 @@ export default function LoyaltyPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -282,7 +340,6 @@ export default function LoyaltyPage() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -291,9 +348,7 @@ export default function LoyaltyPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalPoints}</div>
-            <p className="text-xs text-muted-foreground">
-              Acumulados pelos clientes
-            </p>
+            <p className="text-xs text-muted-foreground">Acumulados pelos clientes</p>
           </CardContent>
         </Card>
 
@@ -304,9 +359,7 @@ export default function LoyaltyPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalFreeHaircuts}</div>
-            <p className="text-xs text-muted-foreground">
-              Prontos para resgatar
-            </p>
+            <p className="text-xs text-muted-foreground">Prontos para resgatar</p>
           </CardContent>
         </Card>
 
@@ -317,9 +370,7 @@ export default function LoyaltyPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{clientsNearReward}</div>
-            <p className="text-xs text-muted-foreground">
-              Faltam 2 cortes ou menos
-            </p>
+            <p className="text-xs text-muted-foreground">Faltam 2 cortes ou menos</p>
           </CardContent>
         </Card>
 
@@ -330,14 +381,11 @@ export default function LoyaltyPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{settings.cutsForFree}</div>
-            <p className="text-xs text-muted-foreground">
-              Cortes = 1 grátis
-            </p>
+            <p className="text-xs text-muted-foreground">Cortes = 1 grátis</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="cards" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="cards">
@@ -350,7 +398,6 @@ export default function LoyaltyPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* CARTÕES DE FIDELIDADE */}
         <TabsContent value="cards" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {clients.map((client) => {
@@ -388,7 +435,6 @@ export default function LoyaltyPage() {
                   </CardHeader>
 
                   <CardContent className="space-y-4">
-                    {/* Progress Bar */}
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Progresso:</span>
@@ -404,7 +450,6 @@ export default function LoyaltyPage() {
                       </div>
                     </div>
 
-                    {/* Pontos visuais */}
                     <div className="grid grid-cols-5 gap-2">
                       {Array.from({ length: settings.cutsForFree }).map((_, idx) => (
                         <div
@@ -421,7 +466,6 @@ export default function LoyaltyPage() {
                       ))}
                     </div>
 
-                    {/* Stats */}
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t text-sm">
                       <div>
                         <p className="text-muted-foreground">Total de Visitas:</p>
@@ -435,7 +479,6 @@ export default function LoyaltyPage() {
                       </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex gap-2 pt-2">
                       <Button
                         variant="outline"
@@ -465,7 +508,6 @@ export default function LoyaltyPage() {
           </div>
         </TabsContent>
 
-        {/* ROLETA DA SORTE */}
         <TabsContent value="wheel" className="space-y-4">
           <Card>
             <CardHeader>
@@ -479,7 +521,6 @@ export default function LoyaltyPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-col items-center space-y-6">
-                {/* Info */}
                 <Card className="w-full bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
                   <CardContent className="p-4 flex items-center gap-3">
                     <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -494,22 +535,33 @@ export default function LoyaltyPage() {
                   </CardContent>
                 </Card>
 
-                {/* Roleta */}
                 <div className="relative w-96 h-96 flex items-center justify-center">
                   {weeklyClients.length > 0 ? (
                     <>
+                      <div className="absolute w-[360px] h-[360px] rounded-full border-4 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.5)] animate-pulse" />
+                      
                       <div
-                        className="w-80 h-80 rounded-full border-8 border-primary shadow-2xl relative overflow-hidden"
+                        className="w-80 h-80 rounded-full border-8 border-amber-500 shadow-2xl relative overflow-hidden"
                         style={{
                           transform: `rotate(${rotation}deg)`,
-                          transition: spinning ? 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none',
+                          transition: spinning ? 'transform 5s cubic-bezier(0.25, 0.1, 0.25, 1)' : 'none',
                           background: `conic-gradient(${weeklyClients
                             .map(
                               (_, idx) => {
                                 const startPercent = (idx * 100) / weeklyClients.length;
                                 const endPercent = ((idx + 1) * 100) / weeklyClients.length;
-                                const hue = (idx * 360) / weeklyClients.length;
-                                return `hsl(${hue}, 70%, 60%) ${startPercent}%, hsl(${hue}, 70%, 60%) ${endPercent}%`;
+                                const colors = [
+                                  ['#ef4444', '#dc2626'],
+                                  ['#f59e0b', '#d97706'],
+                                  ['#10b981', '#059669'],
+                                  ['#3b82f6', '#2563eb'],
+                                  ['#8b5cf6', '#7c3aed'],
+                                  ['#ec4899', '#db2777'],
+                                  ['#14b8a6', '#0d9488'],
+                                  ['#f97316', '#ea580c'],
+                                ];
+                                const colorPair = colors[idx % colors.length];
+                                return `${colorPair[0]} ${startPercent}%, ${colorPair[1]} ${endPercent}%`;
                               }
                             )
                             .join(', ')})`
@@ -518,31 +570,58 @@ export default function LoyaltyPage() {
                         {weeklyClients.map((client, idx) => {
                           const angle = (idx * 360) / weeklyClients.length;
                           const midAngle = angle + (180 / weeklyClients.length);
+                          // Ajuste: considerando que 0° é o topo, invertemos a lógica
+                          const isLeftSide = midAngle > 180 && midAngle < 360;
+                          
                           return (
-                            <div
-                              key={client.id}
-                              className="absolute w-full h-full flex items-center justify-center"
-                              style={{
-                                transform: `rotate(${midAngle}deg)`
-                              }}
-                            >
-                              <div 
-                                className="text-sm font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-                                style={{ 
-                                  transform: 'translateY(-120px)',
+                            <div key={client.id}>
+                              <div
+                                className="absolute top-0 left-1/2 w-0.5 h-full bg-white/30"
+                                style={{
+                                  transform: `rotate(${angle}deg)`,
+                                  transformOrigin: 'center'
+                                }}
+                              />
+                              
+                              <div
+                                className="absolute w-full h-full flex items-center justify-center pointer-events-none"
+                                style={{
+                                  transform: `rotate(${midAngle}deg)`
                                 }}
                               >
-                                {client.name.split(' ')[0]}
+                                <div 
+                                  className="text-[9px] font-extrabold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,1)] whitespace-nowrap tracking-tight"
+                                  style={{ 
+                                    transform: isLeftSide 
+                                      ? `translateY(-145px) rotate(270deg)`
+                                      : `translateY(-145px) rotate(90deg)`,
+                                    transformOrigin: 'center',
+                                    writingMode: 'vertical-rl',
+                                    textOrientation: 'mixed'
+                                  }}
+                                >
+                                  {client.name.split(' ')[0]}
+                                </div>
                               </div>
                             </div>
                           );
                         })}
+                        
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-amber-500 border-4 border-white shadow-lg flex items-center justify-center z-10">
+                          <Sparkles className="w-10 h-10 text-white" />
+                        </div>
                       </div>
                       
-                      {/* Ponteiro */}
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 z-10">
-                        <div className="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[40px] border-t-red-500 drop-shadow-lg" />
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 z-20">
+                        <div className="relative">
+                          <div className="w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[48px] border-t-red-600 drop-shadow-2xl" />
+                          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[40px] border-t-red-500" />
+                        </div>
                       </div>
+                      
+                      {spinning && (
+                        <div className="absolute w-96 h-96 rounded-full bg-gradient-radial from-amber-500/20 to-transparent animate-ping" />
+                      )}
                     </>
                   ) : (
                     <div className="w-80 h-80 rounded-full border-8 border-muted bg-muted/20 flex items-center justify-center">
@@ -553,7 +632,6 @@ export default function LoyaltyPage() {
                   )}
                 </div>
 
-                {/* Botão Girar */}
                 <Button
                   size="lg"
                   className="w-full max-w-md h-14 text-lg font-bold"
@@ -573,7 +651,6 @@ export default function LoyaltyPage() {
                   )}
                 </Button>
 
-                {/* Lista de Elegíveis */}
                 <Card className="w-full">
                   <CardHeader>
                     <CardTitle className="text-lg">Clientes Elegíveis</CardTitle>
@@ -609,7 +686,6 @@ export default function LoyaltyPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent>
           <DialogHeader>
@@ -655,7 +731,6 @@ export default function LoyaltyPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Winner Dialog */}
       <Dialog open={winnerDialogOpen} onOpenChange={setWinnerDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
