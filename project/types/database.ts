@@ -1,4 +1,7 @@
 // types/database.ts
+// Estes são tipos auxiliares para uso no frontend
+// Os tipos principais vêm de lib/supabase.ts
+
 export interface Client {
   id: string;
   name: string;
@@ -24,10 +27,9 @@ export interface Appointment {
   created_via: 'whatsapp' | 'manual';
   completed_at?: string;
   notes?: string;
-  // Campos adicionais opcionais para melhor controle do timer
-  started_at?: string; // Quando o serviço foi iniciado
-  actual_duration?: number; // Duração real em minutos
-  service_quality_rating?: 1 | 2 | 3 | 4 | 5; // Avaliação do serviço (futuro)
+  started_at?: string;
+  actual_duration?: number;
+  service_quality_rating?: 1 | 2 | 3 | 4 | 5;
 }
 
 export interface Service {

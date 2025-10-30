@@ -19,10 +19,6 @@ const nextConfig = {
     return config;
   },
   
-  // Configurações experimentais para App Router
-  experimental: {
-    appDir: true,
-  },
 };
 
 module.exports = nextConfig;

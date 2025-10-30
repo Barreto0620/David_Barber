@@ -104,6 +104,7 @@ export const supabaseAdmin = supabaseServiceKey
 export type Client = Database['public']['Tables']['clients']['Row'];
 export type Appointment = Database['public']['Tables']['appointments']['Row'];
 export type Service = Database['public']['Tables']['services']['Row'];
+export type AppointmentUpdate = Database['public']['Tables']['appointments']['Update'];
 
 // Teste de conexão
 export async function testConnection() {
