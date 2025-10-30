@@ -271,47 +271,20 @@ export default function LoyaltyPage() {
     const randomIndex = Math.floor(Math.random() * weeklyClients.length);
     const selectedClient = weeklyClients[randomIndex];
     
-    // --- Lógica de Rotação Corrigida ---
-    
-    // 1. Ângulo de cada fatia
     const segmentAngle = 360 / weeklyClients.length;
-    
-    // 2. O centro da fatia sorteada (ex: fatia 0 = 45deg, fatia 1 = 135deg, etc., se houver 4 fatias)
     const targetOffset = (randomIndex * segmentAngle) + (segmentAngle / 2);
-    
-    // 3. O ângulo exato que a roleta precisa parar (visualmente)
-    //    para o marcador (no topo) apontar para o centro da fatia sorteada.
     const targetStopAngle = 360 - targetOffset; 
-    
-    // 4. Mínimo de 5 voltas completas
     const fullRotations = 5; 
-    
-    // 5. Esta é a mágica:
-    //    Calculamos quantas "voltas completas" a roleta JÁ DEU (rotation / 360).
-    //    Somamos as novas voltas (fullRotations).
-    //    Multiplicamos por 360 para ter a "base" da nova rotação.
-    //    Somamos o ângulo de parada (targetStopAngle).
-    
-    //    Ex: Giro 1: rotation = 0.
-    //    (Math.floor(0 / 360) + 5) * 360 + targetStopAngle = 1800 + targetStopAngle
-    //    
-    //    Ex: Giro 2: rotation = 1935 (parou em 135deg).
-    //    (Math.floor(1935 / 360) + 5) * 360 + newTargetAngle
-    //    = (5 + 5) * 360 + newTargetAngle
-    //    = 3600 + newTargetAngle
-    
     const currentFullTurns = Math.floor(rotation / 360);
     const targetRotation = (currentFullTurns + fullRotations) * 360 + targetStopAngle;
     
     setRotation(targetRotation);
-    // --- Fim da Lógica de Rotação ---
 
     setTimeout(() => {
       setSpinning(false);
       setWinner(selectedClient);
       setWinnerDialogOpen(true);
       
-      // Premia o cliente sorteado (o selectedClient)
       setClients(prev => prev.map(c => 
         c.id === selectedClient.id 
           ? { ...c, freeHaircuts: c.freeHaircuts + 1 }
@@ -319,7 +292,7 @@ export default function LoyaltyPage() {
       ));
       
       toast.success(`🎉 ${selectedClient.name} ganhou 1 Corte Grátis na Roleta!`);
-    }, 5000); // 5 segundos de animação
+    }, 5000);
   };
 
   const redeemFreeHaircut = (clientId: string) => {
@@ -335,27 +308,16 @@ export default function LoyaltyPage() {
     setClients(prev => prev.map(c => {
       if (c.id === clientId) {
         const newPoints = c.points + 1;
+        const remainingPoints = newPoints % settings.cutsForFree;
         
-        // Verifica se alcançou ou ultrapassou a meta
-        const isRewardAchieved = newPoints >= settings.cutsForFree;
-        
-        // Calcula o novo saldo de pontos (pontos atuais % cortesForFree)
-        const remainingPoints = isRewardAchieved ? newPoints % settings.cutsForFree : newPoints;
-        
-        if (isRewardAchieved) {
-            toast.success(`🎉 ${c.name} ganhou um corte grátis!`);
+        if (newPoints % settings.cutsForFree === 0 && newPoints > 0) {
+          toast.success(`🎉 ${c.name} ganhou um corte grátis!`);
         }
-        
-        // Determina quantos prêmios o cliente ganhou com essa adição (normalmente 0 ou 1)
-        // Se a soma ultrapassou a meta pela primeira vez: 1 prêmio.
-        // Se a soma foi 10 + 1 (11) e cortesForFree é 10, ganhou 1 prêmio.
-        const rewardsEarned = Math.floor((c.points + 1) / settings.cutsForFree) - Math.floor(c.points / settings.cutsForFree);
         
         return {
           ...c,
           points: remainingPoints,
-          // Garante que apenas 1 prêmio seja dado por atingir a meta
-          freeHaircuts: c.freeHaircuts + rewardsEarned, 
+          freeHaircuts: c.freeHaircuts + (newPoints >= settings.cutsForFree ? 1 : 0),
           totalVisits: c.totalVisits + 1,
           lastVisit: new Date().toISOString().split('T')[0]
         };
@@ -615,14 +577,27 @@ export default function LoyaltyPage() {
                       >
                         {weeklyClients.map((client, idx) => {
                           const angle = (idx * 360) / weeklyClients.length;
-                          const segmentAngle = 360 / weeklyClients.length; // Recalculado
-                          const midAngle = angle + (segmentAngle / 2);
-                          
-                          // Ajuste para alinhar o texto verticalmente ou horizontalmente dependendo da posição
-                          const textRotation = midAngle > 90 && midAngle < 270 ? midAngle + 180 : midAngle;
+                          const midAngle = angle + (180 / weeklyClients.length);
                           
                           return (
                             <div key={client.id}>
+                              <div
+                                className="absolute w-full h-full flex items-center justify-center pointer-events-none"
+                                style={{
+                                  transform: `rotate(${midAngle}deg)`
+                                }}
+                              >
+                                <div 
+                                  className="text-[9px] font-extrabold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,1)] whitespace-nowrap tracking-tight"
+                                  style={{ 
+                                    transform: `translateY(-135px) rotate(90deg)`,
+                                    transformOrigin: 'center'
+                                  }}
+                                >
+                                  {client.name.split(' ')[0]}
+                                </div>
+                              </div>
+                              
                               <div
                                 className="absolute top-0 left-1/2 w-0.5 h-full bg-white/30"
                                 style={{
@@ -630,26 +605,6 @@ export default function LoyaltyPage() {
                                   transformOrigin: 'center'
                                 }}
                               />
-                              
-                              <div
-                                className="absolute w-full h-full flex items-center justify-center pointer-events-none"
-                                style={{
-                                  transform: `rotate(${angle}deg)` // Rotação para a posição de início do segmento
-                                }}
-                              >
-                                <div 
-                                  className="text-[9px] font-extrabold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,1)] whitespace-nowrap tracking-tight"
-                                  style={{ 
-                                    // Move o texto para a metade do raio
-                                    transform: `rotate(${segmentAngle / 2}deg) translate(0, -145px) rotate(-${segmentAngle / 2}deg) rotate(-90deg)`,
-                                    transformOrigin: '0 100%',
-                                    writingMode: 'vertical-rl',
-                                    textOrientation: 'mixed'
-                                  }}
-                                >
-                                  {client.name.split(' ')[0]}
-                                </div>
-                              </div>
                             </div>
                           );
                         })}
