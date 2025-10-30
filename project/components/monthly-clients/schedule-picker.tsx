@@ -151,7 +151,11 @@ export function MonthlySchedulePicker({
 
     onSchedulesChange([
       ...selectedSchedules,
-      { date: dateStr, time: selectedTime, serviceType: selectedService }
+      { 
+        date: dateStr, 
+        time: selectedTime, 
+        serviceType: selectedService 
+      }
     ]);
 
     setIsTimeDialogOpen(false);
@@ -320,10 +324,10 @@ export function MonthlySchedulePicker({
           <CardContent>
             <div className="space-y-2">
               {selectedSchedules
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .sort((a, b) => new Date(a.date + 'T00:00:00').getTime() - new Date(b.date + 'T00:00:00').getTime())
                 .map((schedule, idx) => {
-                  const scheduleDate = new Date(schedule.date);
-                  const dayOfWeek = DAYS_OF_WEEK[getDay(scheduleDate)];
+                  const scheduleDate = new Date(schedule.date + 'T00:00:00');
+                  const dayOfWeek = DAYS_OF_WEEK[scheduleDate.getDay()];
                   
                   return (
                     <div
@@ -338,7 +342,7 @@ export function MonthlySchedulePicker({
                         <div>
                           <div className="text-xs text-muted-foreground mb-1">Data</div>
                           <div className="font-semibold">
-                            {format(scheduleDate, "dd/MM/yyyy", { locale: ptBR })}
+                            {scheduleDate.toLocaleDateString('pt-BR')}
                           </div>
                           <div className="text-xs text-muted-foreground">{dayOfWeek}</div>
                         </div>

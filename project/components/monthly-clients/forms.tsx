@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { MonthlySchedulePicker } from '@/components/monthly-clients/schedule-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +28,6 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
-import { MonthlySchedulePicker } from '@/components/monthly-clients/schedule-picker';
 
 const PLAN_TYPES = [
   { 
@@ -75,7 +75,7 @@ export function AddMonthlyClientModal({
   const [customPrice, setCustomPrice] = useState('');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [schedules, setSchedules] = useState<Array<{
-    dayOfWeek: number;
+    date: string;
     time: string;
     serviceType: string;
   }>>([]);
@@ -136,21 +136,53 @@ export function AddMonthlyClientModal({
     try {
       const finalPrice = customPrice ? parseFloat(customPrice) : selectedPlan.price;
 
+     // VERSÃO CORRIGIDA (DEDUPLICADA)
+      const uniqueSchedules = new Map<string, {
+        dayOfWeek: number;
+        time: string;
+        serviceType: string;
+      }>();
+
+      schedules.forEach(schedule => {
+        const [year, month, day] = schedule.date.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        const dayOfWeek = date.getDay();
+        const time = schedule.time;
+        
+        // A chave de unicidade é a combinação do dia da semana e da hora
+        const key = `${dayOfWeek}-${time}`;
+
+        // Só adiciona se essa combinação (dia, hora) ainda não existir
+        if (!uniqueSchedules.has(key)) {
+          uniqueSchedules.set(key, {
+            dayOfWeek: dayOfWeek,
+            time: time,
+            // Pega o tipo de serviço do primeiro que encontrar
+            serviceType: schedule.serviceType 
+          });
+        }
+      });
+
+      // Converte o Map de volta para um array
+      const convertedSchedules = Array.from(uniqueSchedules.values());
+
       const result = await addMonthlyClient({
         clientId: selectedClient.id,
         planType: planType as 'premium' | 'vip',
         monthlyPrice: finalPrice,
         startDate: startDate,
-        schedules: schedules,
+        schedules: convertedSchedules,
         notes: notes || undefined
       });
 
       if (result) {
+        toast.success('Cliente mensal criado com sucesso!');
         onSuccess?.();
         onClose();
       }
     } catch (error) {
       console.error('Erro ao criar plano mensal:', error);
+      toast.error('Erro ao criar plano mensal');
     } finally {
       setIsSubmitting(false);
     }
@@ -445,7 +477,7 @@ export function AddMonthlyClientModal({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Data de Início:</span>
                     <span className="font-medium">
-                      {new Date(startDate).toLocaleDateString('pt-BR')}
+                      {new Date(startDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                     </span>
                   </div>
                 </div>
@@ -456,21 +488,28 @@ export function AddMonthlyClientModal({
               <CardContent className="p-4">
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  Agendamentos Semanais ({schedules.length})
+                  Agendamentos ({schedules.length})
                 </h4>
                 <div className="space-y-2">
-                  {schedules.map((schedule, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][schedule.dayOfWeek]}
-                        </span>
-                        <span className="text-muted-foreground">•</span>
-                        <span>{schedule.time}</span>
+                  {schedules.map((schedule, idx) => {
+                    const [year, month, day] = schedule.date.split('-').map(Number);
+                    const scheduleDate = new Date(year, month - 1, day);
+                    const dayOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][scheduleDate.getDay()];
+                    const formattedDate = scheduleDate.toLocaleDateString('pt-BR');
+                    
+                    return (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-primary">{dayOfWeek}</span>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="font-semibold">{formattedDate}</span>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="font-mono font-semibold text-lg">{schedule.time}</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">{schedule.serviceType}</span>
                       </div>
-                      <span className="text-sm text-muted-foreground">{schedule.serviceType}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
