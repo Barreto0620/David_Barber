@@ -1,12 +1,7 @@
 // @ts-nocheck
 'use client';
 
-<<<<<<< HEAD
-import { useState, useMemo, useEffect } from 'react';
-
-=======
 import { useState, useMemo } from 'react';
->>>>>>> 5a12cca05a90ea08356fc9e1062c9ea7d2a7938d
 import { AddMonthlyClientModal } from '@/components/monthly-clients/forms';
 import { MonthlyAppointmentsView } from '@/components/monthly-clients/monthly-appointments-view';
 import { Button } from '@/components/ui/button';
@@ -185,23 +180,12 @@ export default function MonthlyClientsPage() {
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [clientToSuspend, setClientToSuspend] = useState<string | null>(null);
   const [editSchedulesOpen, setEditSchedulesOpen] = useState(false);
-<<<<<<< HEAD
-  const [clientToEdit, setClientToEdit] = useState<any>(null);
-  const [editingSchedules, setEditingSchedules] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetchMonthlyClients();
-    const unsubscribe = setupMonthlyClientsRealtime();
-    return () => unsubscribe?.();
-  }, []);
-=======
   const [clientToEdit, setClientToEdit] = useState<MonthlyClient | null>(null);
   const [editingSchedules, setEditingSchedules] = useState<{
     dayOfWeek: number;
     time: string;
     serviceType: string;
   }[]>([]);
->>>>>>> 5a12cca05a90ea08356fc9e1062c9ea7d2a7938d
 
   const stats = useMemo(() => {
     const active = clients.filter(c => c.status === 'active').length;
@@ -325,12 +309,10 @@ export default function MonthlyClientsPage() {
   };
 
   const getStatusColor = (client: MonthlyClient) => {
-    // Se estiver atrasado, vermelho
     if (client.paymentStatus === 'overdue') {
       return 'bg-red-500';
     }
     
-    // Verificar se está na semana do pagamento (próximos 7 dias) OU se está pendente
     const today = new Date();
     const nextPayment = new Date(client.nextPaymentDate);
     const daysUntilPayment = Math.ceil((nextPayment.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -339,7 +321,6 @@ export default function MonthlyClientsPage() {
       return 'bg-yellow-500';
     }
     
-    // Se está tudo ok, verde
     return 'bg-green-500';
   };
 
@@ -510,18 +491,12 @@ export default function MonthlyClientsPage() {
                   <div className={cn("w-3 h-3 rounded-full", getStatusColor(client))} />
                 </div>
                 
-<<<<<<< HEAD
                 <div className="flex gap-2 pt-2 flex-wrap">
-                  {getStatusBadge(mc.status)}
-                  {getPaymentStatusBadge(mc.payment_status)}
-                  <Badge className={PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].color}>
-                    {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].icon} {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].name}
-                  </Badge>
-=======
-                <div className="flex gap-2 pt-2">
                   {getStatusBadge(client.status)}
                   {getPaymentStatusBadge(client.paymentStatus)}
->>>>>>> 5a12cca05a90ea08356fc9e1062c9ea7d2a7938d
+                  <Badge className={PLAN_INFO[client.planType].color}>
+                    {PLAN_INFO[client.planType].icon} {PLAN_INFO[client.planType].name}
+                  </Badge>
                 </div>
               </CardHeader>
 
@@ -529,13 +504,6 @@ export default function MonthlyClientsPage() {
                 {/* Plan Info */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-<<<<<<< HEAD
-=======
-                    <span className="text-muted-foreground">Plano:</span>
-                    <span className="font-medium">{PLAN_INFO[client.planType].name}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
->>>>>>> 5a12cca05a90ea08356fc9e1062c9ea7d2a7938d
                     <span className="text-muted-foreground">Valor:</span>
                     <span className="font-bold text-green-600">
                       R$ {client.monthlyPrice.toFixed(2)}/mês
@@ -553,21 +521,8 @@ export default function MonthlyClientsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <CalendarClock className="w-4 h-4" />
-                    Horários ({mc.schedules.length}):
+                    Horários ({client.weeklySchedules.length}):
                   </div>
-<<<<<<< HEAD
-                  <div className="space-y-1">
-                    {mc.schedules.slice(0, 3).map((schedule: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
-                        <span className="font-medium">{DAYS_OF_WEEK[schedule.day_of_week]}</span>
-                        <span className="text-center">{schedule.time}</span>
-                        <span className="text-muted-foreground text-right truncate">{schedule.service_type}</span>
-                      </div>
-                    ))}
-                    {mc.schedules.length > 3 && (
-                      <div className="text-xs text-center text-muted-foreground pt-1">
-                        +{mc.schedules.length - 3} mais
-=======
                   <div className="space-y-1 min-h-[80px]">
                     {client.weeklySchedules.length > 0 ? (
                       client.weeklySchedules.map((schedule, idx) => (
@@ -582,7 +537,6 @@ export default function MonthlyClientsPage() {
                         <span className="font-medium">-</span>
                         <span className="text-center text-muted-foreground italic">A definir</span>
                         <span className="text-muted-foreground text-right">-</span>
->>>>>>> 5a12cca05a90ea08356fc9e1062c9ea7d2a7938d
                       </div>
                     )}
                   </div>
@@ -667,23 +621,6 @@ export default function MonthlyClientsPage() {
                 </DialogDescription>
               </DialogHeader>
 
-<<<<<<< HEAD
-              <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="info">Informações</TabsTrigger>
-                  <TabsTrigger value="appointments">Agendamentos</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="info" className="space-y-4 mt-4">
-                  <div className="flex gap-2 flex-wrap">
-                    {getStatusBadge(selectedClient.status)}
-                    {getPaymentStatusBadge(selectedClient.payment_status)}
-                    <Badge className={PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].color}>
-                      {PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].name}
-                    </Badge>
-                  </div>
-
-=======
               <div className="space-y-6">
                 {/* Status Badges */}
                 <div className="flex gap-2">
@@ -780,106 +717,16 @@ export default function MonthlyClientsPage() {
 
                 {/* Notes */}
                 {selectedClient.notes && (
->>>>>>> 5a12cca05a90ea08356fc9e1062c9ea7d2a7938d
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Informações de Contato</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Telefone:</span>
-                        <span className="font-medium">{selectedClient.client.phone}</span>
-                      </div>
-                      {selectedClient.client.email && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Email:</span>
-                          <span className="font-medium">{selectedClient.client.email}</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Detalhes do Plano</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Valor Mensal:</span>
-                        <span className="font-bold text-green-600">
-                          R$ {Number(selectedClient.monthly_price).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Data de Início:</span>
-                        <span className="font-medium">
-                          {new Date(selectedClient.start_date).toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
-                      {selectedClient.last_payment_date && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Último Pagamento:</span>
-                          <span className="font-medium">
-                            {new Date(selectedClient.last_payment_date).toLocaleDateString('pt-BR')}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Próximo Vencimento:</span>
-                        <span className="font-medium">
-                          {new Date(selectedClient.next_payment_date).toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total de Visitas:</span>
-                        <span className="font-bold">{selectedClient.total_visits}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Horários Recorrentes</CardTitle>
+                      <CardTitle className="text-lg">Observações</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3">
-                        {selectedClient.schedules.map((schedule: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Calendar className="w-5 h-5 text-primary" />
-                              </div>
-                              <div>
-                                <div className="font-medium">{DAYS_OF_WEEK[schedule.day_of_week]}-feira</div>
-                                <div className="text-sm text-muted-foreground">{schedule.service_type}</div>
-                              </div>
-                            </div>
-                            <div className="text-lg font-bold">{schedule.time}</div>
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-sm text-muted-foreground">{selectedClient.notes}</p>
                     </CardContent>
                   </Card>
-
-                  {selectedClient.notes && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">Observações</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">{selectedClient.notes}</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </TabsContent>
-                
-                <TabsContent value="appointments" className="space-y-4 mt-4">
-                  <MonthlyAppointmentsView 
-                    clientId={selectedClient.client_id}
-                    schedules={selectedClient.schedules}
-                  />
-                </TabsContent>
-              </Tabs>
+                )}
+              </div>
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>
