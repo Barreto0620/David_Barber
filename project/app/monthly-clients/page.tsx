@@ -3,6 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { AddMonthlyClientModal } from '@/components/monthly-clients/forms';
 import { MonthlyAppointmentsView } from '@/components/monthly-clients/monthly-appointments-view';
 import { Button } from '@/components/ui/button';
@@ -10,51 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { 
-  Search, 
-  Plus, 
-  UserCheck, 
-  Calendar, 
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  TrendingUp,
-  Users,
-  CreditCard,
-  Eye,
-  Trash2,
-  CalendarClock,
-  Pause,
-  Play,
-  Edit,
-  X
-} from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Search, Plus, UserCheck, Calendar, AlertTriangle, CheckCircle2, XCircle, Clock, TrendingUp, Users, CreditCard, Eye, Trash2, CalendarClock, Pause, Play, Edit, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -66,14 +26,23 @@ const PLAN_INFO = {
 
 const DAYS_OF_WEEK = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+interface EditingSchedule {
+  id?: string;
+  date: string;
+  time: string;
+  serviceType: string;
+}
+
 export default function MonthlyClientsPage() {
-  // 🔥 PUXANDO DO STORE
   const { 
     monthlyClients, 
     monthlyClientsLoading,
+    appointments,
     fetchMonthlyClients,
+    fetchAppointments,
     updateMonthlyClient,
-    updateMonthlySchedules,
+    updateAppointment,
+    deleteAppointment,
     deleteMonthlyClient,
     suspendMonthlyClient,
     reactivateMonthlyClient,
@@ -93,9 +62,8 @@ export default function MonthlyClientsPage() {
   const [clientToSuspend, setClientToSuspend] = useState<string | null>(null);
   const [editSchedulesOpen, setEditSchedulesOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<any>(null);
-  const [editingSchedules, setEditingSchedules] = useState<any[]>([]);
+  const [editingSchedules, setEditingSchedules] = useState<EditingSchedule[]>([]);
 
-  // 🔥 CARREGA DADOS DO BD
   useEffect(() => {
     fetchMonthlyClients();
     const unsubscribe = setupMonthlyClientsRealtime();
@@ -104,24 +72,17 @@ export default function MonthlyClientsPage() {
 
   const stats = useMemo(() => {
     const active = monthlyClients.filter(c => c.status === 'active').length;
-    const totalRevenue = monthlyClients
-      .filter(c => c.status === 'active')
-      .reduce((sum, c) => sum + Number(c.monthly_price), 0);
+    const totalRevenue = monthlyClients.filter(c => c.status === 'active').reduce((sum, c) => sum + Number(c.monthly_price), 0);
     const pendingPayments = monthlyClients.filter(c => c.payment_status === 'pending').length;
     const overduePayments = monthlyClients.filter(c => c.payment_status === 'overdue').length;
-
     return { active, totalRevenue, pendingPayments, overduePayments };
   }, [monthlyClients]);
 
   const filteredClients = useMemo(() => {
     return monthlyClients.filter(mc => {
-      const matchesSearch = 
-        mc.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        mc.client.phone.includes(searchTerm);
-      
+      const matchesSearch = mc.client.name.toLowerCase().includes(searchTerm.toLowerCase()) || mc.client.phone.includes(searchTerm);
       const matchesStatus = filterStatus === 'all' || mc.status === filterStatus;
       const matchesPayment = filterPayment === 'all' || mc.payment_status === filterPayment;
-
       return matchesSearch && matchesStatus && matchesPayment;
     });
   }, [monthlyClients, searchTerm, filterStatus, filterPayment]);
@@ -143,12 +104,8 @@ export default function MonthlyClientsPage() {
 
   const confirmSuspendPlan = async () => {
     if (!clientToSuspend) return;
-    
     const client = monthlyClients.find(c => c.id === clientToSuspend);
-    const success = client?.status === 'suspended' 
-      ? await reactivateMonthlyClient(clientToSuspend)
-      : await suspendMonthlyClient(clientToSuspend);
-    
+    const success = client?.status === 'suspended' ? await reactivateMonthlyClient(clientToSuspend) : await suspendMonthlyClient(clientToSuspend);
     if (success) {
       setSuspendDialogOpen(false);
       setClientToSuspend(null);
@@ -157,9 +114,7 @@ export default function MonthlyClientsPage() {
 
   const confirmCancelPlan = async () => {
     if (!clientToCancel) return;
-    
     const success = await deleteMonthlyClient(clientToCancel);
-    
     if (success) {
       setCancelDialogOpen(false);
       setClientToCancel(null);
@@ -171,84 +126,123 @@ export default function MonthlyClientsPage() {
   };
 
   const handleEditSchedules = (client: any) => {
+    const clientAppointments = appointments
+      .filter(apt => apt.client_id === client.client_id && apt.status !== 'cancelled' && apt.notes?.includes('Cliente Mensal'))
+      .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
+
     setClientToEdit(client);
-    setEditingSchedules(client.schedules.map((s: any) => ({
-      dayOfWeek: s.day_of_week,
-      time: s.time,
-      serviceType: s.service_type
-    })));
+    setEditingSchedules(clientAppointments.map((apt: any) => {
+      const aptDate = new Date(apt.scheduled_date);
+      return {
+        id: apt.id,
+        date: aptDate.toISOString().split('T')[0],
+        time: aptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        serviceType: apt.service_type
+      };
+    }));
     setEditSchedulesOpen(true);
   };
 
   const handleAddSchedule = () => {
-    setEditingSchedules(prev => [...prev, {
-      dayOfWeek: 1,
-      time: '09:00',
-      serviceType: ''
-    }]);
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    setEditingSchedules(prev => [...prev, { id: undefined, date: todayStr, time: '09:00', serviceType: '' }]);
   };
 
-  const handleRemoveSchedule = (index: number) => {
-    setEditingSchedules(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveSchedule = async (index: number) => {
+    const schedule = editingSchedules[index];
+    if (schedule.id) {
+      const success = await deleteAppointment(schedule.id);
+      if (success) {
+        setEditingSchedules(prev => prev.filter((_, i) => i !== index));
+        toast.success('Agendamento removido!');
+      }
+    } else {
+      setEditingSchedules(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const handleScheduleChange = (index: number, field: string, value: any) => {
-    setEditingSchedules(prev => prev.map((schedule, i) => 
-      i === index ? { ...schedule, [field]: value } : schedule
-    ));
+    setEditingSchedules(prev => prev.map((schedule, i) => i === index ? { ...schedule, [field]: value } : schedule));
   };
 
   const handleSaveSchedules = async () => {
     if (!clientToEdit) return;
+    try {
+      let hasErrors = false;
+      for (const schedule of editingSchedules) {
+        const [hours, minutes] = schedule.time.split(':');
+        const scheduledDate = new Date(schedule.date + 'T00:00:00');
+        scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-    const success = await updateMonthlySchedules(clientToEdit.id, editingSchedules);
-    
-    if (success) {
-      setEditSchedulesOpen(false);
-      setClientToEdit(null);
-      setEditingSchedules([]);
+        if (schedule.id) {
+          const success = await updateAppointment(schedule.id, {
+            scheduled_date: scheduledDate.toISOString(),
+            service_type: schedule.serviceType
+          });
+          if (!success) hasErrors = true;
+        } else {
+          const { data: userAuth } = await supabase.auth.getUser();
+          if (!userAuth.user) {
+            toast.error('Erro de autenticação');
+            return;
+          }
+          const { error } = await supabase.from('appointments').insert([{
+            client_id: clientToEdit.client_id,
+            scheduled_date: scheduledDate.toISOString(),
+            service_type: schedule.serviceType,
+            status: 'scheduled',
+            price: clientToEdit.monthly_price / editingSchedules.length,
+            payment_method: null,
+            created_via: 'manual',
+            notes: '🔄 Agendamento Recorrente - Cliente Mensal',
+            professional_id: userAuth.user.id
+          }]);
+          if (error) {
+            console.error('Erro ao criar agendamento:', error);
+            hasErrors = true;
+          }
+        }
+      }
+      if (hasErrors) {
+        toast.error('Alguns agendamentos não foram salvos');
+      } else {
+        toast.success('Agendamentos atualizados com sucesso!');
+        await fetchAppointments();
+        setEditSchedulesOpen(false);
+        setClientToEdit(null);
+        setEditingSchedules([]);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      toast.error('Erro ao salvar agendamentos');
     }
   };
 
   const getStatusColor = (mc: any) => {
-    if (mc.payment_status === 'overdue') {
-      return 'bg-red-500';
-    }
-    
+    if (mc.payment_status === 'overdue') return 'bg-red-500';
     const today = new Date();
     const nextPayment = new Date(mc.next_payment_date);
     const daysUntilPayment = Math.ceil((nextPayment.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if ((daysUntilPayment <= 7 && daysUntilPayment >= 0) || mc.payment_status === 'pending') {
-      return 'bg-yellow-500';
-    }
-    
+    if ((daysUntilPayment <= 7 && daysUntilPayment >= 0) || mc.payment_status === 'pending') return 'bg-yellow-500';
     return 'bg-green-500';
   };
 
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
-      case 'paid':
-        return <Badge className="bg-green-500"><CheckCircle2 className="w-3 h-3 mr-1" />Pago</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-500"><Clock className="w-3 h-3 mr-1" />Pendente</Badge>;
-      case 'overdue':
-        return <Badge className="bg-red-500"><XCircle className="w-3 h-3 mr-1" />Atrasado</Badge>;
-      default:
-        return null;
+      case 'paid': return <Badge className="bg-green-500"><CheckCircle2 className="w-3 h-3 mr-1" />Pago</Badge>;
+      case 'pending': return <Badge className="bg-yellow-500"><Clock className="w-3 h-3 mr-1" />Pendente</Badge>;
+      case 'overdue': return <Badge className="bg-red-500"><XCircle className="w-3 h-3 mr-1" />Atrasado</Badge>;
+      default: return null;
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge variant="outline" className="border-green-500 text-green-500">Ativo</Badge>;
-      case 'suspended':
-        return <Badge variant="outline" className="border-orange-500 text-orange-500">Suspenso</Badge>;
-      case 'inactive':
-        return <Badge variant="outline" className="border-gray-500 text-gray-500">Inativo</Badge>;
-      default:
-        return null;
+      case 'active': return <Badge variant="outline" className="border-green-500 text-green-500">Ativo</Badge>;
+      case 'suspended': return <Badge variant="outline" className="border-orange-500 text-orange-500">Suspenso</Badge>;
+      case 'inactive': return <Badge variant="outline" className="border-gray-500 text-gray-500">Inativo</Badge>;
+      default: return null;
     }
   };
 
@@ -270,9 +264,7 @@ export default function MonthlyClientsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Clientes Mensais</h1>
-          <p className="text-muted-foreground">
-            Gerencie planos mensais e agendamentos recorrentes
-          </p>
+          <p className="text-muted-foreground">Gerencie planos mensais e agendamentos recorrentes</p>
         </div>
         <Button onClick={() => setAddClientOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
@@ -280,7 +272,6 @@ export default function MonthlyClientsPage() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -289,9 +280,7 @@ export default function MonthlyClientsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.active}</div>
-            <p className="text-xs text-muted-foreground">
-              {monthlyClients.length} total
-            </p>
+            <p className="text-xs text-muted-foreground">{monthlyClients.length} total</p>
           </CardContent>
         </Card>
 
@@ -301,12 +290,8 @@ export default function MonthlyClientsPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              R$ {stats.totalRevenue.toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              De clientes ativos
-            </p>
+            <div className="text-2xl font-bold">R$ {stats.totalRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">De clientes ativos</p>
           </CardContent>
         </Card>
 
@@ -317,9 +302,7 @@ export default function MonthlyClientsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingPayments}</div>
-            <p className="text-xs text-muted-foreground">
-              Aguardando pagamento
-            </p>
+            <p className="text-xs text-muted-foreground">Aguardando pagamento</p>
           </CardContent>
         </Card>
 
@@ -330,31 +313,20 @@ export default function MonthlyClientsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-500">{stats.overduePayments}</div>
-            <p className="text-xs text-muted-foreground">
-              Requer atenção
-            </p>
+            <p className="text-xs text-muted-foreground">Requer atenção</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+              <Input placeholder="Buscar por nome ou telefone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
             </div>
-
             <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os Status</SelectItem>
                 <SelectItem value="active">Ativos</SelectItem>
@@ -362,11 +334,8 @@ export default function MonthlyClientsPage() {
                 <SelectItem value="inactive">Inativos</SelectItem>
               </SelectContent>
             </Select>
-
             <Select value={filterPayment} onValueChange={(v: any) => setFilterPayment(v)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Pagamento" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Pagamento" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos Pagamentos</SelectItem>
                 <SelectItem value="paid">Pagos</SelectItem>
@@ -378,175 +347,232 @@ export default function MonthlyClientsPage() {
         </CardContent>
       </Card>
 
-      {/* Clients List */}
       {filteredClients.length === 0 ? (
         <Card>
           <CardContent className="p-8">
             <div className="text-center">
               <UserCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-lg font-medium">Nenhum cliente mensal encontrado</p>
-              <p className="text-muted-foreground">
-                {searchTerm ? 'Tente ajustar sua busca' : 'Comece adicionando clientes mensais'}
-              </p>
+              <p className="text-muted-foreground">{searchTerm ? 'Tente ajustar sua busca' : 'Comece adicionando clientes mensais'}</p>
             </div>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map((mc) => (
-            <Card key={mc.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 flex-1">
-                    <CardTitle className="text-lg">{mc.client.name}</CardTitle>
-                    <CardDescription className="text-sm">
-                      {mc.client.phone}
-                    </CardDescription>
+          {filteredClients.map((mc) => {
+            const clientAppointments = appointments.filter(apt => apt.client_id === mc.client_id && apt.status !== 'cancelled' && apt.notes?.includes('Cliente Mensal'));
+            const sortedAppointments = clientAppointments.sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime()).slice(0, 3);
+            
+            return (
+              <Card key={mc.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 flex-1">
+                      <CardTitle className="text-lg">{mc.client.name}</CardTitle>
+                      <CardDescription className="text-sm">{mc.client.phone}</CardDescription>
+                    </div>
+                    <div className={cn("w-3 h-3 rounded-full", getStatusColor(mc))} />
                   </div>
-                  <div className={cn("w-3 h-3 rounded-full", getStatusColor(mc))} />
-                </div>
-                
-                <div className="flex gap-2 pt-2 flex-wrap">
-                  {getStatusBadge(mc.status)}
-                  {getPaymentStatusBadge(mc.payment_status)}
-                  <Badge className={PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].color}>
-                    {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].icon} {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].name}
-                  </Badge>
-                </div>
-              </CardHeader>
+                  <div className="flex gap-2 pt-2 flex-wrap">
+                    {getStatusBadge(mc.status)}
+                    {getPaymentStatusBadge(mc.payment_status)}
+                    <Badge className={PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].color}>
+                      {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].icon} {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].name}
+                    </Badge>
+                  </div>
+                </CardHeader>
 
-              <CardContent className="space-y-4">
-                {/* Plan Info */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Valor:</span>
-                    <span className="font-bold text-green-600">
-                      R$ {Number(mc.monthly_price).toFixed(2)}/mês
-                    </span>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Valor:</span>
+                      <span className="font-bold text-green-600">R$ {Number(mc.monthly_price).toFixed(2)}/mês</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Próximo Venc.:</span>
+                      <span className="font-medium">{new Date(mc.next_payment_date).toLocaleDateString('pt-BR')}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Próximo Venc.:</span>
-                    <span className="font-medium">
-                      {new Date(mc.next_payment_date).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
 
-                {/* Schedules */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <CalendarClock className="w-4 h-4" />
-                    Horários ({mc.schedules.length}):
-                  </div>
-                  <div className="space-y-1 min-h-[80px]">
-                    {mc.schedules.length > 0 ? (
-                      mc.schedules.slice(0, 3).map((schedule: any, idx: number) => (
-                        <div key={idx} className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
-                          <span className="font-medium">{DAYS_OF_WEEK[schedule.day_of_week]}</span>
-                          <span className="text-center">{schedule.time}</span>
-                          <span className="text-muted-foreground text-right truncate">{schedule.service_type}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <CalendarClock className="w-4 h-4" />
+                      Agendamentos ({clientAppointments.length}):
+                    </div>
+                    <div className="space-y-1 min-h-[80px]">
+                      {sortedAppointments.length > 0 ? (
+                        sortedAppointments.map((apt: any, idx: number) => {
+                          const aptDate = new Date(apt.scheduled_date);
+                          const dayOfWeek = DAYS_OF_WEEK[aptDate.getDay()];
+                          const dateStr = aptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                          const time = aptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                          return (
+                            <div key={idx} className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
+                              <span className="font-medium">{dayOfWeek} {dateStr}</span>
+                              <span className="text-center font-semibold">{time}</span>
+                              <span className="text-muted-foreground text-right truncate">{apt.service_type}</span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
+                          <span className="font-medium">-</span>
+                          <span className="text-center text-muted-foreground italic">Nenhum agendamento</span>
+                          <span className="text-muted-foreground text-right">-</span>
                         </div>
-                      ))
-                    ) : (
-                      <div className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
-                        <span className="font-medium">-</span>
-                        <span className="text-center text-muted-foreground italic">A definir</span>
-                        <span className="text-muted-foreground text-right">-</span>
-                      </div>
-                    )}
-                    {mc.schedules.length > 3 && (
-                      <div className="text-xs text-center text-muted-foreground pt-1">
-                        +{mc.schedules.length - 3} mais
-                      </div>
-                    )}
+                      )}
+                      {clientAppointments.length > 3 && (
+                        <div className="text-xs text-center text-muted-foreground pt-1">+{clientAppointments.length - 3} mais</div>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Stats */}
-                <div className="flex items-center justify-between text-sm pt-2 border-t">
-                  <span className="text-muted-foreground">Total de visitas:</span>
-                  <span className="font-bold">{mc.total_visits}</span>
-                </div>
+                  <div className="flex items-center justify-between text-sm pt-2 border-t">
+                    <span className="text-muted-foreground">Total de visitas:</span>
+                    <span className="font-bold">{mc.total_visits}</span>
+                  </div>
 
-                {/* Actions */}
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleViewDetails(mc)}
-                  >
-                    <Eye className="w-4 h-4 mr-1" />
-                    Detalhes
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditSchedules(mc)}
-                    title="Editar horários"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  
-                  {mc.payment_status !== 'paid' && mc.status === 'active' && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleMarkAsPaid(mc.id)}
-                      title="Marcar como pago"
-                    >
-                      <CreditCard className="w-4 h-4" />
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewDetails(mc)}>
+                      <Eye className="w-4 h-4 mr-1" />Detalhes
                     </Button>
-                  )}
-                  
-                  <Button
-                    variant={mc.status === 'suspended' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => handleSuspendPlan(mc.id)}
-                    className={mc.status === 'suspended' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
-                    title={mc.status === 'suspended' ? 'Reativar plano' : 'Suspender plano'}
-                  >
-                    {mc.status === 'suspended' ? (
-                      <Play className="w-4 h-4" />
-                    ) : (
-                      <Pause className="w-4 h-4" />
+                    <Button variant="outline" size="sm" onClick={() => handleEditSchedules(mc)} title="Editar horários">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    {mc.payment_status !== 'paid' && mc.status === 'active' && (
+                      <Button variant="default" size="sm" onClick={() => handleMarkAsPaid(mc.id)} title="Marcar como pago">
+                        <CreditCard className="w-4 h-4" />
+                      </Button>
                     )}
-                  </Button>
-                  
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleCancelPlan(mc.id)}
-                    title="Cancelar e excluir plano"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    <Button
+                      variant={mc.status === 'suspended' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleSuspendPlan(mc.id)}
+                      className={mc.status === 'suspended' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+                      title={mc.status === 'suspended' ? 'Reativar plano' : 'Suspender plano'}
+                    >
+                      {mc.status === 'suspended' ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleCancelPlan(mc.id)} title="Cancelar e excluir plano">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {/* View Details Dialog */}
+      <Dialog open={editSchedulesOpen} onOpenChange={setEditSchedulesOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {clientToEdit && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl">Editar Agendamentos</DialogTitle>
+                <DialogDescription>{clientToEdit.client.name} - Gerencie os agendamentos individuais</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {editingSchedules.map((schedule, index) => (
+                  <Card key={index}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Data</label>
+                              <Input type="date" value={schedule.date} onChange={(e) => handleScheduleChange(index, 'date', e.target.value)} min={new Date().toISOString().split('T')[0]} />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Horário</label>
+                              <Input type="time" value={schedule.time} onChange={(e) => handleScheduleChange(index, 'time', e.target.value)} />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Tipo de Serviço</label>
+                            <Input placeholder="Ex: Corte + Barba" value={schedule.serviceType} onChange={(e) => handleScheduleChange(index, 'serviceType', e.target.value)} />
+                          </div>
+                        </div>
+                        <Button variant="destructive" size="icon" onClick={() => handleRemoveSchedule(index)} disabled={editingSchedules.length === 1}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                <Button variant="outline" className="w-full" onClick={handleAddSchedule}>
+                  <Plus className="w-4 h-4 mr-2" />Adicionar Agendamento
+                </Button>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditSchedulesOpen(false)}>Cancelar</Button>
+                <Button onClick={handleSaveSchedules}>Salvar Alterações</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
+              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-500" />
+            </div>
+            <AlertDialogTitle className="text-center text-xl">Cancelar Plano Mensal?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">Esta ação irá cancelar o plano mensal do cliente e remover todos os agendamentos recorrentes automaticamente. Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Manter Plano</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancelPlan} className="bg-red-600 hover:bg-red-700">Sim, Cancelar Plano</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-orange-100 dark:bg-orange-900/20">
+              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? (
+                <Play className="w-6 h-6 text-green-600 dark:text-green-500" />
+              ) : (
+                <Pause className="w-6 h-6 text-orange-600 dark:text-orange-500" />
+              )}
+            </div>
+            <AlertDialogTitle className="text-center text-xl">
+              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? 'Reativar Plano Mensal?' : 'Suspender Plano Mensal?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
+                ? 'Esta ação irá reativar o plano mensal e os agendamentos recorrentes do cliente.'
+                : 'Esta ação irá suspender temporariamente o plano mensal e os agendamentos recorrentes. Você pode reativá-lo a qualquer momento.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmSuspendPlan}
+              className={monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? "bg-green-600 hover:bg-green-700" : "bg-orange-600 hover:bg-orange-700"}
+            >
+              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? 'Sim, Reativar Plano' : 'Sim, Suspender Plano'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedClient && (
             <>
               <DialogHeader>
                 <DialogTitle className="text-2xl">{selectedClient.client.name}</DialogTitle>
-                <DialogDescription>
-                  Detalhes completos do plano mensal
-                </DialogDescription>
+                <DialogDescription>Detalhes completos do plano mensal</DialogDescription>
               </DialogHeader>
-
               <Tabs defaultValue="info" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="info">Informações</TabsTrigger>
                   <TabsTrigger value="appointments">Agendamentos</TabsTrigger>
                 </TabsList>
-                
                 <TabsContent value="info" className="space-y-4 mt-4">
                   <div className="flex gap-2 flex-wrap">
                     {getStatusBadge(selectedClient.status)}
@@ -555,7 +581,6 @@ export default function MonthlyClientsPage() {
                       {PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].name}
                     </Badge>
                   </div>
-
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Informações de Contato</CardTitle>
@@ -573,7 +598,6 @@ export default function MonthlyClientsPage() {
                       )}
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Detalhes do Plano</CardTitle>
@@ -581,29 +605,21 @@ export default function MonthlyClientsPage() {
                     <CardContent className="space-y-3">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Valor Mensal:</span>
-                        <span className="font-bold text-green-600">
-                          R$ {Number(selectedClient.monthly_price).toFixed(2)}
-                        </span>
+                        <span className="font-bold text-green-600">R$ {Number(selectedClient.monthly_price).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Data de Início:</span>
-                        <span className="font-medium">
-                          {new Date(selectedClient.start_date).toLocaleDateString('pt-BR')}
-                        </span>
+                        <span className="font-medium">{new Date(selectedClient.start_date).toLocaleDateString('pt-BR')}</span>
                       </div>
                       {selectedClient.last_payment_date && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Último Pagamento:</span>
-                          <span className="font-medium">
-                            {new Date(selectedClient.last_payment_date).toLocaleDateString('pt-BR')}
-                          </span>
+                          <span className="font-medium">{new Date(selectedClient.last_payment_date).toLocaleDateString('pt-BR')}</span>
                         </div>
                       )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Próximo Vencimento:</span>
-                        <span className="font-medium">
-                          {new Date(selectedClient.next_payment_date).toLocaleDateString('pt-BR')}
-                        </span>
+                        <span className="font-medium">{new Date(selectedClient.next_payment_date).toLocaleDateString('pt-BR')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total de Visitas:</span>
@@ -611,31 +627,6 @@ export default function MonthlyClientsPage() {
                       </div>
                     </CardContent>
                   </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Horários Recorrentes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {selectedClient.schedules.map((schedule: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Calendar className="w-5 h-5 text-primary" />
-                              </div>
-                              <div>
-                                <div className="font-medium">{DAYS_OF_WEEK[schedule.day_of_week]}-feira</div>
-                                <div className="text-sm text-muted-foreground">{schedule.service_type}</div>
-                              </div>
-                            </div>
-                            <div className="text-lg font-bold">{schedule.time}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
                   {selectedClient.notes && (
                     <Card>
                       <CardHeader>
@@ -647,197 +638,19 @@ export default function MonthlyClientsPage() {
                     </Card>
                   )}
                 </TabsContent>
-                
                 <TabsContent value="appointments" className="space-y-4 mt-4">
-                  <MonthlyAppointmentsView 
-                    clientId={selectedClient.client_id}
-                    schedules={selectedClient.schedules}
-                  />
+                  <MonthlyAppointmentsView clientId={selectedClient.client_id} schedules={selectedClient.schedules} />
                 </TabsContent>
               </Tabs>
-
               <DialogFooter>
-                <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>
-                  Fechar
-                </Button>
+                <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>Fechar</Button>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Edit Schedules Dialog */}
-      <Dialog open={editSchedulesOpen} onOpenChange={setEditSchedulesOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          {clientToEdit && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-2xl">Editar Horários</DialogTitle>
-                <DialogDescription>
-                  {clientToEdit.client.name} - Gerencie os horários semanais
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                {editingSchedules.map((schedule, index) => (
-                  <Card key={index}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">Dia da Semana</label>
-                              <Select
-                                value={schedule.dayOfWeek.toString()}
-                                onValueChange={(v) => handleScheduleChange(index, 'dayOfWeek', parseInt(v))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {DAYS_OF_WEEK.map((day, idx) => (
-                                    <SelectItem key={idx} value={idx.toString()}>
-                                      {day}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">Horário</label>
-                              <Input
-                                type="time"
-                                value={schedule.time}
-                                onChange={(e) => handleScheduleChange(index, 'time', e.target.value)}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Tipo de Serviço</label>
-                            <Input
-                              placeholder="Ex: Corte + Barba"
-                              value={schedule.serviceType}
-                              onChange={(e) => handleScheduleChange(index, 'serviceType', e.target.value)}
-                            />
-                          </div>
-                        </div>
-
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => handleRemoveSchedule(index)}
-                          disabled={editingSchedules.length === 1}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleAddSchedule}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Horário
-                </Button>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setEditSchedulesOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleSaveSchedules}>
-                  Salvar Alterações
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Cancel Plan Dialog */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
-              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-500" />
-            </div>
-            <AlertDialogTitle className="text-center text-xl">
-              Cancelar Plano Mensal?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center">
-              Esta ação irá cancelar o plano mensal do cliente e remover todos os agendamentos
-              recorrentes automaticamente. Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Manter Plano</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmCancelPlan}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Sim, Cancelar Plano
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Suspend/Resume Plan Dialog */}
-      <AlertDialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-orange-100 dark:bg-orange-900/20">
-              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? (
-                <Play className="w-6 h-6 text-green-600 dark:text-green-500" />
-              ) : (
-                <Pause className="w-6 h-6 text-orange-600 dark:text-orange-500" />
-              )}
-            </div>
-            <AlertDialogTitle className="text-center text-xl">
-              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
-                ? 'Reativar Plano Mensal?' 
-                : 'Suspender Plano Mensal?'
-              }
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center">
-              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
-                ? 'Esta ação irá reativar o plano mensal e os agendamentos recorrentes do cliente.'
-                : 'Esta ação irá suspender temporariamente o plano mensal e os agendamentos recorrentes. Você pode reativá-lo a qualquer momento.'
-              }
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmSuspendPlan}
-              className={monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended'
-                ? "bg-green-600 hover:bg-green-700"
-                : "bg-orange-600 hover:bg-orange-700"
-              }
-            >
-              {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
-                ? 'Sim, Reativar Plano' 
-                : 'Sim, Suspender Plano'
-              }
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Add Client Modal */}
-      <AddMonthlyClientModal
-        open={addClientOpen}
-        onClose={() => setAddClientOpen(false)}
-        onSuccess={() => {
-          setAddClientOpen(false);
-          fetchMonthlyClients();
-        }}
-      />
+      <AddMonthlyClientModal open={addClientOpen} onClose={() => setAddClientOpen(false)} onSuccess={() => { setAddClientOpen(false); fetchMonthlyClients(); }} />
     </div>
   );
 }
