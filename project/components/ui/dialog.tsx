@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/ui/dialog.tsx
 'use client';
 

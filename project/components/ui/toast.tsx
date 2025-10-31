@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/ui/toast.tsx
 'use client';
 

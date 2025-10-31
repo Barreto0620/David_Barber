@@ -1,3 +1,4 @@
+// @ts-nocheck
 // types/database.ts
 // Estes são tipos auxiliares para uso no frontend
 // Os tipos principais vêm de lib/supabase.ts

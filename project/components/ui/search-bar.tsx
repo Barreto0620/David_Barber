@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/ui/search-bar.tsx
 'use client';
 

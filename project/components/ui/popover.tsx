@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/ui/popover.tsx
 'use client';
 

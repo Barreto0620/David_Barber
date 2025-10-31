@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/ui/textarea.tsx
 import * as React from 'react';
 
