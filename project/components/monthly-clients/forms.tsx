@@ -83,7 +83,6 @@ export function AddMonthlyClientModal({
   const [searchTerm, setSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Limpar formulário ao fechar
   useEffect(() => {
     if (!open) {
       setTimeout(() => {
@@ -99,7 +98,6 @@ export function AddMonthlyClientModal({
     }
   }, [open]);
 
-  // Pré-selecionar cliente
   useEffect(() => {
     if (open && preSelectedClientId) {
       setSelectedClientId(preSelectedClientId);
@@ -136,35 +134,22 @@ export function AddMonthlyClientModal({
     try {
       const finalPrice = customPrice ? parseFloat(customPrice) : selectedPlan.price;
 
-     // VERSÃO CORRIGIDA (DEDUPLICADA)
-      const uniqueSchedules = new Map<string, {
-        dayOfWeek: number;
-        time: string;
-        serviceType: string;
-      }>();
+      // 🔥 CORREÇÃO: Envia cada data como um agendamento individual
+      // Não agrupa por dia da semana - cada data escolhida é única
+      const convertedSchedules = schedules.map(schedule => {
+        const [year, month, day] = schedule.date.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        
+        return {
+          // Mantém a data COMPLETA para criar agendamento específico
+          fullDate: schedule.date,
+          dayOfWeek: date.getDay(),
+          time: schedule.time,
+          serviceType: schedule.serviceType
+        };
+      });
 
-      schedules.forEach(schedule => {
-        const [year, month, day] = schedule.date.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-        const dayOfWeek = date.getDay();
-        const time = schedule.time;
-        
-        // A chave de unicidade é a combinação do dia da semana e da hora
-        const key = `${dayOfWeek}-${time}`;
-
-        // Só adiciona se essa combinação (dia, hora) ainda não existir
-        if (!uniqueSchedules.has(key)) {
-          uniqueSchedules.set(key, {
-            dayOfWeek: dayOfWeek,
-            time: time,
-            // Pega o tipo de serviço do primeiro que encontrar
-            serviceType: schedule.serviceType 
-          });
-        }
-      });
-
-      // Converte o Map de volta para um array
-      const convertedSchedules = Array.from(uniqueSchedules.values());
+      console.log('📅 Datas específicas sendo enviadas:', convertedSchedules);
 
       const result = await addMonthlyClient({
         clientId: selectedClient.id,
@@ -176,7 +161,7 @@ export function AddMonthlyClientModal({
       });
 
       if (result) {
-        toast.success('Cliente mensal criado com sucesso!');
+        toast.success(`✅ Cliente mensal criado! ${convertedSchedules.length} agendamentos gerados.`);
         onSuccess?.();
         onClose();
       }
@@ -228,7 +213,6 @@ export function AddMonthlyClientModal({
 
         {renderStepIndicator()}
 
-        {/* STEP 1: Selecionar Cliente */}
         {step === 1 && (
           <div className="space-y-4">
             <div>
@@ -241,14 +225,12 @@ export function AddMonthlyClientModal({
               </p>
             </div>
 
-            <div className="relative">
-              <Input
-                placeholder="Buscar cliente por nome ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="mb-4"
-              />
-            </div>
+            <Input
+              placeholder="Buscar cliente por nome ou telefone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mb-4"
+            />
 
             <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2">
               {filteredClients.length === 0 ? (
@@ -292,7 +274,6 @@ export function AddMonthlyClientModal({
           </div>
         )}
 
-        {/* STEP 2: Escolher Plano */}
         {step === 2 && (
           <div className="space-y-4">
             <div>
@@ -357,42 +338,43 @@ export function AddMonthlyClientModal({
             </div>
 
             {planType && (
-              <div className="space-y-2">
-                <Label>Preço Personalizado (opcional)</Label>
-                <Input
-                  type="number"
-                  placeholder={`Padrão: R$ ${selectedPlan?.price}`}
-                  value={customPrice}
-                  onChange={(e) => setCustomPrice(e.target.value)}
-                  step="0.01"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Deixe em branco para usar o valor padrão do plano
-                </p>
-              </div>
-            )}
+              <>
+                <div className="space-y-2">
+                  <Label>Preço Personalizado (opcional)</Label>
+                  <Input
+                    type="number"
+                    placeholder={`Padrão: R$ ${selectedPlan?.price}`}
+                    value={customPrice}
+                    onChange={(e) => setCustomPrice(e.target.value)}
+                    step="0.01"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Deixe em branco para usar o valor padrão do plano
+                  </p>
+                </div>
 
-            <div className="space-y-2">
-              <Label>Data de Início do Plano</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label>Data de Início do Plano</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        {/* STEP 3: Configurar Agendamentos com Seletor Visual */}
         {step === 3 && (
           <div className="space-y-4">
             <div>
               <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
-                Agendamentos Semanais
+                Agendamentos do Mês
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Selecione os horários fixos semanais do cliente
+                Selecione as datas específicas para este mês
               </p>
             </div>
 
@@ -406,10 +388,10 @@ export function AddMonthlyClientModal({
                         Plano {selectedPlan.label}
                       </p>
                       <p className="text-blue-700 dark:text-blue-300">
-                        {selectedPlan.minSchedules === selectedPlan.maxSchedules
-                          ? `Selecione ${selectedPlan.minSchedules} horário(s)`
-                          : `Selecione de ${selectedPlan.minSchedules} a ${selectedPlan.maxSchedules} horários`
-                        }
+                        Selecione {selectedPlan.minSchedules === selectedPlan.maxSchedules
+                          ? `${selectedPlan.minSchedules} data(s) específica(s)`
+                          : `de ${selectedPlan.minSchedules} a ${selectedPlan.maxSchedules} datas`
+                        } no calendário
                       </p>
                     </div>
                   </div>
@@ -426,7 +408,6 @@ export function AddMonthlyClientModal({
           </div>
         )}
 
-        {/* STEP 4: Revisão */}
         {step === 4 && (
           <div className="space-y-4">
             <div>
@@ -491,25 +472,27 @@ export function AddMonthlyClientModal({
                   Agendamentos ({schedules.length})
                 </h4>
                 <div className="space-y-2">
-                  {schedules.map((schedule, idx) => {
-                    const [year, month, day] = schedule.date.split('-').map(Number);
-                    const scheduleDate = new Date(year, month - 1, day);
-                    const dayOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][scheduleDate.getDay()];
-                    const formattedDate = scheduleDate.toLocaleDateString('pt-BR');
-                    
-                    return (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-primary">{dayOfWeek}</span>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="font-semibold">{formattedDate}</span>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="font-mono font-semibold text-lg">{schedule.time}</span>
+                  {schedules
+                    .sort((a, b) => new Date(a.date + 'T00:00:00').getTime() - new Date(b.date + 'T00:00:00').getTime())
+                    .map((schedule, idx) => {
+                      const [year, month, day] = schedule.date.split('-').map(Number);
+                      const scheduleDate = new Date(year, month - 1, day);
+                      const dayOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][scheduleDate.getDay()];
+                      const formattedDate = scheduleDate.toLocaleDateString('pt-BR');
+                      
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-primary">{dayOfWeek}</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="font-semibold">{formattedDate}</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="font-mono font-semibold text-lg">{schedule.time}</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">{schedule.serviceType}</span>
                         </div>
-                        <span className="text-sm text-muted-foreground">{schedule.serviceType}</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </CardContent>
             </Card>

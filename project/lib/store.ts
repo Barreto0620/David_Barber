@@ -850,108 +850,138 @@ export const useAppStore = create<AppStore>()(
         return get().convertToMonthlyClient(data);
       },
 
-      convertToMonthlyClient: async (data) => {
-        try {
-          set({ monthlyClientsLoading: true });
-    
-          const { data: userAuth } = await supabase.auth.getUser();
-          if (!userAuth.user) throw new Error('Não autenticado');
-    
-          const client = get().clients.find(c => c.id === data.clientId);
-          if (!client) {
-            toast.error('Cliente não encontrado!');
-            set({ monthlyClientsLoading: false });
-            return null;
-          }
-    
-          const existing = get().monthlyClients.find(
-            mc => mc.client_id === data.clientId && mc.status === 'active'
-          );
-          
-          if (existing) {
-            toast.error('Este cliente já possui um plano mensal ativo!');
-            set({ monthlyClientsLoading: false });
-            return null;
-          }
-    
-          // 1. Cria o cliente mensal
-          const nextPaymentDate = new Date(data.startDate);
-          nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
-    
-          const { data: newMonthlyClient, error: mcError } = await supabase
-            .from('monthly_clients')
-            .insert([{
-              client_id: data.clientId,
-              plan_type: data.planType,
-              monthly_price: data.monthlyPrice,
-              start_date: data.startDate,
-              next_payment_date: nextPaymentDate.toISOString(),
-              status: 'active',
-              payment_status: 'pending',
-              total_visits: 0,
-              notes: data.notes || null
-            }])
-            .select()
-            .single();
-    
-          if (mcError) throw mcError;
-    
-          // 2. Cria os schedules semanais
-          if (data.schedules.length > 0) {
-            const schedulesToInsert = data.schedules.map(schedule => ({
-              monthly_client_id: newMonthlyClient.id,
-              day_of_week: schedule.dayOfWeek,
-              time: schedule.time,
-              service_type: schedule.serviceType,
-              active: true
-            }));
-    
-            const { error: schedulesError } = await supabase
-              .from('monthly_schedules')
-              .insert(schedulesToInsert);
-    
-            if (schedulesError) throw schedulesError;
-    
-            // 3. 🆕 CRIA OS AGENDAMENTOS RECORRENTES DO MÊS
-            const monthlyAppointments = generateMonthlyAppointments(
-              data.schedules,
-              data.clientId,
-              data.startDate,
-              data.monthlyPrice
-            );
-    
-            if (monthlyAppointments.length > 0) {
-              const appointmentsToInsert = monthlyAppointments.map(apt => ({
-                ...apt,
-                professional_id: userAuth.user.id
-              }));
-    
-              const { error: appointmentsError } = await supabase
-                .from('appointments')
-                .insert(appointmentsToInsert);
-    
-              if (appointmentsError) {
-                console.error('Erro ao criar agendamentos:', appointmentsError);
-                toast.error('Plano criado, mas houve erro ao gerar os agendamentos');
-              } else {
-                toast.success(`✅ ${client.name} agora é cliente mensal! ${monthlyAppointments.length} agendamentos criados.`);
-              }
-    
-              // Atualiza appointments localmente
-              await get().fetchAppointments();
-            }
-          }
-    
-          await get().fetchMonthlyClients();
-          set({ monthlyClientsLoading: false });
-          return newMonthlyClient;
-        } catch (error) {
-          console.error('❌ Erro ao converter para cliente mensal:', error);
-          toast.error('Erro ao criar plano mensal');
-          set({ monthlyClientsLoading: false });
-          return null;
-        }
-      },
+     convertToMonthlyClient: async (data) => {
+  try {
+    set({ monthlyClientsLoading: true });
+
+    const { data: userAuth } = await supabase.auth.getUser();
+    if (!userAuth.user) throw new Error('Não autenticado');
+
+    const client = get().clients.find(c => c.id === data.clientId);
+    if (!client) {
+      toast.error('Cliente não encontrado!');
+      set({ monthlyClientsLoading: false });
+      return null;
+    }
+
+    const existing = get().monthlyClients.find(
+      mc => mc.client_id === data.clientId && mc.status === 'active'
+    );
+    
+    if (existing) {
+      toast.error('Este cliente já possui um plano mensal ativo!');
+      set({ monthlyClientsLoading: false });
+      return null;
+    }
+
+    // 1. Cria o cliente mensal
+    const nextPaymentDate = new Date(data.startDate);
+    nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
+
+    const { data: newMonthlyClient, error: mcError } = await supabase
+      .from('monthly_clients')
+      .insert([{
+        client_id: data.clientId,
+        plan_type: data.planType,
+        monthly_price: data.monthlyPrice,
+        start_date: data.startDate,
+        next_payment_date: nextPaymentDate.toISOString(),
+        status: 'active',
+        payment_status: 'pending',
+        total_visits: 0,
+        notes: data.notes || null
+      }])
+      .select()
+      .single();
+
+    if (mcError) throw mcError;
+
+    // 2. 🔥 Cria schedules ÚNICOS (agrupa por dia_da_semana + horário)
+    if (data.schedules.length > 0) {
+      // Agrupa schedules para evitar duplicatas na tabela monthly_schedules
+      const uniqueSchedulesMap = new Map<string, typeof data.schedules[0]>();
+      
+      data.schedules.forEach(schedule => {
+        const key = `${schedule.dayOfWeek}-${schedule.time}`;
+        if (!uniqueSchedulesMap.has(key)) {
+          uniqueSchedulesMap.set(key, schedule);
+        }
+      });
+
+      const uniqueSchedules = Array.from(uniqueSchedulesMap.values());
+
+      // Insere schedules únicos
+      const schedulesToInsert = uniqueSchedules.map(schedule => ({
+        monthly_client_id: newMonthlyClient.id,
+        day_of_week: schedule.dayOfWeek,
+        time: schedule.time,
+        service_type: schedule.serviceType,
+        active: true
+      }));
+
+      const { error: schedulesError } = await supabase
+        .from('monthly_schedules')
+        .insert(schedulesToInsert);
+
+      if (schedulesError) {
+        console.error('Erro ao criar schedules:', schedulesError);
+        throw schedulesError;
+      }
+
+      // 3. 🔥 Cria agendamentos INDIVIDUAIS para cada data escolhida
+      const pricePerVisit = data.schedules.length > 0 
+        ? data.monthlyPrice / data.schedules.length 
+        : data.monthlyPrice;
+
+      const appointmentsToInsert = data.schedules.map(schedule => {
+        // Usa fullDate se disponível, senão usa startDate
+        const dateToUse = (schedule as any).fullDate || data.startDate;
+        
+        // Combina data com horário
+        const [hours, minutes] = schedule.time.split(':');
+        const scheduledDate = new Date(dateToUse + 'T00:00:00');
+        scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+        return {
+          client_id: data.clientId,
+          scheduled_date: scheduledDate.toISOString(),
+          service_type: schedule.serviceType,
+          status: 'scheduled',
+          price: pricePerVisit,
+          payment_method: null,
+          created_via: 'manual',
+          notes: '🔄 Agendamento Recorrente - Cliente Mensal',
+          professional_id: userAuth.user.id
+        };
+      });
+
+      console.log(`📅 Criando ${appointmentsToInsert.length} agendamentos individuais:`, appointmentsToInsert);
+
+      const { error: appointmentsError } = await supabase
+        .from('appointments')
+        .insert(appointmentsToInsert);
+
+      if (appointmentsError) {
+        console.error('Erro ao criar agendamentos:', appointmentsError);
+        toast.error('Plano criado, mas houve erro ao gerar os agendamentos');
+      } else {
+        toast.success(`✅ ${client.name} agora é cliente mensal! ${appointmentsToInsert.length} agendamentos criados.`);
+      }
+
+      // Atualiza appointments localmente
+      await get().fetchAppointments();
+    }
+
+    await get().fetchMonthlyClients();
+    set({ monthlyClientsLoading: false });
+    return newMonthlyClient;
+  } catch (error) {
+    console.error('❌ Erro ao converter para cliente mensal:', error);
+    toast.error('Erro ao criar plano mensal');
+    set({ monthlyClientsLoading: false });
+    return null;
+  }
+},
 
       convertToNormalClient: async (monthlyClientId) => {
         try {
