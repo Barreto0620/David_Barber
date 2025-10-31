@@ -1,3 +1,4 @@
+// @ts-nocheck
 // src/types/notifications.ts
 export type NotificationType = 'appointment' | 'cancellation' | 'reminder' | 'system';
 

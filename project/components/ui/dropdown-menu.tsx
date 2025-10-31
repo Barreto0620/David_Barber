@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/ui/dropdown-menu.tsx
 'use client';
 

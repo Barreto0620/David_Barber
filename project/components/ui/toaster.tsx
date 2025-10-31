@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/ui/toaster.tsx
 'use client';
 

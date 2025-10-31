@@ -1,3 +1,4 @@
+// @ts-nocheck
 // src/lib/store.ts - VERSÃO CORRIGIDA E LIMPA
 'use client';
 

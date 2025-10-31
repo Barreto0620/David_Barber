@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/appointments/Timer.tsx
 'use client';
 

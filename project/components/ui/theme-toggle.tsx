@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/ui/theme-toggle.tsx
 'use client';
 

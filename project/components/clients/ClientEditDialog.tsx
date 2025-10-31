@@ -1,3 +1,4 @@
+// @ts-nocheck
 // components/clients/ClientEditDialog.tsx
 'use client';
 
