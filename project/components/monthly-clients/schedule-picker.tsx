@@ -76,6 +76,7 @@ export function MonthlySchedulePicker({
   const [isTimeDialogOpen, setIsTimeDialogOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('09:00');
   const [selectedService, setSelectedService] = useState(SERVICE_TYPES[0]);
+  const [showLimitDialog, setShowLimitDialog] = useState(false);
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
@@ -85,28 +86,52 @@ export function MonthlySchedulePicker({
     return eachDayOfInterval({ start: startDate, end: endDate });
   }, [currentMonth]);
 
-  // 🆕 Conta quantos agendamentos existem em cada dia
   const getAppointmentsCountForDate = (date: Date): number => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayOfWeek = getDay(date);
 
     let count = 0;
 
-    // Conta agendamentos de clientes mensais
+    const allAppointmentsOnDate = appointments.filter(apt => {
+      const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
+      return aptDate === dateStr;
+    });
+
     monthlyClients.forEach(mc => {
       if (currentClientId && mc.client_id === currentClientId) return;
       if (mc.status !== 'active') return;
+      
       mc.schedules.forEach(schedule => {
-        if (schedule.day_of_week === dayOfWeek) count++;
+        if (schedule.day_of_week === dayOfWeek && schedule.active) {
+          const scheduleTime = schedule.time.substring(0, 5);
+          
+          const hasCancelledAtThisTime = allAppointmentsOnDate.some(apt => {
+            const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
+            return apt.status === 'cancelled' && 
+                   apt.client_id === mc.client_id && 
+                   aptTime === scheduleTime;
+          });
+          
+          const hasActiveAtThisTime = allAppointmentsOnDate.some(apt => {
+            const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
+            return apt.status !== 'cancelled' && 
+                   apt.client_id === mc.client_id && 
+                   aptTime === scheduleTime;
+          });
+          
+          if (!hasCancelledAtThisTime || hasActiveAtThisTime) {
+            count++;
+          }
+        }
       });
     });
 
-    // Conta agendamentos normais
-    appointments.forEach(apt => {
-      if (apt.status === 'cancelled') return;
+    const activeAppointments = appointments.filter(apt => {
       const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
-      if (aptDate === dateStr) count++;
+      return aptDate === dateStr && apt.status !== 'cancelled';
     });
+
+    count += activeAppointments.length;
 
     return count;
   };
@@ -120,50 +145,66 @@ export function MonthlySchedulePicker({
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayOfWeek = getDay(date);
 
-    // Verifica clientes mensais
+    const hasCancelledAtThisSlot = appointments.some(apt => {
+      const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
+      const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
+      return apt.status === 'cancelled' && aptDate === dateStr && aptTime === time;
+    });
+
+    if (hasCancelledAtThisSlot) {
+      return false;
+    }
+
     const occupiedByMonthly = monthlyClients.some(mc => {
       if (currentClientId && mc.client_id === currentClientId) return false;
       if (mc.status !== 'active') return false;
-      return mc.schedules.some(schedule => 
-        schedule.day_of_week === dayOfWeek && schedule.time === time
-      );
+      return mc.schedules.some(schedule => {
+        const normalizedScheduleTime = schedule.time.substring(0, 5);
+        return schedule.day_of_week === dayOfWeek && normalizedScheduleTime === time && schedule.active;
+      });
     });
 
     if (occupiedByMonthly) return true;
 
-    // Verifica agendamentos normais
     const occupiedByAppointment = appointments.some(apt => {
-      if (apt.status === 'cancelled') return false;
       const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
       const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
-      return aptDate === dateStr && aptTime === time;
+      return aptDate === dateStr && aptTime === time && apt.status !== 'cancelled';
     });
 
     return occupiedByAppointment;
   };
 
-  // 🆕 Retorna lista de horários ocupados para uma data
   const getOccupiedSlotsForDate = (date: Date): string[] => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayOfWeek = getDay(date);
     const occupied: string[] = [];
 
-    // Horários de clientes mensais
+    const cancelledSlots = appointments
+      .filter(apt => {
+        const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
+        return apt.status === 'cancelled' && aptDate === dateStr;
+      })
+      .map(apt => format(new Date(apt.scheduled_date), 'HH:mm'));
+
     monthlyClients.forEach(mc => {
       if (currentClientId && mc.client_id === currentClientId) return;
       if (mc.status !== 'active') return;
       mc.schedules.forEach(schedule => {
-        if (schedule.day_of_week === dayOfWeek) {
-          occupied.push(schedule.time);
+        if (schedule.day_of_week === dayOfWeek && schedule.active) {
+          const normalizedTime = schedule.time.substring(0, 5);
+          
+          if (!cancelledSlots.includes(normalizedTime)) {
+            occupied.push(normalizedTime);
+          }
         }
       });
     });
 
-    // Horários de agendamentos normais
     appointments.forEach(apt => {
-      if (apt.status === 'cancelled') return;
       const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
-      if (aptDate === dateStr) {
+      
+      if (aptDate === dateStr && apt.status !== 'cancelled') {
         const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
         occupied.push(aptTime);
       }
@@ -180,6 +221,20 @@ export function MonthlySchedulePicker({
       return;
     }
 
+    if (selectedSchedules.length >= maxSchedules) {
+      setShowLimitDialog(true);
+      return;
+    }
+
+    const occupiedSlots = getOccupiedSlotsForDate(date);
+    const firstAvailable = TIME_SLOTS.find(slot => !occupiedSlots.includes(slot));
+    
+    if (firstAvailable) {
+      setSelectedTime(firstAvailable);
+    } else {
+      setSelectedTime(TIME_SLOTS[0]);
+    }
+
     setSelectedDate(date);
     setIsTimeDialogOpen(true);
   };
@@ -188,7 +243,7 @@ export function MonthlySchedulePicker({
     if (!selectedDate) return;
 
     if (selectedSchedules.length >= maxSchedules) {
-      alert(`Você já atingiu o limite de ${maxSchedules} agendamentos!`);
+      setShowLimitDialog(true);
       return;
     }
 
@@ -321,7 +376,7 @@ export function MonthlySchedulePicker({
               const schedules = getSchedulesForDate(day);
               const hasSchedules = schedules.length > 0;
               const appointmentsCount = getAppointmentsCountForDate(day);
-              const hasExistingAppointments = appointmentsCount > 0;
+              const hasExistingAppointments = appointmentsCount > 0 && isCurrentMonth && !isPast;
 
               return (
                 <button
@@ -340,7 +395,6 @@ export function MonthlySchedulePicker({
                 >
                   <div className="text-center">{format(day, 'd')}</div>
                   
-                  {/* 🆕 Indicador de agendamentos existentes (pontinho laranja) */}
                   {hasExistingAppointments && isCurrentMonth && !isPast && (
                     <div className="absolute top-1 right-1">
                       <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" 
@@ -348,7 +402,6 @@ export function MonthlySchedulePicker({
                     </div>
                   )}
 
-                  {/* Indicador de agendamentos selecionados */}
                   {hasSchedules && (
                     <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-0.5">
                       {schedules.map((_, i) => (
@@ -491,7 +544,15 @@ export function MonthlySchedulePicker({
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold">Horário</label>
-              <Select value={selectedTime} onValueChange={setSelectedTime}>
+              <Select 
+                value={selectedTime} 
+                onValueChange={(value) => {
+                  const isOccupied = selectedDate && isSlotOccupied(selectedDate, value);
+                  if (!isOccupied) {
+                    setSelectedTime(value);
+                  }
+                }}
+              >
                 <SelectTrigger className="h-12">
                   <SelectValue />
                 </SelectTrigger>
@@ -585,6 +646,52 @@ export function MonthlySchedulePicker({
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={showLimitDialog} onOpenChange={setShowLimitDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center mb-4">
+              <span className="text-4xl">⚠️</span>
+            </div>
+            <DialogTitle className="text-center text-2xl">
+              Limite Atingido!
+            </DialogTitle>
+            <DialogDescription className="text-center text-base pt-2">
+              Você já atingiu o limite de <strong>{maxSchedules} agendamentos</strong> para o plano {planInfo.name}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-200 dark:border-orange-800">
+            <CardContent className="p-4">
+              <div className="text-center space-y-2">
+                <div className="text-3xl font-bold text-orange-600">
+                  {selectedSchedules.length} / {maxSchedules}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Agendamentos selecionados
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-2 pt-2">
+            <p className="text-sm text-muted-foreground text-center">
+              Para adicionar mais agendamentos, você pode:
+            </p>
+            <ul className="text-sm space-y-1 pl-6">
+              <li>✅ Remover um agendamento existente</li>
+              <li>✅ Ou escolher um plano com mais visitas</li>
+            </ul>
+          </div>
+
+          <Button 
+            onClick={() => setShowLimitDialog(false)}
+            className="w-full h-12"
+          >
+            Entendi
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
