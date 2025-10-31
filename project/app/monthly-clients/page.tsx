@@ -6,6 +6,7 @@ import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { AddMonthlyClientModal } from '@/components/monthly-clients/forms';
 import { MonthlyAppointmentsView } from '@/components/monthly-clients/monthly-appointments-view';
+import { MonthlySchedulePicker } from '@/components/monthly-clients/schedule-picker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,13 +26,6 @@ const PLAN_INFO = {
 };
 
 const DAYS_OF_WEEK = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-interface EditingSchedule {
-  id?: string;
-  date: string;
-  time: string;
-  serviceType: string;
-}
 
 export default function MonthlyClientsPage() {
   const { 
@@ -62,7 +56,7 @@ export default function MonthlyClientsPage() {
   const [clientToSuspend, setClientToSuspend] = useState<string | null>(null);
   const [editSchedulesOpen, setEditSchedulesOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<any>(null);
-  const [editingSchedules, setEditingSchedules] = useState<EditingSchedule[]>([]);
+  const [editingSchedules, setEditingSchedules] = useState<Array<{date: string; time: string; serviceType: string}>>([]);
 
   useEffect(() => {
     fetchMonthlyClients();
@@ -130,89 +124,73 @@ export default function MonthlyClientsPage() {
       .filter(apt => apt.client_id === client.client_id && apt.status !== 'cancelled' && apt.notes?.includes('Cliente Mensal'))
       .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
 
-    setClientToEdit(client);
-    setEditingSchedules(clientAppointments.map((apt: any) => {
+    const schedules = clientAppointments.map((apt: any) => {
       const aptDate = new Date(apt.scheduled_date);
       return {
-        id: apt.id,
         date: aptDate.toISOString().split('T')[0],
         time: aptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false }),
         serviceType: apt.service_type
       };
-    }));
+    });
+
+    setClientToEdit(client);
+    setEditingSchedules(schedules);
     setEditSchedulesOpen(true);
-  };
-
-  const handleAddSchedule = () => {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    setEditingSchedules(prev => [...prev, { id: undefined, date: todayStr, time: '09:00', serviceType: '' }]);
-  };
-
-  const handleRemoveSchedule = async (index: number) => {
-    const schedule = editingSchedules[index];
-    if (schedule.id) {
-      const success = await deleteAppointment(schedule.id);
-      if (success) {
-        setEditingSchedules(prev => prev.filter((_, i) => i !== index));
-        toast.success('Agendamento removido!');
-      }
-    } else {
-      setEditingSchedules(prev => prev.filter((_, i) => i !== index));
-    }
-  };
-
-  const handleScheduleChange = (index: number, field: string, value: any) => {
-    setEditingSchedules(prev => prev.map((schedule, i) => i === index ? { ...schedule, [field]: value } : schedule));
   };
 
   const handleSaveSchedules = async () => {
     if (!clientToEdit) return;
+    
     try {
-      let hasErrors = false;
-      for (const schedule of editingSchedules) {
+      // 1. Remove todos os agendamentos antigos
+      const oldAppointments = appointments.filter(apt => 
+        apt.client_id === clientToEdit.client_id && 
+        apt.status !== 'cancelled' && 
+        apt.notes?.includes('Cliente Mensal')
+      );
+
+      for (const apt of oldAppointments) {
+        await deleteAppointment(apt.id);
+      }
+
+      // 2. Cria novos agendamentos
+      const { data: userAuth } = await supabase.auth.getUser();
+      if (!userAuth.user) {
+        toast.error('Erro de autenticação');
+        return;
+      }
+
+      const pricePerVisit = editingSchedules.length > 0 
+        ? clientToEdit.monthly_price / editingSchedules.length 
+        : clientToEdit.monthly_price;
+
+      const appointmentsToInsert = editingSchedules.map(schedule => {
         const [hours, minutes] = schedule.time.split(':');
         const scheduledDate = new Date(schedule.date + 'T00:00:00');
         scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-        if (schedule.id) {
-          const success = await updateAppointment(schedule.id, {
-            scheduled_date: scheduledDate.toISOString(),
-            service_type: schedule.serviceType
-          });
-          if (!success) hasErrors = true;
-        } else {
-          const { data: userAuth } = await supabase.auth.getUser();
-          if (!userAuth.user) {
-            toast.error('Erro de autenticação');
-            return;
-          }
-          const { error } = await supabase.from('appointments').insert([{
-            client_id: clientToEdit.client_id,
-            scheduled_date: scheduledDate.toISOString(),
-            service_type: schedule.serviceType,
-            status: 'scheduled',
-            price: clientToEdit.monthly_price / editingSchedules.length,
-            payment_method: null,
-            created_via: 'manual',
-            notes: '🔄 Agendamento Recorrente - Cliente Mensal',
-            professional_id: userAuth.user.id
-          }]);
-          if (error) {
-            console.error('Erro ao criar agendamento:', error);
-            hasErrors = true;
-          }
-        }
-      }
-      if (hasErrors) {
-        toast.error('Alguns agendamentos não foram salvos');
-      } else {
-        toast.success('Agendamentos atualizados com sucesso!');
-        await fetchAppointments();
-        setEditSchedulesOpen(false);
-        setClientToEdit(null);
-        setEditingSchedules([]);
-      }
+        return {
+          client_id: clientToEdit.client_id,
+          scheduled_date: scheduledDate.toISOString(),
+          service_type: schedule.serviceType,
+          status: 'scheduled',
+          price: pricePerVisit,
+          payment_method: null,
+          created_via: 'manual',
+          notes: '🔄 Agendamento Recorrente - Cliente Mensal',
+          professional_id: userAuth.user.id
+        };
+      });
+
+      const { error } = await supabase.from('appointments').insert(appointmentsToInsert);
+      
+      if (error) throw error;
+
+      toast.success('Agendamentos atualizados com sucesso!');
+      await fetchAppointments();
+      setEditSchedulesOpen(false);
+      setClientToEdit(null);
+      setEditingSchedules([]);
     } catch (error) {
       console.error('Erro ao salvar:', error);
       toast.error('Erro ao salvar agendamentos');
@@ -360,8 +338,9 @@ export default function MonthlyClientsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredClients.map((mc) => {
-            const clientAppointments = appointments.filter(apt => apt.client_id === mc.client_id && apt.status !== 'cancelled' && apt.notes?.includes('Cliente Mensal'));
-            const sortedAppointments = clientAppointments.sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime()).slice(0, 3);
+            const clientAppointments = appointments
+              .filter(apt => apt.client_id === mc.client_id && apt.status !== 'cancelled' && apt.notes?.includes('Cliente Mensal'))
+              .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
             
             return (
               <Card key={mc.id} className="hover:shadow-lg transition-shadow">
@@ -399,9 +378,9 @@ export default function MonthlyClientsPage() {
                       <CalendarClock className="w-4 h-4" />
                       Agendamentos ({clientAppointments.length}):
                     </div>
-                    <div className="space-y-1 min-h-[80px]">
-                      {sortedAppointments.length > 0 ? (
-                        sortedAppointments.map((apt: any, idx: number) => {
+                    <div className="space-y-1 max-h-[200px] overflow-y-auto pr-1">
+                      {clientAppointments.length > 0 ? (
+                        clientAppointments.map((apt: any, idx: number) => {
                           const aptDate = new Date(apt.scheduled_date);
                           const dayOfWeek = DAYS_OF_WEEK[aptDate.getDay()];
                           const dateStr = aptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -420,9 +399,6 @@ export default function MonthlyClientsPage() {
                           <span className="text-center text-muted-foreground italic">Nenhum agendamento</span>
                           <span className="text-muted-foreground text-right">-</span>
                         </div>
-                      )}
-                      {clientAppointments.length > 3 && (
-                        <div className="text-xs text-center text-muted-foreground pt-1">+{clientAppointments.length - 3} mais</div>
                       )}
                     </div>
                   </div>
@@ -465,45 +441,23 @@ export default function MonthlyClientsPage() {
       )}
 
       <Dialog open={editSchedulesOpen} onOpenChange={setEditSchedulesOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           {clientToEdit && (
             <>
               <DialogHeader>
                 <DialogTitle className="text-2xl">Editar Agendamentos</DialogTitle>
-                <DialogDescription>{clientToEdit.client.name} - Gerencie os agendamentos individuais</DialogDescription>
+                <DialogDescription>
+                  {clientToEdit.client.name} - Gerencie os agendamentos do mês
+                </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                {editingSchedules.map((schedule, index) => (
-                  <Card key={index}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">Data</label>
-                              <Input type="date" value={schedule.date} onChange={(e) => handleScheduleChange(index, 'date', e.target.value)} min={new Date().toISOString().split('T')[0]} />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">Horário</label>
-                              <Input type="time" value={schedule.time} onChange={(e) => handleScheduleChange(index, 'time', e.target.value)} />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Tipo de Serviço</label>
-                            <Input placeholder="Ex: Corte + Barba" value={schedule.serviceType} onChange={(e) => handleScheduleChange(index, 'serviceType', e.target.value)} />
-                          </div>
-                        </div>
-                        <Button variant="destructive" size="icon" onClick={() => handleRemoveSchedule(index)} disabled={editingSchedules.length === 1}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                <Button variant="outline" className="w-full" onClick={handleAddSchedule}>
-                  <Plus className="w-4 h-4 mr-2" />Adicionar Agendamento
-                </Button>
-              </div>
+
+              <MonthlySchedulePicker
+                maxSchedules={clientToEdit.plan_type === 'premium' ? 2 : 4}
+                selectedSchedules={editingSchedules}
+                onSchedulesChange={setEditingSchedules}
+                currentClientId={clientToEdit.client_id}
+              />
+
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditSchedulesOpen(false)}>Cancelar</Button>
                 <Button onClick={handleSaveSchedules}>Salvar Alterações</Button>
