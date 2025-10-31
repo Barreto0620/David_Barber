@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, CheckCircle2, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, ChevronLeft, ChevronRight, Trash2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay, startOfWeek, endOfWeek } from 'date-fns';
@@ -85,6 +85,32 @@ export function MonthlySchedulePicker({
     return eachDayOfInterval({ start: startDate, end: endDate });
   }, [currentMonth]);
 
+  // 🆕 Conta quantos agendamentos existem em cada dia
+  const getAppointmentsCountForDate = (date: Date): number => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const dayOfWeek = getDay(date);
+
+    let count = 0;
+
+    // Conta agendamentos de clientes mensais
+    monthlyClients.forEach(mc => {
+      if (currentClientId && mc.client_id === currentClientId) return;
+      if (mc.status !== 'active') return;
+      mc.schedules.forEach(schedule => {
+        if (schedule.day_of_week === dayOfWeek) count++;
+      });
+    });
+
+    // Conta agendamentos normais
+    appointments.forEach(apt => {
+      if (apt.status === 'cancelled') return;
+      const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
+      if (aptDate === dateStr) count++;
+    });
+
+    return count;
+  };
+
   const getSchedulesForDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return selectedSchedules.filter(s => s.date === dateStr);
@@ -94,6 +120,7 @@ export function MonthlySchedulePicker({
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayOfWeek = getDay(date);
 
+    // Verifica clientes mensais
     const occupiedByMonthly = monthlyClients.some(mc => {
       if (currentClientId && mc.client_id === currentClientId) return false;
       if (mc.status !== 'active') return false;
@@ -104,6 +131,7 @@ export function MonthlySchedulePicker({
 
     if (occupiedByMonthly) return true;
 
+    // Verifica agendamentos normais
     const occupiedByAppointment = appointments.some(apt => {
       if (apt.status === 'cancelled') return false;
       const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
@@ -112,6 +140,36 @@ export function MonthlySchedulePicker({
     });
 
     return occupiedByAppointment;
+  };
+
+  // 🆕 Retorna lista de horários ocupados para uma data
+  const getOccupiedSlotsForDate = (date: Date): string[] => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const dayOfWeek = getDay(date);
+    const occupied: string[] = [];
+
+    // Horários de clientes mensais
+    monthlyClients.forEach(mc => {
+      if (currentClientId && mc.client_id === currentClientId) return;
+      if (mc.status !== 'active') return;
+      mc.schedules.forEach(schedule => {
+        if (schedule.day_of_week === dayOfWeek) {
+          occupied.push(schedule.time);
+        }
+      });
+    });
+
+    // Horários de agendamentos normais
+    appointments.forEach(apt => {
+      if (apt.status === 'cancelled') return;
+      const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
+      if (aptDate === dateStr) {
+        const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
+        occupied.push(aptTime);
+      }
+    });
+
+    return [...new Set(occupied)].sort();
   };
 
   const handleDateClick = (date: Date) => {
@@ -135,7 +193,7 @@ export function MonthlySchedulePicker({
     }
 
     if (isSlotOccupied(selectedDate, selectedTime)) {
-      alert('Este horário já está ocupado!');
+      alert('Este horário já está ocupado por outro cliente!');
       return;
     }
 
@@ -262,6 +320,8 @@ export function MonthlySchedulePicker({
               const isToday = isSameDay(day, today);
               const schedules = getSchedulesForDate(day);
               const hasSchedules = schedules.length > 0;
+              const appointmentsCount = getAppointmentsCountForDate(day);
+              const hasExistingAppointments = appointmentsCount > 0;
 
               return (
                 <button
@@ -279,6 +339,16 @@ export function MonthlySchedulePicker({
                   )}
                 >
                   <div className="text-center">{format(day, 'd')}</div>
+                  
+                  {/* 🆕 Indicador de agendamentos existentes (pontinho laranja) */}
+                  {hasExistingAppointments && isCurrentMonth && !isPast && (
+                    <div className="absolute top-1 right-1">
+                      <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" 
+                           title={`${appointmentsCount} agendamento(s) existente(s)`} />
+                    </div>
+                  )}
+
+                  {/* Indicador de agendamentos selecionados */}
                   {hasSchedules && (
                     <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-0.5">
                       {schedules.map((_, i) => (
@@ -291,14 +361,20 @@ export function MonthlySchedulePicker({
             })}
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-4 text-sm text-muted-foreground">
+          <div className="mt-4 flex items-center justify-center gap-4 text-sm text-muted-foreground flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-muted/50 border" />
               <span>Disponível</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-green-500" />
-              <span>Com agendamento</span>
+              <span>Seu agendamento</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-muted/50 border relative">
+                <div className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-orange-500" />
+              </div>
+              <span>Com agendamentos</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-muted-foreground/30" />
@@ -390,6 +466,28 @@ export function MonthlySchedulePicker({
             </DialogDescription>
           </DialogHeader>
 
+          {selectedDate && getOccupiedSlotsForDate(selectedDate).length > 0 && (
+            <Card className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
+              <CardContent className="p-3">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-medium text-orange-900 dark:text-orange-100 mb-1">
+                      Horários ocupados neste dia:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {getOccupiedSlotsForDate(selectedDate).map(time => (
+                        <Badge key={time} variant="secondary" className="text-xs bg-orange-100 dark:bg-orange-900">
+                          {time}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold">Horário</label>
@@ -478,7 +576,8 @@ export function MonthlySchedulePicker({
                 <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                   <li>✅ Clique em qualquer dia disponível do calendário</li>
                   <li>✅ Escolha o horário e serviço desejado</li>
-                  <li>✅ Dias com agendamento ficam destacados em verde</li>
+                  <li>✅ Dias com 🟠 pontinho laranja têm agendamentos existentes</li>
+                  <li>✅ Horários ocupados ficam bloqueados automaticamente</li>
                   <li>✅ Você pode agendar até {maxSchedules} vezes no mês</li>
                 </ul>
               </div>
