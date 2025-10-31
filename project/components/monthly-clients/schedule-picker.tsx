@@ -88,52 +88,14 @@ export function MonthlySchedulePicker({
 
   const getAppointmentsCountForDate = (date: Date): number => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    const dayOfWeek = getDay(date);
 
-    let count = 0;
-
-    const allAppointmentsOnDate = appointments.filter(apt => {
-      const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
-      return aptDate === dateStr;
-    });
-
-    monthlyClients.forEach(mc => {
-      if (currentClientId && mc.client_id === currentClientId) return;
-      if (mc.status !== 'active') return;
-      
-      mc.schedules.forEach(schedule => {
-        if (schedule.day_of_week === dayOfWeek && schedule.active) {
-          const scheduleTime = schedule.time.substring(0, 5);
-          
-          const hasCancelledAtThisTime = allAppointmentsOnDate.some(apt => {
-            const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
-            return apt.status === 'cancelled' && 
-                   apt.client_id === mc.client_id && 
-                   aptTime === scheduleTime;
-          });
-          
-          const hasActiveAtThisTime = allAppointmentsOnDate.some(apt => {
-            const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
-            return apt.status !== 'cancelled' && 
-                   apt.client_id === mc.client_id && 
-                   aptTime === scheduleTime;
-          });
-          
-          if (!hasCancelledAtThisTime || hasActiveAtThisTime) {
-            count++;
-          }
-        }
-      });
-    });
-
+    // Conta SOMENTE agendamentos reais criados neste dia
     const activeAppointments = appointments.filter(apt => {
       const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
       return aptDate === dateStr && apt.status !== 'cancelled';
     });
 
-    count += activeAppointments.length;
-
-    return count;
+    return activeAppointments.length;
   };
 
   const getSchedulesForDate = (date: Date) => {
@@ -143,29 +105,8 @@ export function MonthlySchedulePicker({
 
   const isSlotOccupied = (date: Date, time: string): boolean => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    const dayOfWeek = getDay(date);
 
-    const hasCancelledAtThisSlot = appointments.some(apt => {
-      const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
-      const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
-      return apt.status === 'cancelled' && aptDate === dateStr && aptTime === time;
-    });
-
-    if (hasCancelledAtThisSlot) {
-      return false;
-    }
-
-    const occupiedByMonthly = monthlyClients.some(mc => {
-      if (currentClientId && mc.client_id === currentClientId) return false;
-      if (mc.status !== 'active') return false;
-      return mc.schedules.some(schedule => {
-        const normalizedScheduleTime = schedule.time.substring(0, 5);
-        return schedule.day_of_week === dayOfWeek && normalizedScheduleTime === time && schedule.active;
-      });
-    });
-
-    if (occupiedByMonthly) return true;
-
+    // Verifica SOMENTE agendamentos reais neste dia/horário
     const occupiedByAppointment = appointments.some(apt => {
       const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
       const aptTime = format(new Date(apt.scheduled_date), 'HH:mm');
@@ -177,30 +118,9 @@ export function MonthlySchedulePicker({
 
   const getOccupiedSlotsForDate = (date: Date): string[] => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    const dayOfWeek = getDay(date);
     const occupied: string[] = [];
 
-    const cancelledSlots = appointments
-      .filter(apt => {
-        const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
-        return apt.status === 'cancelled' && aptDate === dateStr;
-      })
-      .map(apt => format(new Date(apt.scheduled_date), 'HH:mm'));
-
-    monthlyClients.forEach(mc => {
-      if (currentClientId && mc.client_id === currentClientId) return;
-      if (mc.status !== 'active') return;
-      mc.schedules.forEach(schedule => {
-        if (schedule.day_of_week === dayOfWeek && schedule.active) {
-          const normalizedTime = schedule.time.substring(0, 5);
-          
-          if (!cancelledSlots.includes(normalizedTime)) {
-            occupied.push(normalizedTime);
-          }
-        }
-      });
-    });
-
+    // Lista SOMENTE agendamentos reais não cancelados
     appointments.forEach(apt => {
       const aptDate = format(new Date(apt.scheduled_date), 'yyyy-MM-dd');
       
