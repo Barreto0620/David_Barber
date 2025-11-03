@@ -1,5 +1,5 @@
 // @ts-nocheck
-// src/lib/store.ts - VERSÃO CORRIGIDA E LIMPA
+// src/lib/store.ts - VERSÃO CORRIGIDA
 'use client';
 
 import { create } from 'zustand';
@@ -65,6 +65,39 @@ const generateMonthlyAppointments = (
   return appointments.sort((a, b) => 
     new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime()
   );
+};
+
+// 🔥 FUNÇÃO PARA VALIDAR CONFLITOS DE HORÁRIOS
+const checkAppointmentConflicts = (
+  newAppointments: Array<{ scheduled_date: string }>,
+  existingAppointments: Array<{ scheduled_date: string; status: string }>
+): Array<{ date: Date; conflictWith: any }> => {
+  const conflicts: Array<{ date: Date; conflictWith: any }> = [];
+
+  for (const newApt of newAppointments) {
+    const newDate = new Date(newApt.scheduled_date);
+    const newTime = newDate.getTime();
+
+    // Procura por conflitos (ignora agendamentos cancelados)
+    const conflict = existingAppointments.find(existing => {
+      if (existing.status === 'cancelled') return false;
+      
+      const existingDate = new Date(existing.scheduled_date);
+      const existingTime = existingDate.getTime();
+      
+      // Considera conflito se for exatamente o mesmo horário
+      return newTime === existingTime;
+    });
+
+    if (conflict) {
+      conflicts.push({
+        date: newDate,
+        conflictWith: conflict
+      });
+    }
+  }
+
+  return conflicts;
 };
 
 
@@ -742,7 +775,7 @@ export const useAppStore = create<AppStore>()(
             get().fetchClients(),
             get().fetchAppointments(),
             get().fetchServices(),
-            get().fetchMonthlyClients() // 🆕
+            get().fetchMonthlyClients()
           ]);
           console.log('✅ Sincronização completa');
         } catch (error) {
@@ -875,7 +908,82 @@ export const useAppStore = create<AppStore>()(
             return null;
           }
 
-          // 1. Cria o cliente mensal
+          // 🔥 BUSCA APPOINTMENTS ATUALIZADOS DO BANCO **ANTES** DE CRIAR
+          console.log('🔄 Buscando appointments atualizados do banco...');
+          const { data: existingAppointments, error: fetchError } = await supabase
+            .from('appointments')
+            .select('scheduled_date, status')
+            .neq('status', 'cancelled');
+
+          if (fetchError) {
+            console.error('❌ Erro ao buscar appointments:', fetchError);
+            throw fetchError;
+          }
+
+          console.log(`📋 ${existingAppointments?.length || 0} agendamentos não cancelados encontrados`);
+
+          // 1. Prepara os agendamentos que serão criados
+          const pricePerVisit = data.schedules.length > 0 
+            ? data.monthlyPrice / data.schedules.length 
+            : data.monthlyPrice;
+
+          const appointmentsToInsert = data.schedules.map(schedule => {
+            // Usa fullDate se disponível, senão usa startDate
+            const dateToUse = (schedule as any).fullDate || data.startDate;
+            
+            // Combina data com horário
+            const [hours, minutes] = schedule.time.split(':');
+            const scheduledDate = new Date(dateToUse + 'T00:00:00');
+            scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+            return {
+              client_id: data.clientId,
+              scheduled_date: scheduledDate.toISOString(),
+              service_type: schedule.serviceType,
+              status: 'scheduled',
+              price: pricePerVisit,
+              payment_method: null,
+              created_via: 'manual',
+              notes: '🔄 Agendamento Recorrente - Cliente Mensal',
+              professional_id: userAuth.user.id
+            };
+          });
+
+          console.log(`📅 Preparando ${appointmentsToInsert.length} agendamentos:`);
+          appointmentsToInsert.forEach((apt, i) => {
+            console.log(`  ${i + 1}. ${new Date(apt.scheduled_date).toLocaleString('pt-BR')} - ${apt.service_type}`);
+          });
+
+          // 2. 🔥 VALIDA CONFLITOS COM A FUNÇÃO AUXILIAR
+          const conflicts = checkAppointmentConflicts(
+            appointmentsToInsert,
+            existingAppointments || []
+          );
+
+          if (conflicts.length > 0) {
+            console.error('❌ CONFLITOS DETECTADOS:', conflicts);
+            
+            const conflictMessages = conflicts.map(c => 
+              c.date.toLocaleString('pt-BR', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })
+            );
+            
+            toast.error(
+              `${conflicts.length} horário(s) já ocupado(s): ${conflictMessages.join(', ')}`,
+              { duration: 5000 }
+            );
+            
+            set({ monthlyClientsLoading: false });
+            return null;
+          }
+
+          console.log('✅ Nenhum conflito detectado. Prosseguindo...');
+
+          // 3. Cria o cliente mensal
           const nextPaymentDate = new Date(data.startDate);
           nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
 
@@ -897,9 +1005,8 @@ export const useAppStore = create<AppStore>()(
 
           if (mcError) throw mcError;
 
-          // 2. 🔥 Cria schedules ÚNICOS (agrupa por dia_da_semana + horário)
+          // 4. Cria schedules ÚNICOS (agrupa por dia_da_semana + horário)
           if (data.schedules.length > 0) {
-            // Agrupa schedules para evitar duplicatas na tabela monthly_schedules
             const uniqueSchedulesMap = new Map<string, typeof data.schedules[0]>();
             
             data.schedules.forEach(schedule => {
@@ -911,7 +1018,6 @@ export const useAppStore = create<AppStore>()(
 
             const uniqueSchedules = Array.from(uniqueSchedulesMap.values());
 
-            // Insere schedules únicos
             const schedulesToInsert = uniqueSchedules.map(schedule => ({
               monthly_client_id: newMonthlyClient.id,
               day_of_week: schedule.dayOfWeek,
@@ -926,106 +1032,33 @@ export const useAppStore = create<AppStore>()(
 
             if (schedulesError) {
               console.error('Erro ao criar schedules:', schedulesError);
+              // Remove o cliente mensal se falhar
+              await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
               throw schedulesError;
             }
 
-            // 3. 🔥 Cria agendamentos INDIVIDUAIS para cada data escolhida
-            const pricePerVisit = data.schedules.length > 0 
-              ? data.monthlyPrice / data.schedules.length 
-              : data.monthlyPrice;
-
-            const appointmentsToInsert = data.schedules.map(schedule => {
-              // Usa fullDate se disponível, senão usa startDate
-              const dateToUse = (schedule as any).fullDate || data.startDate;
-              
-              // Combina data com horário
-              const [hours, minutes] = schedule.time.split(':');
-              const scheduledDate = new Date(dateToUse + 'T00:00:00');
-              scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-              return {
-                client_id: data.clientId,
-                scheduled_date: scheduledDate.toISOString(),
-                service_type: schedule.serviceType,
-                status: 'scheduled',
-                price: pricePerVisit,
-                payment_method: null,
-                created_via: 'manual',
-                notes: '🔄 Agendamento Recorrente - Cliente Mensal',
-                professional_id: userAuth.user.id
-              };
-            });
-
-            console.log(`📅 Criando ${appointmentsToInsert.length} agendamentos individuais:`);
-            appointmentsToInsert.forEach((apt, i) => {
-              console.log(`  ${i + 1}. ${new Date(apt.scheduled_date).toLocaleString('pt-BR')} - ${apt.service_type}`);
-            });
-
-            // 🔥 BUSCA APPOINTMENTS ATUALIZADOS DO BANCO ANTES DE VALIDAR
-            console.log('🔄 Buscando appointments atualizados do banco...');
-            const { data: existingAppointments, error: fetchError } = await supabase
-              .from('appointments')
-              .select('*')
-              .neq('status', 'cancelled');
-
-            if (fetchError) {
-              console.error('❌ Erro ao buscar appointments:', fetchError);
-              throw fetchError;
-            }
-
-            console.log(`📋 ${existingAppointments?.length || 0} agendamentos existentes NÃO cancelados:`);
-            existingAppointments?.forEach((a, i) => {
-              console.log(`  ${i + 1}. ${new Date(a.scheduled_date).toLocaleString('pt-BR')} - ${a.service_type} (${a.status})`);
-            });
-
-            // Verifica se já existem agendamentos conflitantes
-            const conflictingAppointments = [];
-            for (const apt of appointmentsToInsert) {
-              const aptDate = new Date(apt.scheduled_date);
-              const aptDateTime = aptDate.getTime();
-              
-              const existing = existingAppointments?.find(a => {
-                const existingDate = new Date(a.scheduled_date);
-                const existingDateTime = existingDate.getTime();
-                
-                console.log(`🔍 Comparando: 
-                  Novo: ${aptDate.toISOString()} (${aptDateTime})
-                  Existe: ${existingDate.toISOString()} (${existingDateTime})
-                  Igual? ${aptDateTime === existingDateTime}`);
-                
-                return aptDateTime === existingDateTime;
-              });
-              
-              if (existing) {
-                const dateStr = aptDate.toLocaleString('pt-BR');
-                console.warn(`⚠️ Conflito detectado: ${dateStr} já ocupado por`, existing);
-                conflictingAppointments.push({ ...apt, conflictDate: dateStr });
-              }
-            }
-
-            if (conflictingAppointments.length > 0) {
-              console.error('❌ CONFLITOS DETECTADOS:', conflictingAppointments);
-              toast.error(`${conflictingAppointments.length} horário(s) já estão ocupados! Escolha outros horários.`);
-              
-              // Remove o cliente mensal criado
-              await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
-              await supabase.from('monthly_schedules').delete().eq('monthly_client_id', newMonthlyClient.id);
-              
-              set({ monthlyClientsLoading: false });
-              return null;
-            }
-
-            // Insere agendamentos
+            // 5. Insere os agendamentos (já validados)
             const { error: appointmentsError } = await supabase
               .from('appointments')
               .insert(appointmentsToInsert);
 
             if (appointmentsError) {
-              console.error('Erro ao criar agendamentos:', appointmentsError);
-              toast.error('Plano criado, mas houve erro ao gerar os agendamentos');
-            } else {
-              toast.success(`✅ ${client.name} agora é cliente mensal! ${appointmentsToInsert.length} agendamentos criados.`);
+              console.error('❌ Erro ao criar agendamentos:', appointmentsError);
+              
+              // Rollback: remove cliente mensal e schedules
+              await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
+              await supabase.from('monthly_schedules').delete().eq('monthly_client_id', newMonthlyClient.id);
+              
+              toast.error('Erro ao criar agendamentos. Plano não foi criado.');
+              set({ monthlyClientsLoading: false });
+              return null;
             }
+
+            console.log('✅ Agendamentos criados com sucesso!');
+            toast.success(
+              `✅ ${client.name} agora é cliente mensal! ${appointmentsToInsert.length} agendamentos criados.`,
+              { duration: 4000 }
+            );
 
             // Atualiza appointments localmente
             await get().fetchAppointments();
@@ -1292,7 +1325,7 @@ export const useAppStore = create<AppStore>()(
         lastSync: state.lastSync,
         notifications: state.notifications,
         unreadCount: state.unreadCount,
-        monthlyClients: state.monthlyClients, // 🆕
+        monthlyClients: state.monthlyClients,
       }),
     }
   )
