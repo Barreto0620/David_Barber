@@ -3,7 +3,10 @@
 
 import * as React from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
+function cn(...classes) {
+  return classes.filter(Boolean).join(' ');
+}
 
 export type CalendarProps = {
   mode?: 'single' | 'range';
@@ -90,15 +93,19 @@ function Calendar({
           onSelect?.({ from: selected.from, to: date });
         }
       }
-    } else if (mode === 'multiple') {
-      const selectedDates = Array.isArray(selected) ? selected : [];
-      const isAlreadySelected = selectedDates.some(d => isSameDay(d, date));
-      
-      if (isAlreadySelected) {
-        onSelect?.(selectedDates.filter(d => !isSameDay(d, date)));
-      } else {
-        onSelect?.([...selectedDates, date]);
-      }
+    }
+  };
+
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentMonth(today);
+    setShowYearPicker(false);
+    
+    // Seleciona a data de hoje automaticamente
+    if (mode === 'single') {
+      onSelect?.(today);
+    } else if (mode === 'range') {
+      onSelect?.({ from: today, to: today });
     }
   };
 
@@ -109,17 +116,14 @@ function Calendar({
       return isSameDay(day, selected);
     } else if (mode === 'range') {
       return isSameDay(day, selected?.from) || isSameDay(day, selected?.to);
-    } else if (mode === 'multiple') {
-      const selectedDates = Array.isArray(selected) ? selected : [];
-      return selectedDates.some(d => isSameDay(d, day));
     }
     return false;
   };
 
   return (
     <div className={cn("bg-white rounded-2xl shadow-lg p-6", className)}>
-      {/* Header do mês */}
-      <div className="flex items-center justify-between mb-6">
+      {/* Header do mês com botão Hoje */}
+      <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -139,6 +143,16 @@ function Calendar({
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
         >
           <ChevronRight className="w-5 h-5 text-slate-600" />
+        </button>
+      </div>
+
+      {/* Botão Hoje */}
+      <div className="flex justify-center mb-4">
+        <button
+          onClick={goToToday}
+          className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+        >
+          Ir para Hoje
         </button>
       </div>
 
@@ -262,13 +276,6 @@ export function CalendarWithPopover({
       return selected.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
     }
     
-    if (mode === 'multiple' && Array.isArray(selected) && selected.length > 0) {
-      if (selected.length === 1) {
-        return selected[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-      }
-      return `${selected.length} dias selecionados`;
-    }
-    
     if (mode === 'range') {
       if (!selected?.from) return placeholder;
       
@@ -284,11 +291,7 @@ export function CalendarWithPopover({
   };
 
   const clearDates = () => {
-    if (mode === 'multiple') {
-      onSelect?.([]);
-    } else {
-      onSelect?.(mode === 'range' ? { from: null, to: null } : null);
-    }
+    onSelect?.(mode === 'range' ? { from: null, to: null } : null);
   };
 
   const handleShortcut = (shortcut) => {
@@ -361,6 +364,37 @@ export function CalendarWithPopover({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Demo Component
+export default function CalendarDemo() {
+  const [selectedSingle, setSelectedSingle] = React.useState(null);
+  const [selectedRange, setSelectedRange] = React.useState({ from: null, to: null });
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-4">Modo Single</h2>
+          <Calendar
+            mode="single"
+            selected={selectedSingle}
+            onSelect={setSelectedSingle}
+          />
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-4">Modo Range com Popover</h2>
+          <CalendarWithPopover
+            mode="range"
+            selected={selectedRange}
+            onSelect={setSelectedRange}
+            placeholder="Selecione o período"
+          />
+        </div>
+      </div>
     </div>
   );
 }
