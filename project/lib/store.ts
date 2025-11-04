@@ -1,5 +1,5 @@
 // @ts-nocheck
-// src/lib/store.ts - VERSÃO COMPLETA CORRIGIDA
+// src/lib/store.ts - VERSÃO COMPLETA CORRIGIDA - ACEITA EMAIL NULL
 'use client';
 
 import { create } from 'zustand';
@@ -404,10 +404,14 @@ export const useAppStore = create<AppStore>()(
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
 
+          // 🔥 CORREÇÃO: Garante que email vazio seja NULL
+          const cleanEmail = clientData.email?.trim();
+          const finalEmail = cleanEmail && cleanEmail.length > 0 ? cleanEmail : null;
+
           const payload = {
             name: clientData.name?.trim(),
             phone: clientData.phone?.trim(),
-            email: clientData.email?.trim() || null,
+            email: finalEmail,
             notes: clientData.notes?.trim() || null,
             total_visits: clientData.total_visits ?? 0,
             total_spent: clientData.total_spent ?? 0,
@@ -820,6 +824,7 @@ export const useAppStore = create<AppStore>()(
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
 
+          // 🔥 CORREÇÃO: Select simplificado, sem join inline
           const { data: monthlyClientsData, error: mcError } = await supabase
             .from('monthly_clients')
             .select('*')
@@ -833,15 +838,17 @@ export const useAppStore = create<AppStore>()(
             return;
           }
 
+          // Busca clientes separadamente
           const clientIds = monthlyClientsData.map(mc => mc.client_id);
           const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
-            .select('*')
+            .select('id, name, phone, email')
             .in('id', clientIds)
             .eq('professional_id', userAuth.user.id);
 
           if (clientsError) throw clientsError;
 
+          // Busca schedules separadamente
           const monthlyClientIds = monthlyClientsData.map(mc => mc.id);
           const { data: schedulesData, error: schedulesError } = await supabase
             .from('monthly_schedules')
@@ -852,6 +859,7 @@ export const useAppStore = create<AppStore>()(
 
           if (schedulesError) throw schedulesError;
 
+          // Monta os objetos completos
           const monthlyClientsWithDetails: MonthlyClientWithDetails[] = monthlyClientsData
             .map(mc => {
               const client = clientsData?.find(c => c.id === mc.client_id);
@@ -1012,27 +1020,61 @@ export const useAppStore = create<AppStore>()(
 
           console.log('✅ Nenhum conflito detectado. Prosseguindo...');
 
-          // 3. Cria o cliente mensal
+          // 3. 🔥 CORREÇÃO: Insert simples sem array wrapper
           const nextPaymentDate = new Date(data.startDate);
           nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
 
+          // 🔥 IMPORTANTE: Insert sem array [] e select simples
+          const monthlyClientPayload = {
+            client_id: data.clientId,
+            plan_type: data.planType,
+            monthly_price: data.monthlyPrice,
+            start_date: data.startDate,
+            next_payment_date: nextPaymentDate.toISOString(),
+            status: 'active',
+            payment_status: 'pending',
+            total_visits: 0,
+            notes: data.notes || null
+          };
+
+          console.log('📝 Payload do cliente mensal:', monthlyClientPayload);
+
+          // 🔥 SOLUÇÃO DEFINITIVA: Adiciona professional_id manualmente
+          // userAuth já existe no escopo, então reutiliza
+          const finalPayload = {
+            ...monthlyClientPayload,
+            professional_id: userAuth.user?.id || null
+          };
+
+          console.log('📝 Payload final com professional_id:', finalPayload);
+
           const { data: newMonthlyClient, error: mcError } = await supabase
             .from('monthly_clients')
-            .insert([{
-              client_id: data.clientId,
-              plan_type: data.planType,
-              monthly_price: data.monthlyPrice,
-              start_date: data.startDate,
-              next_payment_date: nextPaymentDate.toISOString(),
-              status: 'active',
-              payment_status: 'pending',
-              total_visits: 0,
-              notes: data.notes || null
-            }])
+            .insert(finalPayload)
             .select()
             .single();
 
-          if (mcError) throw mcError;
+          if (mcError) {
+            console.error('❌ Erro ao criar cliente mensal:', {
+              message: mcError.message,
+              code: mcError.code,
+              details: mcError.details,
+              hint: mcError.hint,
+              status: (mcError as any).status,
+              statusCode: (mcError as any).statusCode
+            });
+
+            // 🔥 Se for erro 403, é problema de RLS/permissões
+            if ((mcError as any).code === '42501' || (mcError as any).status === 403) {
+              toast.error('❌ Erro de permissão: Verifique as políticas RLS da tabela monthly_clients no Supabase!');
+            } else {
+              toast.error(`Erro ao criar plano: ${mcError.message}`);
+            }
+
+            throw mcError;
+          }
+
+          console.log('✅ Cliente mensal criado:', newMonthlyClient.id);
 
           // 4. Cria schedules ÚNICOS (agrupa por dia_da_semana + horário)
           if (data.schedules.length > 0) {
@@ -1052,18 +1094,47 @@ export const useAppStore = create<AppStore>()(
               day_of_week: schedule.dayOfWeek,
               time: schedule.time,
               service_type: schedule.serviceType,
-              active: true
+              active: true,
+              professional_id: userAuth.user.id // 🔥 Adiciona professional_id
             }));
+
+            console.log('📋 Inserindo schedules:', schedulesToInsert);
 
             const { error: schedulesError } = await supabase
               .from('monthly_schedules')
               .insert(schedulesToInsert);
 
             if (schedulesError) {
-              console.error('Erro ao criar schedules:', schedulesError);
-              // Remove o cliente mensal se falhar
-              await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
-              throw schedulesError;
+              console.error('❌ Erro ao criar schedules:', {
+                message: schedulesError.message,
+                code: schedulesError.code,
+                details: schedulesError.details,
+                hint: schedulesError.hint
+              });
+              
+              // Se for RLS, tenta criar com upsert
+              if ((schedulesError as any).code === '42501' || (schedulesError as any).status === 403) {
+                console.warn('⚠️ Erro RLS em schedules. Tentando upsert...');
+                
+                const { error: upsertError } = await supabase
+                  .from('monthly_schedules')
+                  .upsert(schedulesToInsert, { onConflict: 'monthly_client_id,day_of_week,time' });
+                
+                if (upsertError) {
+                  console.error('❌ Upsert também falhou:', upsertError);
+                  // Rollback: Remove o cliente mensal se falhar
+                  await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
+                  throw upsertError;
+                } else {
+                  console.log('✅ Schedules criados via upsert');
+                }
+              } else {
+                // Rollback: Remove o cliente mensal se falhar
+                await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
+                throw schedulesError;
+              }
+            } else {
+              console.log(`✅ ${schedulesToInsert.length} schedules criados`);
             }
 
             // 5. Insere os agendamentos (já validados)
