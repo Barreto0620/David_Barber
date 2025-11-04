@@ -433,8 +433,8 @@ export default function AppointmentsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todas as datas</SelectItem>
-                        <SelectItem value="recent">Mais Recentes</SelectItem>
                         <SelectItem value="today">Hoje</SelectItem>
+                        <SelectItem value="recent">Mais Recentes</SelectItem>
                         <SelectItem value="week">Próximos 7 dias</SelectItem>
                         <SelectItem value="month">Próximos 30 dias</SelectItem>
                       </SelectContent>
@@ -451,10 +451,8 @@ export default function AppointmentsPage() {
                       <SelectContent>
                         <SelectItem value="date-desc">📅 Data: Mais recente primeiro</SelectItem>
                         <SelectItem value="date-asc">📅 Data: Mais antiga primeiro</SelectItem>
-                        <SelectItem value="client-asc">👤 Cliente: A → Z</SelectItem>
-                        <SelectItem value="client-desc">👤 Cliente: Z → A</SelectItem>
-                        <SelectItem value="service-asc">✂️ Serviço: A → Z</SelectItem>
-                        <SelectItem value="service-desc">✂️ Serviço: Z → A</SelectItem>
+                        <SelectItem value="nearest">🎯 Agendamento: Mais próximo</SelectItem>
+                        <SelectItem value="farthest">📆 Agendamento: Mais distante</SelectItem>
                         <SelectItem value="price-asc">💰 Preço: Menor → Maior</SelectItem>
                         <SelectItem value="price-desc">💰 Preço: Maior → Menor</SelectItem>
                       </SelectContent>
