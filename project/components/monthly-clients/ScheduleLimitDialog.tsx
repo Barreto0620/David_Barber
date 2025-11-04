@@ -113,52 +113,7 @@ export function ScheduleLimitDialog({
           </CardContent>
         </Card>
 
-        {/* Upgrade Option (if available) */}
-        {upgradeInfo.hasUpgrade && (
-          <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-300 dark:border-blue-800">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="font-bold text-lg text-blue-900 dark:text-blue-100">
-                  Quer agendar mais vezes?
-                </h3>
-              </div>
-              
-              <div className="bg-white dark:bg-gray-900 rounded-lg p-4 mb-4 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{upgradeInfo.nextIcon}</span>
-                    <div>
-                      <div className="font-bold text-gray-900 dark:text-gray-100">
-                        Plano {upgradeInfo.nextPlan}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Até {upgradeInfo.nextLimit} agendamentos por mês
-                      </div>
-                    </div>
-                  </div>
-                  <Badge className="bg-green-500 text-white">
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    Upgrade
-                  </Badge>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">
-                      +{upgradeInfo.nextLimit! - maxSchedules}
-                    </span>
-                    <span>agendamentos extras</span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-sm text-blue-700 dark:text-blue-300 text-center">
-                💡 Entre em contato para fazer upgrade do plano
-              </p>
-            </CardContent>
-          </Card>
-        )}
+      
 
         {/* Action Button */}
         <Button 
