@@ -1,5 +1,5 @@
 // @ts-nocheck
-// src/lib/store.ts - VERSÃO CORRIGIDA
+// src/lib/store.ts - VERSÃO COMPLETA CORRIGIDA
 'use client';
 
 import { create } from 'zustand';
@@ -912,7 +912,8 @@ export const useAppStore = create<AppStore>()(
           console.log('🔄 Buscando appointments atualizados do banco...');
           const { data: existingAppointments, error: fetchError } = await supabase
             .from('appointments')
-            .select('scheduled_date, status')
+            .select('scheduled_date, status, professional_id')
+            .eq('professional_id', userAuth.user.id)
             .neq('status', 'cancelled');
 
           if (fetchError) {
@@ -931,10 +932,12 @@ export const useAppStore = create<AppStore>()(
             // Usa fullDate se disponível, senão usa startDate
             const dateToUse = (schedule as any).fullDate || data.startDate;
             
-            // Combina data com horário
-            const [hours, minutes] = schedule.time.split(':');
-            const scheduledDate = new Date(dateToUse + 'T00:00:00');
-            scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            // 🔥 CORREÇÃO: Cria data em UTC para evitar problemas de timezone
+            const [year, month, day] = dateToUse.split('-').map(Number);
+            const [hours, minutes] = schedule.time.split(':').map(Number);
+            
+            // Cria data UTC
+            const scheduledDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
 
             return {
               client_id: data.clientId,
@@ -951,30 +954,56 @@ export const useAppStore = create<AppStore>()(
 
           console.log(`📅 Preparando ${appointmentsToInsert.length} agendamentos:`);
           appointmentsToInsert.forEach((apt, i) => {
-            console.log(`  ${i + 1}. ${new Date(apt.scheduled_date).toLocaleString('pt-BR')} - ${apt.service_type}`);
+            const aptDate = new Date(apt.scheduled_date);
+            console.log(`  ${i + 1}. ${aptDate.toLocaleString('pt-BR')} (UTC: ${apt.scheduled_date}) - ${apt.service_type}`);
           });
 
-          // 2. 🔥 VALIDA CONFLITOS COM A FUNÇÃO AUXILIAR
-          const conflicts = checkAppointmentConflicts(
-            appointmentsToInsert,
-            existingAppointments || []
+          // 2. 🔥 VALIDA CONFLITOS - Compara professional_id + scheduled_date (timestamp exato)
+          const conflicts = [];
+          const existingTimestamps = new Set(
+            (existingAppointments || []).map(apt => {
+              const timestamp = new Date(apt.scheduled_date).getTime();
+              return `${apt.professional_id}-${timestamp}`;
+            })
           );
+
+          // Debug: Mostra todos os timestamps existentes
+          console.log('🔍 Timestamps existentes no banco:');
+          (existingAppointments || []).slice(0, 5).forEach(apt => {
+            const date = new Date(apt.scheduled_date);
+            console.log(`  ${date.toLocaleString('pt-BR')} -> ${date.getTime()} (${apt.scheduled_date})`);
+          });
+
+          console.log('🔍 Timestamps sendo criados:');
+          for (const apt of appointmentsToInsert) {
+            const aptDate = new Date(apt.scheduled_date);
+            const aptTimestamp = aptDate.getTime();
+            const key = `${apt.professional_id}-${aptTimestamp}`;
+            
+            console.log(`  ${aptDate.toLocaleString('pt-BR')} -> ${aptTimestamp} (${apt.scheduled_date})`);
+            
+            if (existingTimestamps.has(key)) {
+              const dateStr = aptDate.toLocaleString('pt-BR', { 
+                day: '2-digit', 
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit', 
+                minute: '2-digit' 
+              });
+              
+              console.warn(`⚠️ Conflito detectado: ${dateStr} já ocupado (timestamp: ${aptTimestamp})`);
+              conflicts.push({ date: aptDate, dateStr, timestamp: aptTimestamp });
+            }
+          }
 
           if (conflicts.length > 0) {
             console.error('❌ CONFLITOS DETECTADOS:', conflicts);
             
-            const conflictMessages = conflicts.map(c => 
-              c.date.toLocaleString('pt-BR', { 
-                day: '2-digit', 
-                month: '2-digit', 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })
-            );
+            const conflictMessages = conflicts.map(c => c.dateStr);
             
             toast.error(
-              `${conflicts.length} horário(s) já ocupado(s): ${conflictMessages.join(', ')}`,
-              { duration: 5000 }
+              `${conflicts.length} horário(s) já ocupado(s): ${conflictMessages.slice(0, 3).join(', ')}${conflicts.length > 3 ? '...' : ''}`,
+              { duration: 6000 }
             );
             
             set({ monthlyClientsLoading: false });
@@ -1038,27 +1067,73 @@ export const useAppStore = create<AppStore>()(
             }
 
             // 5. Insere os agendamentos (já validados)
-            const { error: appointmentsError } = await supabase
-              .from('appointments')
-              .insert(appointmentsToInsert);
+            // 🔥 INSERÇÃO INDIVIDUAL PARA DETECTAR CONFLITOS ESPECÍFICOS
+            const insertedAppointments = [];
+            const failedAppointments = [];
 
-            if (appointmentsError) {
-              console.error('❌ Erro ao criar agendamentos:', appointmentsError);
-              
-              // Rollback: remove cliente mensal e schedules
-              await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
-              await supabase.from('monthly_schedules').delete().eq('monthly_client_id', newMonthlyClient.id);
-              
-              toast.error('Erro ao criar agendamentos. Plano não foi criado.');
-              set({ monthlyClientsLoading: false });
-              return null;
+            for (const apt of appointmentsToInsert) {
+              try {
+                const { data: insertedApt, error: singleInsertError } = await supabase
+                  .from('appointments')
+                  .insert([apt])
+                  .select()
+                  .single();
+
+                if (singleInsertError) {
+                  const aptDate = new Date(apt.scheduled_date);
+                  console.error(`❌ Erro ao inserir agendamento ${aptDate.toLocaleString('pt-BR')}:`, {
+                    message: singleInsertError.message,
+                    code: singleInsertError.code,
+                    details: singleInsertError.details,
+                    hint: singleInsertError.hint,
+                    timestamp: aptDate.getTime(),
+                    isoString: apt.scheduled_date
+                  });
+                  
+                  failedAppointments.push({
+                    date: aptDate.toLocaleString('pt-BR'),
+                    error: singleInsertError.message,
+                    timestamp: aptDate.getTime()
+                  });
+                } else {
+                  insertedAppointments.push(insertedApt);
+                  console.log(`✅ Agendamento criado: ${new Date(apt.scheduled_date).toLocaleString('pt-BR')}`);
+                }
+              } catch (err) {
+                console.error(`❌ Exceção ao inserir:`, err);
+                failedAppointments.push({
+                  date: new Date(apt.scheduled_date).toLocaleString('pt-BR'),
+                  error: 'Erro desconhecido',
+                  exception: err
+                });
+              }
             }
 
-            console.log('✅ Agendamentos criados com sucesso!');
-            toast.success(
-              `✅ ${client.name} agora é cliente mensal! ${appointmentsToInsert.length} agendamentos criados.`,
-              { duration: 4000 }
-            );
+            if (failedAppointments.length > 0) {
+              console.error('❌ Falhas ao criar agendamentos:', failedAppointments);
+              
+              // Se TODOS falharam, faz rollback completo
+              if (insertedAppointments.length === 0) {
+                await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
+                await supabase.from('monthly_schedules').delete().eq('monthly_client_id', newMonthlyClient.id);
+                
+                toast.error('Todos os horários estão ocupados. Plano não foi criado.');
+                set({ monthlyClientsLoading: false });
+                return null;
+              }
+              
+              // Se alguns falharam, avisa mas mantém os criados
+              toast.warning(
+                `⚠️ Plano criado, mas ${failedAppointments.length} horário(s) já estava(m) ocupado(s). ${insertedAppointments.length} agendamento(s) criado(s) com sucesso.`,
+                { duration: 5000 }
+              );
+            } else {
+              console.log(`✅ Todos os ${insertedAppointments.length} agendamentos criados com sucesso!`);
+              toast.success(
+                `✅ ${client.name} agora é cliente mensal! ${insertedAppointments.length} agendamentos criados.`,
+                { duration: 4000 }
+              );
+            }
 
             // Atualiza appointments localmente
             await get().fetchAppointments();
@@ -1086,6 +1161,48 @@ export const useAppStore = create<AppStore>()(
             return false;
           }
 
+          // 1. 🔥 Busca e exclui agendamentos futuros do cliente mensal
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const { data: futureAppointments, error: fetchError } = await supabase
+            .from('appointments')
+            .select('id, scheduled_date, notes')
+            .eq('client_id', monthlyClient.client_id)
+            .gte('scheduled_date', today.toISOString())
+            .or('notes.ilike.%Cliente Mensal%,notes.ilike.%Recorrente%');
+
+          if (fetchError) {
+            console.error('❌ Erro ao buscar agendamentos:', fetchError);
+          }
+
+          const appointmentsToDelete = futureAppointments?.filter(apt => 
+            apt.notes?.includes('Cliente Mensal') || 
+            apt.notes?.includes('Recorrente')
+          ) || [];
+
+          // 🔥 CORREÇÃO: Declara appointmentIds ANTES de qualquer uso
+          const appointmentIds = appointmentsToDelete.map(a => a.id);
+
+          console.log(`🗑️ Convertendo para cliente normal: ${appointmentsToDelete.length} agendamento(s) futuros serão excluídos...`);
+
+          if (appointmentIds.length > 0) {
+            const { error: deleteAppsError } = await supabase
+              .from('appointments')
+              .delete()
+              .in('id', appointmentIds);
+
+            if (deleteAppsError) {
+              console.error('❌ Erro ao excluir agendamentos:', deleteAppsError);
+              toast.error('Erro ao excluir agendamentos');
+              set({ monthlyClientsLoading: false });
+              return false;
+            } else {
+              console.log(`✅ ${appointmentsToDelete.length} agendamento(s) futuro(s) excluído(s)`);
+            }
+          }
+
+          // 2. Exclui o cliente mensal
           const { error } = await supabase
             .from('monthly_clients')
             .delete()
@@ -1093,13 +1210,25 @@ export const useAppStore = create<AppStore>()(
 
           if (error) throw error;
 
+          // 3. Atualiza estado - appointmentIds está no escopo correto
           set(state => ({
             monthlyClients: state.monthlyClients.filter(mc => mc.id !== monthlyClientId),
+            appointments: state.appointments.filter(apt => 
+              !appointmentIds.includes(apt.id)
+            ),
             lastSync: new Date().toISOString(),
             monthlyClientsLoading: false
           }));
 
-          toast.success(`✅ ${monthlyClient.client.name} voltou a ser cliente normal!`);
+          // Recarrega appointments
+          await get().fetchAppointments();
+
+          toast.success(
+            appointmentsToDelete.length > 0
+              ? `✅ ${monthlyClient.client.name} voltou a ser cliente normal! ${appointmentsToDelete.length} agendamento(s) futuro(s) foram excluídos.`
+              : `✅ ${monthlyClient.client.name} voltou a ser cliente normal!`
+          );
+          
           return true;
         } catch (error) {
           console.error('❌ Erro ao converter para cliente normal:', error);
@@ -1169,6 +1298,58 @@ export const useAppStore = create<AppStore>()(
 
       deleteMonthlyClient: async (id) => {
         try {
+          set({ monthlyClientsLoading: true });
+
+          const monthlyClient = get().monthlyClients.find(mc => mc.id === id);
+          if (!monthlyClient) {
+            toast.error('Cliente mensal não encontrado!');
+            set({ monthlyClientsLoading: false });
+            return false;
+          }
+
+          // 1. 🔥 Busca todos os agendamentos futuros do cliente mensal
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const { data: futureAppointments, error: fetchError } = await supabase
+            .from('appointments')
+            .select('id, scheduled_date, notes')
+            .eq('client_id', monthlyClient.client_id)
+            .gte('scheduled_date', today.toISOString())
+            .or('notes.ilike.%Cliente Mensal%,notes.ilike.%Recorrente%');
+
+          if (fetchError) {
+            console.error('❌ Erro ao buscar agendamentos:', fetchError);
+          }
+
+          const appointmentsToDelete = futureAppointments?.filter(apt => 
+            apt.notes?.includes('Cliente Mensal') || 
+            apt.notes?.includes('Recorrente')
+          ) || [];
+
+          // 🔥 CORREÇÃO: Declara appointmentIds no escopo correto
+          const appointmentIds = appointmentsToDelete.map(a => a.id);
+
+          console.log(`🗑️ Excluindo ${appointmentsToDelete.length} agendamento(s) do cliente mensal...`);
+
+          // 2. Exclui os agendamentos futuros do cliente mensal
+          if (appointmentIds.length > 0) {
+            const { error: deleteAppsError } = await supabase
+              .from('appointments')
+              .delete()
+              .in('id', appointmentIds);
+
+            if (deleteAppsError) {
+              console.error('❌ Erro ao excluir agendamentos:', deleteAppsError);
+              toast.error('Erro ao excluir agendamentos vinculados');
+              set({ monthlyClientsLoading: false });
+              return false;
+            } else {
+              console.log(`✅ ${appointmentsToDelete.length} agendamento(s) excluído(s)`);
+            }
+          }
+
+          // 3. Exclui o cliente mensal
           const { error } = await supabase
             .from('monthly_clients')
             .delete()
@@ -1176,16 +1357,30 @@ export const useAppStore = create<AppStore>()(
 
           if (error) throw error;
 
+          // 4. Atualiza o estado local - appointmentIds está no escopo correto agora
           set(state => ({
             monthlyClients: state.monthlyClients.filter(mc => mc.id !== id),
-            lastSync: new Date().toISOString()
+            appointments: state.appointments.filter(apt => 
+              !appointmentIds.includes(apt.id)
+            ),
+            lastSync: new Date().toISOString(),
+            monthlyClientsLoading: false
           }));
 
-          toast.success('Plano mensal cancelado!');
+          // Recarrega appointments do banco
+          await get().fetchAppointments();
+
+          toast.success(
+            appointmentsToDelete.length > 0
+              ? `✅ Plano cancelado! ${appointmentsToDelete.length} agendamento(s) futuro(s) excluído(s).`
+              : '✅ Plano mensal cancelado!'
+          );
+          
           return true;
         } catch (error) {
           console.error('❌ Erro ao excluir:', error);
           toast.error('Erro ao cancelar plano');
+          set({ monthlyClientsLoading: false });
           return false;
         }
       },
