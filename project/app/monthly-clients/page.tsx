@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { AddMonthlyClientModal } from '@/components/monthly-clients/forms';
 import { MonthlyAppointmentsView } from '@/components/monthly-clients/monthly-appointments-view';
 import { MonthlySchedulePicker } from '@/components/monthly-clients/schedule-picker';
+import { MonthlyClientCard } from '@/components/monthly-clients/monthly-client-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,17 +16,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Plus, UserCheck, Calendar, AlertTriangle, CheckCircle2, XCircle, Clock, TrendingUp, Users, CreditCard, Eye, Trash2, CalendarClock, Pause, Play, Edit, X } from 'lucide-react';
+import { Search, Plus, UserCheck, Users, TrendingUp, Clock, AlertTriangle, Play, Pause } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 const PLAN_INFO = {
   basic: { name: 'Básico', color: 'bg-blue-500', visits: '1x/semana', icon: '🔷' },
   premium: { name: 'Premium', color: 'bg-purple-500', visits: '2x/semana', icon: '💎' },
   vip: { name: 'VIP', color: 'bg-amber-500', visits: 'Até 4x/semana', icon: '👑' }
 };
-
-const DAYS_OF_WEEK = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export default function MonthlyClientsPage() {
   const { 
@@ -34,8 +32,6 @@ export default function MonthlyClientsPage() {
     appointments,
     fetchMonthlyClients,
     fetchAppointments,
-    updateMonthlyClient,
-    updateAppointment,
     deleteAppointment,
     deleteMonthlyClient,
     suspendMonthlyClient,
@@ -197,29 +193,20 @@ export default function MonthlyClientsPage() {
     }
   };
 
-  const getStatusColor = (mc: any) => {
-    if (mc.payment_status === 'overdue') return 'bg-red-500';
-    const today = new Date();
-    const nextPayment = new Date(mc.next_payment_date);
-    const daysUntilPayment = Math.ceil((nextPayment.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if ((daysUntilPayment <= 7 && daysUntilPayment >= 0) || mc.payment_status === 'pending') return 'bg-yellow-500';
-    return 'bg-green-500';
-  };
-
-  const getPaymentStatusBadge = (status: string) => {
-    switch (status) {
-      case 'paid': return <Badge className="bg-green-500"><CheckCircle2 className="w-3 h-3 mr-1" />Pago</Badge>;
-      case 'pending': return <Badge className="bg-yellow-500"><Clock className="w-3 h-3 mr-1" />Pendente</Badge>;
-      case 'overdue': return <Badge className="bg-red-500"><XCircle className="w-3 h-3 mr-1" />Atrasado</Badge>;
-      default: return null;
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active': return <Badge variant="outline" className="border-green-500 text-green-500">Ativo</Badge>;
       case 'suspended': return <Badge variant="outline" className="border-orange-500 text-orange-500">Suspenso</Badge>;
       case 'inactive': return <Badge variant="outline" className="border-gray-500 text-gray-500">Inativo</Badge>;
+      default: return null;
+    }
+  };
+
+  const getPaymentStatusBadge = (status: string) => {
+    switch (status) {
+      case 'paid': return <Badge className="bg-green-500">Pago</Badge>;
+      case 'pending': return <Badge className="bg-yellow-500">Pendente</Badge>;
+      case 'overdue': return <Badge className="bg-red-500">Atrasado</Badge>;
       default: return null;
     }
   };
@@ -337,106 +324,18 @@ export default function MonthlyClientsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map((mc) => {
-            const clientAppointments = appointments
-              .filter(apt => apt.client_id === mc.client_id && apt.status !== 'cancelled' && apt.notes?.includes('Cliente Mensal'))
-              .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
-            
-            return (
-              <Card key={mc.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
-                      <CardTitle className="text-lg">{mc.client.name}</CardTitle>
-                      <CardDescription className="text-sm">{mc.client.phone}</CardDescription>
-                    </div>
-                    <div className={cn("w-3 h-3 rounded-full", getStatusColor(mc))} />
-                  </div>
-                  <div className="flex gap-2 pt-2 flex-wrap">
-                    {getStatusBadge(mc.status)}
-                    {getPaymentStatusBadge(mc.payment_status)}
-                    <Badge className={PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].color}>
-                      {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].icon} {PLAN_INFO[mc.plan_type as keyof typeof PLAN_INFO].name}
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Valor:</span>
-                      <span className="font-bold text-green-600">R$ {Number(mc.monthly_price).toFixed(2)}/mês</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Próximo Venc.:</span>
-                      <span className="font-medium">{new Date(mc.next_payment_date).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <CalendarClock className="w-4 h-4" />
-                      Agendamentos ({clientAppointments.length}):
-                    </div>
-                    <div className="space-y-1 max-h-[200px] overflow-y-auto pr-1">
-                      {clientAppointments.length > 0 ? (
-                        clientAppointments.map((apt: any, idx: number) => {
-                          const aptDate = new Date(apt.scheduled_date);
-                          const dayOfWeek = DAYS_OF_WEEK[aptDate.getDay()];
-                          const dateStr = aptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                          const time = aptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                          return (
-                            <div key={idx} className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
-                              <span className="font-medium">{dayOfWeek} {dateStr}</span>
-                              <span className="text-center font-semibold">{time}</span>
-                              <span className="text-muted-foreground text-right truncate">{apt.service_type}</span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="grid grid-cols-3 gap-2 text-xs bg-muted/50 rounded p-2">
-                          <span className="font-medium">-</span>
-                          <span className="text-center text-muted-foreground italic">Nenhum agendamento</span>
-                          <span className="text-muted-foreground text-right">-</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm pt-2 border-t">
-                    <span className="text-muted-foreground">Total de visitas:</span>
-                    <span className="font-bold">{mc.total_visits}</span>
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewDetails(mc)}>
-                      <Eye className="w-4 h-4 mr-1" />Detalhes
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleEditSchedules(mc)} title="Editar horários">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    {mc.payment_status !== 'paid' && mc.status === 'active' && (
-                      <Button variant="default" size="sm" onClick={() => handleMarkAsPaid(mc.id)} title="Marcar como pago">
-                        <CreditCard className="w-4 h-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant={mc.status === 'suspended' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleSuspendPlan(mc.id)}
-                      className={mc.status === 'suspended' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
-                      title={mc.status === 'suspended' ? 'Reativar plano' : 'Suspender plano'}
-                    >
-                      {mc.status === 'suspended' ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleCancelPlan(mc.id)} title="Cancelar e excluir plano">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {filteredClients.map((mc) => (
+            <MonthlyClientCard
+              key={mc.id}
+              client={mc}
+              appointments={appointments}
+              onViewDetails={() => handleViewDetails(mc)}
+              onEditSchedules={() => handleEditSchedules(mc)}
+              onMarkAsPaid={() => handleMarkAsPaid(mc.id)}
+              onSuspend={() => handleSuspendPlan(mc.id)}
+              onCancel={() => handleCancelPlan(mc.id)}
+            />
+          ))}
         </div>
       )}
 
