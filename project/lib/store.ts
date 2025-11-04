@@ -787,6 +787,7 @@ export const useAppStore = create<AppStore>()(
         set({ metrics });
       },
 
+      // 🔥 FETCH MONTHLY CLIENTS CORRIGIDO
       fetchMonthlyClients: async () => {
         try {
           set({ monthlyClientsLoading: true });
@@ -795,12 +796,19 @@ export const useAppStore = create<AppStore>()(
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
 
+          // 🔥 BUSCA MONTHLY CLIENTS COM FILTRO DE PROFESSIONAL
           const { data: monthlyClientsData, error: mcError } = await supabase
             .from('monthly_clients')
             .select('*')
+            .eq('professional_id', userAuth.user.id)
             .order('created_at', { ascending: false });
 
-          if (mcError) throw mcError;
+          if (mcError) {
+            console.error('❌ Erro ao buscar monthly_clients:', mcError);
+            throw mcError;
+          }
+
+          console.log(`📊 ${monthlyClientsData?.length || 0} monthly_clients encontrados`);
 
           if (!monthlyClientsData || monthlyClientsData.length === 0) {
             set({ monthlyClients: [], monthlyClientsLoading: false });
@@ -808,15 +816,25 @@ export const useAppStore = create<AppStore>()(
             return;
           }
 
+          // 🔥 BUSCA CLIENTES SEM FILTRO DE PROFESSIONAL_ID
+          // Porque clientes da landing page podem não ter professional_id
           const clientIds = monthlyClientsData.map(mc => mc.client_id);
+          console.log('🔍 Buscando clientes com IDs:', clientIds);
+
           const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
             .select('id, name, phone, email')
-            .in('id', clientIds)
-            .eq('professional_id', userAuth.user.id);
+            .in('id', clientIds);
+          // 🔥 REMOVIDO: .eq('professional_id', userAuth.user.id)
 
-          if (clientsError) throw clientsError;
+          if (clientsError) {
+            console.error('❌ Erro ao buscar clients:', clientsError);
+            throw clientsError;
+          }
 
+          console.log(`👥 ${clientsData?.length || 0} clientes encontrados`);
+
+          // Busca schedules separadamente
           const monthlyClientIds = monthlyClientsData.map(mc => mc.id);
           const { data: schedulesData, error: schedulesError } = await supabase
             .from('monthly_schedules')
@@ -825,14 +843,26 @@ export const useAppStore = create<AppStore>()(
             .eq('active', true)
             .order('day_of_week');
 
-          if (schedulesError) throw schedulesError;
+          if (schedulesError) {
+            console.error('❌ Erro ao buscar schedules:', schedulesError);
+            throw schedulesError;
+          }
 
+          console.log(`📅 ${schedulesData?.length || 0} schedules encontrados`);
+
+          // Monta os objetos completos
           const monthlyClientsWithDetails: MonthlyClientWithDetails[] = monthlyClientsData
             .map(mc => {
               const client = clientsData?.find(c => c.id === mc.client_id);
-              if (!client) return null;
+              
+              if (!client) {
+                console.warn(`⚠️ Cliente não encontrado para monthly_client ${mc.id} (client_id: ${mc.client_id})`);
+                return null;
+              }
               
               const schedules = schedulesData?.filter(s => s.monthly_client_id === mc.id) || [];
+
+              console.log(`✅ Cliente mensal montado: ${client.name} com ${schedules.length} schedules`);
 
               return {
                 ...mc,
@@ -848,7 +878,7 @@ export const useAppStore = create<AppStore>()(
             lastSync: new Date().toISOString() 
           });
 
-          console.log(`✅ ${monthlyClientsWithDetails.length} clientes mensais carregados`);
+          console.log(`✅ ${monthlyClientsWithDetails.length} clientes mensais carregados com sucesso`);
         } catch (error) {
           console.error('❌ Erro ao buscar clientes mensais:', error);
           set({ monthlyClientsLoading: false });
