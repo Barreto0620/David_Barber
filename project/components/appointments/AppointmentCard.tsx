@@ -27,6 +27,13 @@ export function AppointmentCard({
   const { getClientById, appointments } = useAppStore();
   const client = appointment.client || getClientById(appointment.client_id);
 
+  // Verificar se o agendamento é hoje
+  const isToday = useMemo(() => {
+    const today = new Date();
+    const aptDate = new Date(appointment.scheduled_date);
+    return today.toDateString() === aptDate.toDateString();
+  }, [appointment.scheduled_date]);
+
   // Verificar se é agendamento recorrente (verifica nas notas ou se cliente tem schedules)
   const isRecurring = useMemo(() => {
     // Verifica se a nota contém "Recorrente" ou "Cliente Mensal"
@@ -78,12 +85,26 @@ export function AppointmentCard({
               <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 {formatTime(appointment.scheduled_date)}
               </span>
-              <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-md">
-                <CalendarDays className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              <div className={cn(
+                "p-1.5 rounded-md",
+                isToday 
+                  ? "bg-gradient-to-br from-orange-500 to-red-500 animate-pulse shadow-lg" 
+                  : "bg-slate-100 dark:bg-slate-800"
+              )}>
+                <CalendarDays className={cn(
+                  "h-4 w-4",
+                  isToday ? "text-white" : "text-slate-600 dark:text-slate-400"
+                )} />
               </div>
-              <span className="text-sm text-slate-600 dark:text-slate-400">
-                {formatDate(appointment.scheduled_date)}
-              </span>
+              {isToday ? (
+                <span className="text-sm font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent animate-pulse">
+                  HOJE - {formatDate(appointment.scheduled_date)}
+                </span>
+              ) : (
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  {formatDate(appointment.scheduled_date)}
+                </span>
+              )}
             </div>
             <Badge className={cn('text-white', getStatusColor(appointment.status))}>
               {getStatusText(appointment.status)}
@@ -162,7 +183,7 @@ export function AppointmentCard({
         <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-lg flex items-center space-x-1 border-2 border-white">
           <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: '3s' }} />
           <span>MENSAL</span>
-          
+          <Sparkles className="h-3 w-3 animate-pulse" />
         </div>
       </div>
 
@@ -189,12 +210,23 @@ export function AppointmentCard({
               <span className="text-sm font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
                 {formatTime(appointment.scheduled_date)}
               </span>
-              <div className="p-1.5 bg-gradient-to-br from-pink-500 to-rose-600 rounded-lg shadow-md">
+              <div className={cn(
+                "p-1.5 rounded-lg shadow-md",
+                isToday
+                  ? "bg-gradient-to-br from-orange-500 to-red-500 animate-pulse"
+                  : "bg-gradient-to-br from-pink-500 to-rose-600"
+              )}>
                 <CalendarDays className="h-4 w-4 text-white" />
               </div>
-              <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-                {formatDate(appointment.scheduled_date)}
-              </span>
+              {isToday ? (
+                <span className="text-sm font-black bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent animate-pulse">
+                  🔥 HOJE - {formatDate(appointment.scheduled_date)}
+                </span>
+              ) : (
+                <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                  {formatDate(appointment.scheduled_date)}
+                </span>
+              )}
             </div>
             <Badge className={cn('text-white shadow-lg', getStatusColor(appointment.status))}>
               {getStatusText(appointment.status)}
