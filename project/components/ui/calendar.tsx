@@ -24,6 +24,7 @@ function Calendar({
 }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [hoverDate, setHoverDate] = React.useState(null);
+  const [showYearPicker, setShowYearPicker] = React.useState(false);
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -31,6 +32,10 @@ function Calendar({
   ];
 
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  // Gera lista de anos (20 anos para trás e 5 para frente)
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 26 }, (_, i) => currentYear - 20 + i);
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -85,6 +90,15 @@ function Calendar({
           onSelect?.({ from: selected.from, to: date });
         }
       }
+    } else if (mode === 'multiple') {
+      const selectedDates = Array.isArray(selected) ? selected : [];
+      const isAlreadySelected = selectedDates.some(d => isSameDay(d, date));
+      
+      if (isAlreadySelected) {
+        onSelect?.(selectedDates.filter(d => !isSameDay(d, date)));
+      } else {
+        onSelect?.([...selectedDates, date]);
+      }
     }
   };
 
@@ -93,9 +107,13 @@ function Calendar({
   const isSelected = (day) => {
     if (mode === 'single') {
       return isSameDay(day, selected);
-    } else {
+    } else if (mode === 'range') {
       return isSameDay(day, selected?.from) || isSameDay(day, selected?.to);
+    } else if (mode === 'multiple') {
+      const selectedDates = Array.isArray(selected) ? selected : [];
+      return selectedDates.some(d => isSameDay(d, day));
     }
+    return false;
   };
 
   return (
@@ -108,9 +126,14 @@ function Calendar({
         >
           <ChevronLeft className="w-5 h-5 text-slate-600" />
         </button>
-        <h2 className="text-lg font-semibold text-slate-800">
+        
+        <button
+          onClick={() => setShowYearPicker(!showYearPicker)}
+          className="text-lg font-semibold text-slate-800 hover:bg-slate-100 px-4 py-2 rounded-lg transition-colors"
+        >
           {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-        </h2>
+        </button>
+        
         <button
           onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -118,6 +141,31 @@ function Calendar({
           <ChevronRight className="w-5 h-5 text-slate-600" />
         </button>
       </div>
+
+      {/* Seletor de ano */}
+      {showYearPicker && (
+        <div className="mb-4 p-4 bg-slate-50 rounded-xl max-h-64 overflow-y-auto">
+          <div className="grid grid-cols-4 gap-2">
+            {years.map((year) => (
+              <button
+                key={year}
+                onClick={() => {
+                  setCurrentMonth(new Date(year, currentMonth.getMonth()));
+                  setShowYearPicker(false);
+                }}
+                className={cn(
+                  "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  year === currentMonth.getFullYear()
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-slate-700 hover:bg-blue-50"
+                )}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Dias da semana */}
       <div className="grid grid-cols-7 gap-2 mb-2">
@@ -214,6 +262,13 @@ export function CalendarWithPopover({
       return selected.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
     }
     
+    if (mode === 'multiple' && Array.isArray(selected) && selected.length > 0) {
+      if (selected.length === 1) {
+        return selected[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+      return `${selected.length} dias selecionados`;
+    }
+    
     if (mode === 'range') {
       if (!selected?.from) return placeholder;
       
@@ -229,7 +284,11 @@ export function CalendarWithPopover({
   };
 
   const clearDates = () => {
-    onSelect?.(mode === 'range' ? { from: null, to: null } : null);
+    if (mode === 'multiple') {
+      onSelect?.([]);
+    } else {
+      onSelect?.(mode === 'range' ? { from: null, to: null } : null);
+    }
   };
 
   const handleShortcut = (shortcut) => {
@@ -244,7 +303,7 @@ export function CalendarWithPopover({
         className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-between hover:shadow-lg transition-shadow border border-slate-200"
       >
         <span className="text-slate-700 font-medium">{formatDateRange()}</span>
-        {((mode === 'single' && selected) || (mode === 'range' && selected?.from)) && (
+        {((mode === 'single' && selected) || (mode === 'range' && selected?.from) || (mode === 'multiple' && Array.isArray(selected) && selected.length > 0)) && (
           <button
             onClick={(e) => {
               e.stopPropagation();
