@@ -273,7 +273,6 @@ export default function LoyaltyPage() {
 
     setSpinning(true);
     
-    // Gera um índice aleatório mais distribuído
     const randomValue = Math.random();
     const randomIndex = Math.floor(randomValue * weeklyClients.length);
     const selectedClient = weeklyClients[randomIndex];
@@ -284,11 +283,9 @@ export default function LoyaltyPage() {
     const targetOffset = (randomIndex * segmentAngle) + (segmentAngle / 2);
     const targetStopAngle = 360 - targetOffset; 
     
-    // Adiciona rotações extras aleatórias (entre 5 e 8 voltas completas)
     const fullRotations = 5 + Math.floor(Math.random() * 4);
     const currentFullTurns = Math.floor(rotation / 360);
     
-    // Adiciona um offset aleatório pequeno para variar onde para
     const randomOffset = (Math.random() - 0.5) * (segmentAngle * 0.3);
     const targetRotation = (currentFullTurns + fullRotations) * 360 + targetStopAngle + randomOffset;
     
@@ -305,7 +302,6 @@ export default function LoyaltyPage() {
           : c
       ));
       
-      // Adicionar notificação do sorteio
       try {
         addNotification({
           type: 'system',
@@ -785,44 +781,91 @@ export default function LoyaltyPage() {
       </Dialog>
 
       <Dialog open={winnerDialogOpen} onOpenChange={setWinnerDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="flex justify-center mb-4">
-              <div className="w-20 h-20 rounded-full bg-amber-500 flex items-center justify-center animate-bounce">
-                <Trophy className="w-10 h-10 text-white" />
-              </div>
-            </div>
-            <DialogTitle className="text-center text-2xl">
-              🎉 Parabéns! 🎉
-            </DialogTitle>
-            <DialogDescription className="text-center text-lg">
-              O grande vencedor é:
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-md border-0 bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 p-0 overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {Array.from({ length: 15 }).map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-2 h-2 rounded-full animate-ping"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  animationDuration: `${3 + Math.random() * 2}s`,
+                  backgroundColor: ['#60a5fa', '#818cf8', '#c084fc', '#e879f9', '#f472b6'][Math.floor(Math.random() * 5)]
+                }}
+              />
+            ))}
+          </div>
 
-          {winner && (
-            <div className="py-6">
-              <Card className="bg-gradient-to-br from-amber-500 to-amber-600 border-0">
-                <CardContent className="p-6 text-center text-white">
-                  <Crown className="w-12 h-12 mx-auto mb-3" />
-                  <h3 className="text-2xl font-bold mb-2">{winner.name}</h3>
-                  <p className="text-amber-100">{winner.phone}</p>
-                  <div className="mt-4 p-3 bg-white/20 rounded-lg">
-                    <p className="font-bold text-lg">Ganhou 1 Corte Grátis! 💇‍♂️</p>
+          <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
+          
+          <div className="relative z-10 p-6">
+            <DialogHeader className="space-y-4">
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-xl opacity-40" />
+                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl animate-bounce">
+                    <Trophy className="w-10 h-10 text-white drop-shadow-lg" />
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                </div>
+              </div>
 
-          <DialogFooter>
-            <Button
-              onClick={() => setWinnerDialogOpen(false)}
-              className="w-full"
-            >
-              Fechar
-            </Button>
-          </DialogFooter>
+              <div className="text-center space-y-1">
+                <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-blue-200 via-purple-200 to-blue-200 bg-clip-text text-transparent">
+                  🎉 PARABÉNS! 🎉
+                </DialogTitle>
+                <DialogDescription className="text-base text-indigo-200">
+                  Temos um grande vencedor!
+                </DialogDescription>
+              </div>
+            </DialogHeader>
+
+            {winner && (
+              <div className="py-6 space-y-4">
+                <div className="relative">
+                  <Card className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 border-2 border-blue-400/30 shadow-xl overflow-hidden">
+                    <CardContent className="relative p-6 text-center text-white space-y-4">
+                      <div className="flex justify-center">
+                        <Crown className="w-12 h-12 drop-shadow-lg text-yellow-300" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <h3 className="text-3xl font-bold drop-shadow-lg">
+                          {winner.name}
+                        </h3>
+                        <p className="text-sm text-blue-100">{winner.phone}</p>
+                      </div>
+
+                      <div className="relative p-4 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30">
+                        <div className="flex items-center justify-center gap-2">
+                          <Gift className="w-6 h-6" />
+                          <p className="text-2xl font-bold">1 CORTE GRÁTIS!</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="text-center">
+                  <p className="text-sm text-indigo-200 font-medium">
+                    ✨ Sorteio realizado com sucesso! ✨
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                onClick={() => setWinnerDialogOpen(false)}
+                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Fantástico! Fechar
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
