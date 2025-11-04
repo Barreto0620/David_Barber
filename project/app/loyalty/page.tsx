@@ -59,7 +59,6 @@ export default function LoyaltyPage() {
     const [rotation, setRotation] = useState(0);
     const [winner, setWinner] = useState(null);
     const [winnerDialogOpen, setWinnerDialogOpen] = useState(false);
-    // 🔥 NOVO ESTADO: Armazena o ID do último vencedor para evitar repetição (Anti-Vício)
     const [lastWinnerId, setLastWinnerId] = useState(null);
     
     useEffect(() => {
@@ -67,17 +66,22 @@ export default function LoyaltyPage() {
     }, [cutsForFree]);
 
     // ============================================
-    // 3. VARIÁVEIS COMPUTADAS
+    // 3. VARIÁVEIS COMPUTADAS (Clientes elegíveis e ESTÁVEIS)
     // ============================================
     const totalPoints = stats?.totalPoints || 0;
     const totalFreeHaircuts = stats?.totalFreeHaircuts || 0;
     const clientsNearReward = stats?.clientsNearReward || 0;
-    const weeklyClients = clients.filter(client => {
-        const lastVisit = client.last_visit ? new Date(client.last_visit) : null;
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return lastVisit && lastVisit >= weekAgo;
-    });
+    
+    // 🔥 CORREÇÃO DE ESTABILIDADE: Ordena a lista pelo client_id para estabilizar as chaves do React/SVG.
+    const weeklyClients = useCallback(clients
+        .filter(client => {
+            const lastVisit = client.last_visit ? new Date(client.last_visit) : null;
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return lastVisit && lastVisit >= weekAgo;
+        })
+        .sort((a, b) => a.client_id.localeCompare(b.client_id)), // Ordena pelo ID
+    [clients]);
 
     // ============================================
     // 4. FUNÇÕES DE AÇÃO
@@ -115,28 +119,31 @@ export default function LoyaltyPage() {
             randomIndex = 0;
         }
         
-        // 2. Define a ANIMAÇÃO
+        // 2. Define a ANIMAÇÃO (Calcula a rotação final)
         const segmentAngle = 360 / weeklyClients.length;
         const targetOffset = (randomIndex * segmentAngle) + (segmentAngle / 2);
         const targetStopAngle = 360 - targetOffset; 
-        const fullRotations = 5 + Math.floor(Math.random() * 4);
-        const currentFullTurns = Math.floor(rotation / 360);
-        const randomOffset = (Math.random() - 0.5) * (segmentAngle * 0.3);
-        const targetRotation = (currentFullTurns + fullRotations) * 360 + targetStopAngle + randomOffset;
-        setRotation(targetRotation);
-
-        // 3. Chama a API APÓS a animação
+        
+        const currentRotationNormalized = rotation % 360;
+        let diff = targetStopAngle - currentRotationNormalized;
+        if (diff < 0) diff += 360; 
+        
+        const fullRotations = 5; 
+        const finalRotation = rotation + (360 * fullRotations) + diff + 360; 
+        
+        setRotation(finalRotation); 
+        
+        // 3. Chama a API APÓS a animação (5000ms = 5s)
         setTimeout(async () => {
-            // Envia o ID do cliente que a roleta parou VISUALMENTE
             const winnerFromStore = await storeSpinWheel(selectedClient.client_id); 
             
             if (winnerFromStore) {
                 setWinner(winnerFromStore);
                 setWinnerDialogOpen(true);
-                // 🔥 Atualiza o último vencedor para a próxima rodada
                 setLastWinnerId(winnerFromStore.client_id); 
             }
-            setSpinning(false);
+            // A roleta mantém a rotação final porque setRotation foi chamado com finalRotation
+            setSpinning(false); 
         }, 5000);
     };
 
