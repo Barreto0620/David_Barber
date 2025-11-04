@@ -43,6 +43,8 @@ export interface LoyaltyWheelSpin {
   eligible_clients: Array<{ id: string; name: string }>; 
   spin_date: string;
   notes: string | null;
+  // 🔥 Adicionado para corrigir o erro PGRST204 que apareceu no log
+  prize_name: string | null; 
 }
 
 // O tipo LoyaltyClient representa o retorno da view 'loyalty_clients_view'

@@ -38,21 +38,20 @@ export default function LoyaltyPage() {
     // 1. CONSUMINDO O ESTADO E AS AÇÕES DO STORE
     // ============================================
     const {
-        loyaltyClients: clients, // Lista de clientes de fidelidade (vem da view do BD)
-        loyaltySettings: settings, // Configurações (cuts_for_free)
-        loyaltyStats: stats, // Estatísticas pré-calculadas
-        loyaltyLoading: loading, // Estado de carregamento
-        updateLoyaltySettings, // Ação para salvar configurações
-        spinWheel: storeSpinWheel, // Ação para girar a roleta
-        redeemFreeHaircut: storeRedeem, // Ação para resgatar corte grátis
-        addNotification, // Ação de notificação
+        loyaltyClients: clients,
+        loyaltySettings: settings,
+        loyaltyStats: stats,
+        loyaltyLoading: loading,
+        updateLoyaltySettings,
+        spinWheel: storeSpinWheel, 
+        redeemFreeHaircut: storeRedeem,
+        addNotification,
     } = useAppStore();
 
-    // Define os valores iniciais e a lógica de atualização com base no store
     const cutsForFree = settings?.cuts_for_free || 10;
     
     // ============================================
-    // 2. ESTADOS LOCAIS (APENAS PARA CONTROLE DE UI)
+    // 2. ESTADOS LOCAIS E EFEITOS
     // ============================================
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [tempCutsForFree, setTempCutsForFree] = useState(cutsForFree);
@@ -60,13 +59,15 @@ export default function LoyaltyPage() {
     const [rotation, setRotation] = useState(0);
     const [winner, setWinner] = useState(null);
     const [winnerDialogOpen, setWinnerDialogOpen] = useState(false);
+    // 🔥 NOVO ESTADO: Armazena o ID do último vencedor para evitar repetição (Anti-Vício)
+    const [lastWinnerId, setLastWinnerId] = useState(null);
     
     useEffect(() => {
         setTempCutsForFree(cutsForFree);
     }, [cutsForFree]);
 
     // ============================================
-    // 3. VARIÁVEIS COMPUTADAS (USANDO DADOS REAIS DO STORE)
+    // 3. VARIÁVEIS COMPUTADAS
     // ============================================
     const totalPoints = stats?.totalPoints || 0;
     const totalFreeHaircuts = stats?.totalFreeHaircuts || 0;
@@ -79,7 +80,7 @@ export default function LoyaltyPage() {
     });
 
     // ============================================
-    // 4. FUNÇÕES DE AÇÃO (CHAMANDO O STORE)
+    // 4. FUNÇÕES DE AÇÃO
     // ============================================
 
     const handleSaveSettings = async () => {
@@ -98,12 +99,23 @@ export default function LoyaltyPage() {
 
         setSpinning(true);
         
-        // Simulação Visual
-        const randomValue = Math.random();
-        const randomIndex = Math.floor(randomValue * weeklyClients.length);
-        const selectedClient = weeklyClients[randomIndex];
+        // 1. LÓGICA DE SORTEIO ANTI-REPETIÇÃO
+        let selectedClient;
+        let randomIndex;
         
-        // Lógica da Rotação
+        if (weeklyClients.length > 1) {
+            let attempts = 0;
+            do {
+                randomIndex = Math.floor(Math.random() * weeklyClients.length);
+                selectedClient = weeklyClients[randomIndex];
+                attempts++;
+            } while (selectedClient.client_id === lastWinnerId && attempts < 5);
+        } else {
+            selectedClient = weeklyClients[0];
+            randomIndex = 0;
+        }
+        
+        // 2. Define a ANIMAÇÃO
         const segmentAngle = 360 / weeklyClients.length;
         const targetOffset = (randomIndex * segmentAngle) + (segmentAngle / 2);
         const targetStopAngle = 360 - targetOffset; 
@@ -113,13 +125,16 @@ export default function LoyaltyPage() {
         const targetRotation = (currentFullTurns + fullRotations) * 360 + targetStopAngle + randomOffset;
         setRotation(targetRotation);
 
-        // Ação no BD após a animação
+        // 3. Chama a API APÓS a animação
         setTimeout(async () => {
-            const winnerFromStore = await storeSpinWheel(); 
+            // Envia o ID do cliente que a roleta parou VISUALMENTE
+            const winnerFromStore = await storeSpinWheel(selectedClient.client_id); 
             
             if (winnerFromStore) {
                 setWinner(winnerFromStore);
                 setWinnerDialogOpen(true);
+                // 🔥 Atualiza o último vencedor para a próxima rodada
+                setLastWinnerId(winnerFromStore.client_id); 
             }
             setSpinning(false);
         }, 5000);
@@ -404,7 +419,6 @@ export default function LoyaltyPage() {
                                                     const largeArcFlag = segmentAngle > 180 ? 1 : 0;
                                                     
                                                     const midAngle = startAngle + segmentAngle / 2;
-                                                    // Ajuste para melhor visualização (raio maior)
                                                     const correctedTextRadius = 160; 
                                                     const textX = 200 + correctedTextRadius * Math.cos((midAngle * Math.PI) / 180);
                                                     const textY = 200 + correctedTextRadius * Math.sin((midAngle * Math.PI) / 180);
@@ -431,7 +445,6 @@ export default function LoyaltyPage() {
                                                                 fontWeight="bold"
                                                                 textAnchor="middle"
                                                                 dominantBaseline="middle"
-                                                                // Rotação ajustada
                                                                 transform={`rotate(${midAngle + 90}, ${textX}, ${textY})`} 
                                                                 style={{
                                                                     filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.9))',

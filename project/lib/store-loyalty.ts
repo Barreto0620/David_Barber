@@ -13,6 +13,18 @@ import type {
   LoyaltyStats 
 } from '@/types/loyalty';
 
+// ============================================
+// NOVAS CONSTANTES (PRÊMIOS DA ROLETA)
+// ============================================
+const WHEEL_PRIZES = [
+  { type: 'free_haircuts', value: 1, name: '1 Corte Grátis' },
+  { type: 'points', value: 5, name: '5 Pontos Extras' },
+  { type: 'points', value: 10, name: '10 Pontos Extras' },
+  { type: 'nothing', value: 0, name: 'Tente na Próxima' },
+  { type: 'free_haircuts', value: 2, name: '2 Cortes Grátis' },
+];
+
+
 export interface LoyaltyStore {
   // Estado
   loyaltySettings: LoyaltySettings | null;
@@ -33,7 +45,8 @@ export interface LoyaltyStore {
   adjustLoyaltyPoints: (clientId: string, pointsChange: number, reason: string) => Promise<boolean>;
 
   // Roleta
-  spinWheel: () => Promise<LoyaltyClient | null>;
+  // 🔥 Corrigido para receber o vencedor do frontend (page.tsx)
+  spinWheel: (winnerClientId: string) => Promise<LoyaltyClient | null>; 
   fetchRecentWheelSpins: () => Promise<LoyaltyWheelSpin[]>;
 
   // Histórico
@@ -46,7 +59,6 @@ export interface LoyaltyStore {
   setupLoyaltyRealtime: () => () => void; 
 }
 
-// Implementação das funções (adicione ao seu store existente)
 const loyaltyStoreFunctions = (set: any, get: any) => ({
   loyaltySettings: null,
   loyaltyClients: [],
@@ -392,33 +404,41 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
   },
 
   // ============================================
-  // ROLETA DA SORTE
+  // ROLETA DA SORTE (CORRIGIDA)
   // ============================================
 
-  spinWheel: async () => {
+  spinWheel: async (winnerClientId: string) => { // 🔥 AGORA RECEBE O ID DO VENCEDOR DO FRONTEND
     try {
       const { data: userAuth } = await supabase.auth.getUser();
       if (!userAuth.user) throw new Error('Não autenticado');
 
-      // Busca clientes que visitaram na última semana
+      const loyaltyClients = get().loyaltyClients;
+      // Filtra a lista de elegíveis para o registro
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
 
-      const loyaltyClients = get().loyaltyClients;
       const weeklyClients = loyaltyClients.filter((client: LoyaltyClient) => {
         if (!client.last_visit) return false;
         const lastVisit = new Date(client.last_visit);
         return lastVisit >= weekAgo;
       });
-
-      if (weeklyClients.length === 0) {
-        toast.error('Nenhum cliente elegível esta semana!');
-        return null;
+      
+      const winner = loyaltyClients.find((c) => c.client_id === winnerClientId); // Busca o vencedor real
+      
+      if (!winner) {
+          toast.error('Vencedor da roleta não encontrado. Tente novamente.');
+          return null;
       }
-
-      // Sorteia aleatoriamente
-      const randomIndex = Math.floor(Math.random() * weeklyClients.length);
-      const winner = weeklyClients[randomIndex];
+      
+      // Definição do prêmio padrão (Sorteia o PRÊMIO, mantendo o VENCEDOR)
+      const prizeIndex = Math.floor(Math.random() * WHEEL_PRIZES.length);
+      const prize = WHEEL_PRIZES[prizeIndex];
+      
+      // Inicializa as mudanças no estado
+      let updatedFields = {};
+      let pointsChange = 0;
+      let haircutsChange = 0;
+      let historyNotes = `Sorteio: ${prize.name}`;
 
       // Busca ou cria registro de pontos do vencedor
       let { data: loyaltyPoints, error: fetchError } = await supabase
@@ -430,15 +450,35 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
 
       if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
 
+      // Define os valores atuais para atualização
+      if (loyaltyPoints) {
+          updatedFields = {
+              points: loyaltyPoints.points,
+              free_haircuts: loyaltyPoints.free_haircuts
+          };
+      }
+
+      // 3. APLICA O PRÊMIO SORTEADO
+      if (prize.type === 'free_haircuts') {
+        haircutsChange = prize.value;
+        updatedFields.free_haircuts = (loyaltyPoints?.free_haircuts || 0) + prize.value;
+
+      } else if (prize.type === 'points') {
+        pointsChange = prize.value;
+        updatedFields.points = (loyaltyPoints?.points || 0) + prize.value;
+      }
+      // Se 'nothing', não muda nada (change = 0)
+
       if (!loyaltyPoints) {
+        // Cria novo registro se não existir
         const { data: newRecord, error: insertError } = await supabase
           .from('loyalty_points')
           .insert({
             client_id: winner.client_id,
             professional_id: userAuth.user.id,
-            points: 0,
-            free_haircuts: 1,
-            total_earned_points: 0
+            points: updatedFields.points || 0,
+            free_haircuts: updatedFields.free_haircuts || 0,
+            total_earned_points: pointsChange // Conta os pontos adicionados
           })
           .select()
           .single();
@@ -446,55 +486,62 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
         if (insertError) throw insertError;
         loyaltyPoints = newRecord;
       } else {
+        // Atualiza registro existente
+        const updatePayload = {
+            points: updatedFields.points,
+            free_haircuts: updatedFields.free_haircuts,
+            total_earned_points: (loyaltyPoints.total_earned_points || 0) + Math.max(0, pointsChange)
+        }
+        
         const { error: updateError } = await supabase
           .from('loyalty_points')
-          .update({
-            free_haircuts: loyaltyPoints.free_haircuts + 1
-          })
+          .update(updatePayload)
           .eq('id', loyaltyPoints.id);
 
         if (updateError) throw updateError;
       }
 
-      // Registra o sorteio
+      // Registra o sorteio (wheel_spins)
+      const weeklyClientsData = weeklyClients
+          .map((c) => ({ id: c.client_id, name: c.name }));
+
       const { error: spinError } = await supabase
         .from('loyalty_wheel_spins')
         .insert({
           professional_id: userAuth.user.id,
           winner_client_id: winner.client_id,
-          eligible_clients: weeklyClients.map((c: LoyaltyClient) => ({
-            id: c.client_id,
-            name: c.name
-          })),
-          notes: `Sorteio com ${weeklyClients.length} participantes`
+          eligible_clients: weeklyClientsData, 
+          prize_name: prize.name, // Adicionado para registrar o prêmio
+          notes: `Sorteio: ${prize.name} com ${weeklyClients.length} participantes`
         });
 
-      if (spinError) console.error('Erro ao registrar sorteio:', spinError);
+      if (spinError) console.error('❌ Erro ao registrar sorteio:', spinError);
 
-      // Registra no histórico
+      // Registra no histórico (loyalty_history)
       await supabase.from('loyalty_history').insert({
         loyalty_points_id: loyaltyPoints.id,
         client_id: winner.client_id,
         professional_id: userAuth.user.id,
         action_type: 'wheel_won',
-        points_change: 0,
-        free_haircuts_change: 1,
-        notes: 'Ganhou na Roleta da Sorte semanal'
+        points_change: pointsChange,
+        free_haircuts_change: haircutsChange,
+        notes: historyNotes
       });
 
       // Cria notificação
       get().addNotification({
         type: 'system',
         title: '🎉 Vencedor da Roleta da Sorte!',
-        message: `${winner.name} ganhou 1 corte grátis no sorteio semanal!`,
+        message: `${winner.name} ganhou: ${prize.name} no sorteio semanal!`,
         clientName: winner.name,
-        serviceType: 'Corte Grátis - Roleta',
+        serviceType: prize.name, // Usa o nome do prêmio como serviceType
         scheduledDate: new Date(),
       });
 
       await get().fetchLoyaltyClients();
-      toast.success(`🎉 ${winner.name} ganhou 1 Corte Grátis na Roleta!`);
+      toast.success(`🎉 ${winner.name} ganhou: ${prize.name} na Roleta!`);
 
+      // Retorna o vencedor (o frontend pode usar este objeto para exibir o resultado)
       return winner;
     } catch (error) {
       console.error('❌ Erro ao girar roleta:', error);
