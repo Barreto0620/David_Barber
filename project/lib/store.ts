@@ -1,5 +1,5 @@
 // @ts-nocheck
-// src/lib/store.ts - VERSÃO COMPLETA CORRIGIDA - ACEITA EMAIL NULL
+// src/lib/store.ts - VERSÃO CORRIGIDA COM JOIN DE CLIENTES
 'use client';
 
 import { create } from 'zustand';
@@ -10,8 +10,6 @@ import type { Notification, NotificationType } from '@/types/notifications';
 import { getAppointmentsByDate, getMonthlyRevenue, getWeeklyRevenue } from '@/lib/utils/appointments';
 import { toast } from 'sonner';
 
-// 🆕 FUNÇÃO AUXILIAR ADICIONADA
-// Função para gerar agendamentos recorrentes do mês
 const generateMonthlyAppointments = (
   schedules: Array<{ dayOfWeek: number; time: string; serviceType: string }>,
   clientId: string,
@@ -23,27 +21,21 @@ const generateMonthlyAppointments = (
   const currentMonth = start.getMonth();
   const currentYear = start.getFullYear();
   
-  // Calcula preço por visita (dividido pelo número de agendamentos esperados)
-  const totalSchedulesPerMonth = schedules.length * 4; // Aproximadamente 4 semanas
+  const totalSchedulesPerMonth = schedules.length * 4;
   const pricePerVisit = totalSchedulesPerMonth > 0 ? monthlyPrice / totalSchedulesPerMonth : monthlyPrice;
 
   schedules.forEach(schedule => {
-    // Encontra todas as datas do mês para este dia da semana
     const date = new Date(currentYear, currentMonth, 1);
     
-    // Avança até o primeiro dia da semana correspondente
     while (date.getDay() !== schedule.dayOfWeek) {
       date.setDate(date.getDate() + 1);
     }
 
-    // Cria agendamentos para todas as ocorrências deste dia no mês
     while (date.getMonth() === currentMonth) {
-      // Combina data com horário
       const [hours, minutes] = schedule.time.split(':');
       const scheduledDate = new Date(date);
       scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-      // Só cria se for data futura ou hoje
       if (scheduledDate >= start) {
         appointments.push({
           client_id: clientId,
@@ -57,7 +49,6 @@ const generateMonthlyAppointments = (
         });
       }
 
-      // Avança para a próxima semana
       date.setDate(date.getDate() + 7);
     }
   });
@@ -67,42 +58,7 @@ const generateMonthlyAppointments = (
   );
 };
 
-// 🔥 FUNÇÃO PARA VALIDAR CONFLITOS DE HORÁRIOS
-const checkAppointmentConflicts = (
-  newAppointments: Array<{ scheduled_date: string }>,
-  existingAppointments: Array<{ scheduled_date: string; status: string }>
-): Array<{ date: Date; conflictWith: any }> => {
-  const conflicts: Array<{ date: Date; conflictWith: any }> = [];
-
-  for (const newApt of newAppointments) {
-    const newDate = new Date(newApt.scheduled_date);
-    const newTime = newDate.getTime();
-
-    // Procura por conflitos (ignora agendamentos cancelados)
-    const conflict = existingAppointments.find(existing => {
-      if (existing.status === 'cancelled') return false;
-      
-      const existingDate = new Date(existing.scheduled_date);
-      const existingTime = existingDate.getTime();
-      
-      // Considera conflito se for exatamente o mesmo horário
-      return newTime === existingTime;
-    });
-
-    if (conflict) {
-      conflicts.push({
-        date: newDate,
-        conflictWith: conflict
-      });
-    }
-  }
-
-  return conflicts;
-};
-
-
 interface AppStore {
-  // State
   clients: Client[];
   appointments: Appointment[];
   services: Service[];
@@ -112,12 +68,9 @@ interface AppStore {
   lastSync: string | null;
   notifications: Notification[];
   unreadCount: number;
-
-  // 🆕 MONTHLY CLIENTS STATE
   monthlyClients: MonthlyClientWithDetails[];
   monthlyClientsLoading: boolean;
 
-  // Actions
   setClients: (clients: Client[]) => void;
   setAppointments: (appointments: Appointment[]) => void;
   setServices: (services: Service[]) => void;
@@ -135,27 +88,23 @@ interface AppStore {
   completeAppointment: (id: string, paymentMethod: string, finalPrice?: number) => Promise<boolean>;
   cancelAppointment: (id: string) => Promise<boolean>;
   
-  // Notifications
   addNotification: (notification: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   removeNotification: (id: string) => void;
   clearAllNotifications: () => void;
   
-  // Sync
   syncWithSupabase: () => Promise<void>;
   fetchClients: () => Promise<void>;
   fetchAppointments: () => Promise<void>;
   fetchServices: () => Promise<void>;
   setupRealtimeSubscription: () => void;
   
-  // Computed
   getTodaysAppointments: () => Appointment[];
   getClientById: (id: string) => Client | undefined;
   getRecentClients: () => Client[];
   calculateMetrics: () => void;
 
-  // 🆕 MONTHLY CLIENTS ACTIONS
   fetchMonthlyClients: () => Promise<void>;
   addMonthlyClient: (data: {
     clientId: string;
@@ -201,7 +150,6 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      // Initial state
       clients: [],
       appointments: [],
       services: [
@@ -223,12 +171,9 @@ export const useAppStore = create<AppStore>()(
       lastSync: null,
       notifications: [],
       unreadCount: 0,
-      
-      // 🆕 MONTHLY CLIENTS STATE
       monthlyClients: [],
       monthlyClientsLoading: false,
 
-      // Setters
       setClients: (clients) => { set({ clients }); get().calculateMetrics(); },
       setAppointments: (appointments) => { set({ appointments }); get().calculateMetrics(); },
       setServices: (services) => set({ services }),
@@ -236,7 +181,6 @@ export const useAppStore = create<AppStore>()(
       setSelectedDate: (selectedDate) => set({ selectedDate }),
       setLoading: (isLoading) => set({ isLoading }),
 
-      // Notifications
       addNotification: (notification) => {
         const newNotification: Notification = {
           ...notification,
@@ -250,7 +194,6 @@ export const useAppStore = create<AppStore>()(
           unreadCount: state.unreadCount + 1,
         }));
       },
-      
 
       markAsRead: (id) => {
         set((state) => {
@@ -287,7 +230,7 @@ export const useAppStore = create<AppStore>()(
         set({ notifications: [], unreadCount: 0 });
       },
 
-      // 🚀 REALTIME INSTANT NEO
+      // 🔥 REALTIME COM JOIN
       setupRealtimeSubscription: () => {
         console.log('🔴 REALTIME: Iniciando listener...');
 
@@ -305,6 +248,19 @@ export const useAppStore = create<AppStore>()(
 
               const newAppointment = payload.new as Appointment;
 
+              // 🔥 BUSCA DADOS DO CLIENTE
+              if (newAppointment.client_id) {
+                const { data: clientData } = await supabase
+                  .from('clients')
+                  .select('id, name, phone, email')
+                  .eq('id', newAppointment.client_id)
+                  .maybeSingle();
+                
+                if (clientData) {
+                  newAppointment.client = clientData;
+                }
+              }
+
               set((state) => ({
                 appointments: [newAppointment, ...state.appointments],
                 lastSync: new Date().toISOString(),
@@ -312,20 +268,7 @@ export const useAppStore = create<AppStore>()(
 
               get().calculateMetrics();
 
-              let clientName = 'Cliente';
-              if (newAppointment.client_id) {
-                const client = get().clients.find(c => c.id === newAppointment.client_id);
-                if (client) {
-                  clientName = client.name;
-                } else {
-                  const { data } = await supabase
-                    .from('clients')
-                    .select('name')
-                    .eq('id', newAppointment.client_id)
-                    .maybeSingle();
-                  if (data) clientName = data.name;
-                }
-              }
+              const clientName = newAppointment.client?.name || 'Cliente';
 
               get().addNotification({
                 type: 'appointment',
@@ -347,10 +290,23 @@ export const useAppStore = create<AppStore>()(
               schema: 'public',
               table: 'appointments',
             },
-            (payload) => {
+            async (payload) => {
               console.log('🔄 UPDATE DETECTADO:', payload.new);
 
               const updatedAppointment = payload.new as Appointment;
+
+              // 🔥 BUSCA DADOS DO CLIENTE
+              if (updatedAppointment.client_id) {
+                const { data: clientData } = await supabase
+                  .from('clients')
+                  .select('id, name, phone, email')
+                  .eq('id', updatedAppointment.client_id)
+                  .maybeSingle();
+                
+                if (clientData) {
+                  updatedAppointment.client = clientData;
+                }
+              }
 
               set((state) => ({
                 appointments: state.appointments.map((apt) =>
@@ -396,7 +352,6 @@ export const useAppStore = create<AppStore>()(
         };
       },
 
-      // Client operations
       addClient: async (clientData) => {
         try {
           set({ isLoading: true });
@@ -404,7 +359,6 @@ export const useAppStore = create<AppStore>()(
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
 
-          // 🔥 CORREÇÃO: Garante que email vazio seja NULL
           const cleanEmail = clientData.email?.trim();
           const finalEmail = cleanEmail && cleanEmail.length > 0 ? cleanEmail : null;
 
@@ -500,15 +454,25 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
+      // 🔥 FETCH APPOINTMENTS COM JOIN
       fetchAppointments: async () => {
         try {
           console.log('🔄 Buscando appointments...');
           
           const currentIds = new Set(get().appointments.map(a => a.id));
 
+          // 🔥 CORREÇÃO: SELECT COM JOIN
           const { data, error } = await supabase
             .from('appointments')
-            .select('*')
+            .select(`
+              *,
+              client:clients!client_id (
+                id,
+                name,
+                phone,
+                email
+              )
+            `)
             .order('scheduled_date', { ascending: false });
           
           if (error) throw error;
@@ -525,11 +489,8 @@ export const useAppStore = create<AppStore>()(
               const isRecent = new Date(apt.created_at).getTime() > (Date.now() - 10000);
               
               if (isRecent) { 
-                let clientName = 'Cliente';
-                if (apt.client_id) {
-                  const client = get().clients.find(c => c.id === apt.client_id);
-                  if (client) clientName = client.name;
-                }
+                // 🔥 USA O NOME DO CLIENT DO JOIN
+                const clientName = apt.client?.name || 'Cliente';
 
                 get().addNotification({
                   type: 'appointment',
@@ -555,6 +516,7 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
+      // 🔥 ADD APPOINTMENT COM JOIN
       addAppointment: async (appointmentData) => {
         try {
           set({ isLoading: true });
@@ -574,10 +536,19 @@ export const useAppStore = create<AppStore>()(
             professional_id: userAuth.user.id,
           };
 
+          // 🔥 INSERT COM JOIN
           const { data, error } = await supabase
             .from('appointments')
             .insert([cleanData])
-            .select('*')
+            .select(`
+              *,
+              client:clients!client_id (
+                id,
+                name,
+                phone,
+                email
+              )
+            `)
             .single();
 
           if (error) throw error;
@@ -591,13 +562,15 @@ export const useAppStore = create<AppStore>()(
           
           get().calculateMetrics();
 
-          const client = newAppointment.client_id ? get().getClientById(newAppointment.client_id) : null;
+          // 🔥 USA O NOME DO CLIENT DO JOIN
+          const clientName = newAppointment.client?.name || 'Cliente';
+          
           get().addNotification({
             type: 'appointment',
             title: '✅ Agendamento Criado',
-            message: `${client?.name || 'Cliente'} - ${newAppointment.service_type}`,
+            message: `${clientName} - ${newAppointment.service_type}`,
             appointmentId: newAppointment.id,
-            clientName: client?.name || 'Cliente',
+            clientName,
             serviceType: newAppointment.service_type,
             scheduledDate: new Date(newAppointment.scheduled_date),
           });
@@ -814,8 +787,6 @@ export const useAppStore = create<AppStore>()(
         set({ metrics });
       },
 
-      // 🆕 ========== MONTHLY CLIENTS ==========
-
       fetchMonthlyClients: async () => {
         try {
           set({ monthlyClientsLoading: true });
@@ -824,7 +795,6 @@ export const useAppStore = create<AppStore>()(
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
 
-          // 🔥 CORREÇÃO: Select simplificado, sem join inline
           const { data: monthlyClientsData, error: mcError } = await supabase
             .from('monthly_clients')
             .select('*')
@@ -838,7 +808,6 @@ export const useAppStore = create<AppStore>()(
             return;
           }
 
-          // Busca clientes separadamente
           const clientIds = monthlyClientsData.map(mc => mc.client_id);
           const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
@@ -848,7 +817,6 @@ export const useAppStore = create<AppStore>()(
 
           if (clientsError) throw clientsError;
 
-          // Busca schedules separadamente
           const monthlyClientIds = monthlyClientsData.map(mc => mc.id);
           const { data: schedulesData, error: schedulesError } = await supabase
             .from('monthly_schedules')
@@ -859,7 +827,6 @@ export const useAppStore = create<AppStore>()(
 
           if (schedulesError) throw schedulesError;
 
-          // Monta os objetos completos
           const monthlyClientsWithDetails: MonthlyClientWithDetails[] = monthlyClientsData
             .map(mc => {
               const client = clientsData?.find(c => c.id === mc.client_id);
@@ -916,7 +883,23 @@ export const useAppStore = create<AppStore>()(
             return null;
           }
 
-          // 🔥 BUSCA APPOINTMENTS ATUALIZADOS DO BANCO **ANTES** DE CRIAR
+          const { data: existingInDb, error: checkError } = await supabase
+            .from('monthly_clients')
+            .select('id, status')
+            .eq('client_id', data.clientId)
+            .in('status', ['active', 'suspended'])
+            .maybeSingle();
+
+          if (checkError && checkError.code !== 'PGRST116') {
+            console.error('❌ Erro ao verificar plano existente:', checkError);
+          }
+
+          if (existingInDb) {
+            toast.error(`Este cliente já possui um plano ${existingInDb.status === 'active' ? 'ativo' : 'suspenso'}!`);
+            set({ monthlyClientsLoading: false });
+            return null;
+          }
+
           console.log('🔄 Buscando appointments atualizados do banco...');
           const { data: existingAppointments, error: fetchError } = await supabase
             .from('appointments')
@@ -931,20 +914,14 @@ export const useAppStore = create<AppStore>()(
 
           console.log(`📋 ${existingAppointments?.length || 0} agendamentos não cancelados encontrados`);
 
-          // 1. Prepara os agendamentos que serão criados
           const pricePerVisit = data.schedules.length > 0 
             ? data.monthlyPrice / data.schedules.length 
             : data.monthlyPrice;
 
           const appointmentsToInsert = data.schedules.map(schedule => {
-            // Usa fullDate se disponível, senão usa startDate
             const dateToUse = (schedule as any).fullDate || data.startDate;
-            
-            // 🔥 CORREÇÃO: Cria data em UTC para evitar problemas de timezone
             const [year, month, day] = dateToUse.split('-').map(Number);
             const [hours, minutes] = schedule.time.split(':').map(Number);
-            
-            // Cria data UTC
             const scheduledDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
 
             return {
@@ -955,7 +932,7 @@ export const useAppStore = create<AppStore>()(
               price: pricePerVisit,
               payment_method: null,
               created_via: 'manual',
-              notes: '🔄 Agendamento Recorrente - Cliente Mensal',
+              notes: `🔄 Agendamento Recorrente - Cliente Mensal - ${client.name}`,
               professional_id: userAuth.user.id
             };
           });
@@ -963,10 +940,9 @@ export const useAppStore = create<AppStore>()(
           console.log(`📅 Preparando ${appointmentsToInsert.length} agendamentos:`);
           appointmentsToInsert.forEach((apt, i) => {
             const aptDate = new Date(apt.scheduled_date);
-            console.log(`  ${i + 1}. ${aptDate.toLocaleString('pt-BR')} (UTC: ${apt.scheduled_date}) - ${apt.service_type}`);
+            console.log(`  ${i + 1}. ${aptDate.toLocaleString('pt-BR')} - ${apt.service_type}`);
           });
 
-          // 2. 🔥 VALIDA CONFLITOS - Compara professional_id + scheduled_date (timestamp exato)
           const conflicts = [];
           const existingTimestamps = new Set(
             (existingAppointments || []).map(apt => {
@@ -975,20 +951,10 @@ export const useAppStore = create<AppStore>()(
             })
           );
 
-          // Debug: Mostra todos os timestamps existentes
-          console.log('🔍 Timestamps existentes no banco:');
-          (existingAppointments || []).slice(0, 5).forEach(apt => {
-            const date = new Date(apt.scheduled_date);
-            console.log(`  ${date.toLocaleString('pt-BR')} -> ${date.getTime()} (${apt.scheduled_date})`);
-          });
-
-          console.log('🔍 Timestamps sendo criados:');
           for (const apt of appointmentsToInsert) {
             const aptDate = new Date(apt.scheduled_date);
             const aptTimestamp = aptDate.getTime();
             const key = `${apt.professional_id}-${aptTimestamp}`;
-            
-            console.log(`  ${aptDate.toLocaleString('pt-BR')} -> ${aptTimestamp} (${apt.scheduled_date})`);
             
             if (existingTimestamps.has(key)) {
               const dateStr = aptDate.toLocaleString('pt-BR', { 
@@ -999,32 +965,27 @@ export const useAppStore = create<AppStore>()(
                 minute: '2-digit' 
               });
               
-              console.warn(`⚠️ Conflito detectado: ${dateStr} já ocupado (timestamp: ${aptTimestamp})`);
+              console.warn(`⚠️ Conflito detectado: ${dateStr} já ocupado`);
               conflicts.push({ date: aptDate, dateStr, timestamp: aptTimestamp });
             }
           }
 
           if (conflicts.length > 0) {
             console.error('❌ CONFLITOS DETECTADOS:', conflicts);
-            
             const conflictMessages = conflicts.map(c => c.dateStr);
-            
             toast.error(
               `${conflicts.length} horário(s) já ocupado(s): ${conflictMessages.slice(0, 3).join(', ')}${conflicts.length > 3 ? '...' : ''}`,
               { duration: 6000 }
             );
-            
             set({ monthlyClientsLoading: false });
             return null;
           }
 
           console.log('✅ Nenhum conflito detectado. Prosseguindo...');
 
-          // 3. 🔥 CORREÇÃO: Insert simples sem array wrapper
           const nextPaymentDate = new Date(data.startDate);
           nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
 
-          // 🔥 IMPORTANTE: Insert sem array [] e select simples
           const monthlyClientPayload = {
             client_id: data.clientId,
             plan_type: data.planType,
@@ -1034,52 +995,30 @@ export const useAppStore = create<AppStore>()(
             status: 'active',
             payment_status: 'pending',
             total_visits: 0,
-            notes: data.notes || null
+            notes: data.notes || null,
+            professional_id: userAuth.user.id
           };
-
-          console.log('📝 Payload do cliente mensal:', monthlyClientPayload);
-
-          // 🔥 SOLUÇÃO DEFINITIVA: Adiciona professional_id manualmente
-          // userAuth já existe no escopo, então reutiliza
-          const finalPayload = {
-            ...monthlyClientPayload,
-            professional_id: userAuth.user?.id || null
-          };
-
-          console.log('📝 Payload final com professional_id:', finalPayload);
 
           const { data: newMonthlyClient, error: mcError } = await supabase
             .from('monthly_clients')
-            .insert(finalPayload)
+            .insert(monthlyClientPayload)
             .select()
             .single();
 
           if (mcError) {
-            console.error('❌ Erro ao criar cliente mensal:', {
-              message: mcError.message,
-              code: mcError.code,
-              details: mcError.details,
-              hint: mcError.hint,
-              status: (mcError as any).status,
-              statusCode: (mcError as any).statusCode
-            });
-
-            // 🔥 Se for erro 403, é problema de RLS/permissões
+            console.error('❌ Erro ao criar cliente mensal:', mcError);
             if ((mcError as any).code === '42501' || (mcError as any).status === 403) {
-              toast.error('❌ Erro de permissão: Verifique as políticas RLS da tabela monthly_clients no Supabase!');
+              toast.error('❌ Erro de permissão: Verifique as políticas RLS!');
             } else {
               toast.error(`Erro ao criar plano: ${mcError.message}`);
             }
-
             throw mcError;
           }
 
           console.log('✅ Cliente mensal criado:', newMonthlyClient.id);
 
-          // 4. Cria schedules ÚNICOS (agrupa por dia_da_semana + horário)
           if (data.schedules.length > 0) {
             const uniqueSchedulesMap = new Map<string, typeof data.schedules[0]>();
-            
             data.schedules.forEach(schedule => {
               const key = `${schedule.dayOfWeek}-${schedule.time}`;
               if (!uniqueSchedulesMap.has(key)) {
@@ -1088,57 +1027,27 @@ export const useAppStore = create<AppStore>()(
             });
 
             const uniqueSchedules = Array.from(uniqueSchedulesMap.values());
-
             const schedulesToInsert = uniqueSchedules.map(schedule => ({
               monthly_client_id: newMonthlyClient.id,
               day_of_week: schedule.dayOfWeek,
               time: schedule.time,
               service_type: schedule.serviceType,
               active: true,
-              professional_id: userAuth.user.id // 🔥 Adiciona professional_id
+              professional_id: userAuth.user.id
             }));
-
-            console.log('📋 Inserindo schedules:', schedulesToInsert);
 
             const { error: schedulesError } = await supabase
               .from('monthly_schedules')
               .insert(schedulesToInsert);
 
             if (schedulesError) {
-              console.error('❌ Erro ao criar schedules:', {
-                message: schedulesError.message,
-                code: schedulesError.code,
-                details: schedulesError.details,
-                hint: schedulesError.hint
-              });
-              
-              // Se for RLS, tenta criar com upsert
-              if ((schedulesError as any).code === '42501' || (schedulesError as any).status === 403) {
-                console.warn('⚠️ Erro RLS em schedules. Tentando upsert...');
-                
-                const { error: upsertError } = await supabase
-                  .from('monthly_schedules')
-                  .upsert(schedulesToInsert, { onConflict: 'monthly_client_id,day_of_week,time' });
-                
-                if (upsertError) {
-                  console.error('❌ Upsert também falhou:', upsertError);
-                  // Rollback: Remove o cliente mensal se falhar
-                  await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
-                  throw upsertError;
-                } else {
-                  console.log('✅ Schedules criados via upsert');
-                }
-              } else {
-                // Rollback: Remove o cliente mensal se falhar
-                await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
-                throw schedulesError;
-              }
-            } else {
-              console.log(`✅ ${schedulesToInsert.length} schedules criados`);
+              console.error('❌ Erro ao criar schedules:', schedulesError);
+              await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
+              throw schedulesError;
             }
 
-            // 5. Insere os agendamentos (já validados)
-            // 🔥 INSERÇÃO INDIVIDUAL PARA DETECTAR CONFLITOS ESPECÍFICOS
+            console.log(`✅ ${schedulesToInsert.length} schedules criados`);
+
             const insertedAppointments = [];
             const failedAppointments = [];
 
@@ -1147,24 +1056,23 @@ export const useAppStore = create<AppStore>()(
                 const { data: insertedApt, error: singleInsertError } = await supabase
                   .from('appointments')
                   .insert([apt])
-                  .select()
+                  .select(`
+                    *,
+                    client:clients!client_id (
+                      id,
+                      name,
+                      phone,
+                      email
+                    )
+                  `)
                   .single();
 
                 if (singleInsertError) {
                   const aptDate = new Date(apt.scheduled_date);
-                  console.error(`❌ Erro ao inserir agendamento ${aptDate.toLocaleString('pt-BR')}:`, {
-                    message: singleInsertError.message,
-                    code: singleInsertError.code,
-                    details: singleInsertError.details,
-                    hint: singleInsertError.hint,
-                    timestamp: aptDate.getTime(),
-                    isoString: apt.scheduled_date
-                  });
-                  
+                  console.error(`❌ Erro ao inserir agendamento ${aptDate.toLocaleString('pt-BR')}:`, singleInsertError);
                   failedAppointments.push({
                     date: aptDate.toLocaleString('pt-BR'),
-                    error: singleInsertError.message,
-                    timestamp: aptDate.getTime()
+                    error: singleInsertError.message
                   });
                 } else {
                   insertedAppointments.push(insertedApt);
@@ -1174,8 +1082,7 @@ export const useAppStore = create<AppStore>()(
                 console.error(`❌ Exceção ao inserir:`, err);
                 failedAppointments.push({
                   date: new Date(apt.scheduled_date).toLocaleString('pt-BR'),
-                  error: 'Erro desconhecido',
-                  exception: err
+                  error: 'Erro desconhecido'
                 });
               }
             }
@@ -1183,19 +1090,16 @@ export const useAppStore = create<AppStore>()(
             if (failedAppointments.length > 0) {
               console.error('❌ Falhas ao criar agendamentos:', failedAppointments);
               
-              // Se TODOS falharam, faz rollback completo
               if (insertedAppointments.length === 0) {
                 await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
                 await supabase.from('monthly_schedules').delete().eq('monthly_client_id', newMonthlyClient.id);
-                
                 toast.error('Todos os horários estão ocupados. Plano não foi criado.');
                 set({ monthlyClientsLoading: false });
                 return null;
               }
               
-              // Se alguns falharam, avisa mas mantém os criados
               toast.warning(
-                `⚠️ Plano criado, mas ${failedAppointments.length} horário(s) já estava(m) ocupado(s). ${insertedAppointments.length} agendamento(s) criado(s) com sucesso.`,
+                `⚠️ Plano criado, mas ${failedAppointments.length} horário(s) já estava(m) ocupado(s). ${insertedAppointments.length} agendamento(s) criado(s).`,
                 { duration: 5000 }
               );
             } else {
@@ -1206,7 +1110,6 @@ export const useAppStore = create<AppStore>()(
               );
             }
 
-            // Atualiza appointments localmente
             await get().fetchAppointments();
           }
 
@@ -1232,7 +1135,6 @@ export const useAppStore = create<AppStore>()(
             return false;
           }
 
-          // 1. 🔥 Busca e exclui agendamentos futuros do cliente mensal
           const today = new Date();
           today.setHours(0, 0, 0, 0);
 
@@ -1252,10 +1154,7 @@ export const useAppStore = create<AppStore>()(
             apt.notes?.includes('Recorrente')
           ) || [];
 
-          // 🔥 CORREÇÃO: Declara appointmentIds ANTES de qualquer uso
           const appointmentIds = appointmentsToDelete.map(a => a.id);
-
-          console.log(`🗑️ Convertendo para cliente normal: ${appointmentsToDelete.length} agendamento(s) futuros serão excluídos...`);
 
           if (appointmentIds.length > 0) {
             const { error: deleteAppsError } = await supabase
@@ -1268,12 +1167,9 @@ export const useAppStore = create<AppStore>()(
               toast.error('Erro ao excluir agendamentos');
               set({ monthlyClientsLoading: false });
               return false;
-            } else {
-              console.log(`✅ ${appointmentsToDelete.length} agendamento(s) futuro(s) excluído(s)`);
             }
           }
 
-          // 2. Exclui o cliente mensal
           const { error } = await supabase
             .from('monthly_clients')
             .delete()
@@ -1281,22 +1177,18 @@ export const useAppStore = create<AppStore>()(
 
           if (error) throw error;
 
-          // 3. Atualiza estado - appointmentIds está no escopo correto
           set(state => ({
             monthlyClients: state.monthlyClients.filter(mc => mc.id !== monthlyClientId),
-            appointments: state.appointments.filter(apt => 
-              !appointmentIds.includes(apt.id)
-            ),
+            appointments: state.appointments.filter(apt => !appointmentIds.includes(apt.id)),
             lastSync: new Date().toISOString(),
             monthlyClientsLoading: false
           }));
 
-          // Recarrega appointments
           await get().fetchAppointments();
 
           toast.success(
             appointmentsToDelete.length > 0
-              ? `✅ ${monthlyClient.client.name} voltou a ser cliente normal! ${appointmentsToDelete.length} agendamento(s) futuro(s) foram excluídos.`
+              ? `✅ ${monthlyClient.client.name} voltou a ser cliente normal! ${appointmentsToDelete.length} agendamento(s) excluído(s).`
               : `✅ ${monthlyClient.client.name} voltou a ser cliente normal!`
           );
           
@@ -1378,7 +1270,6 @@ export const useAppStore = create<AppStore>()(
             return false;
           }
 
-          // 1. 🔥 Busca todos os agendamentos futuros do cliente mensal
           const today = new Date();
           today.setHours(0, 0, 0, 0);
 
@@ -1398,12 +1289,8 @@ export const useAppStore = create<AppStore>()(
             apt.notes?.includes('Recorrente')
           ) || [];
 
-          // 🔥 CORREÇÃO: Declara appointmentIds no escopo correto
           const appointmentIds = appointmentsToDelete.map(a => a.id);
 
-          console.log(`🗑️ Excluindo ${appointmentsToDelete.length} agendamento(s) do cliente mensal...`);
-
-          // 2. Exclui os agendamentos futuros do cliente mensal
           if (appointmentIds.length > 0) {
             const { error: deleteAppsError } = await supabase
               .from('appointments')
@@ -1415,12 +1302,9 @@ export const useAppStore = create<AppStore>()(
               toast.error('Erro ao excluir agendamentos vinculados');
               set({ monthlyClientsLoading: false });
               return false;
-            } else {
-              console.log(`✅ ${appointmentsToDelete.length} agendamento(s) excluído(s)`);
             }
           }
 
-          // 3. Exclui o cliente mensal
           const { error } = await supabase
             .from('monthly_clients')
             .delete()
@@ -1428,22 +1312,18 @@ export const useAppStore = create<AppStore>()(
 
           if (error) throw error;
 
-          // 4. Atualiza o estado local - appointmentIds está no escopo correto agora
           set(state => ({
             monthlyClients: state.monthlyClients.filter(mc => mc.id !== id),
-            appointments: state.appointments.filter(apt => 
-              !appointmentIds.includes(apt.id)
-            ),
+            appointments: state.appointments.filter(apt => !appointmentIds.includes(apt.id)),
             lastSync: new Date().toISOString(),
             monthlyClientsLoading: false
           }));
 
-          // Recarrega appointments do banco
           await get().fetchAppointments();
 
           toast.success(
             appointmentsToDelete.length > 0
-              ? `✅ Plano cancelado! ${appointmentsToDelete.length} agendamento(s) futuro(s) excluído(s).`
+              ? `✅ Plano cancelado! ${appointmentsToDelete.length} agendamento(s) excluído(s).`
               : '✅ Plano mensal cancelado!'
           );
           
@@ -1498,7 +1378,6 @@ export const useAppStore = create<AppStore>()(
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
     
-          // Gera agendamentos para o próximo mês
           const nextMonth = new Date();
           nextMonth.setMonth(nextMonth.getMonth() + 1);
           nextMonth.setDate(1);

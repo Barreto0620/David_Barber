@@ -1,7 +1,5 @@
 // @ts-nocheck
 // types/database.ts
-// Estes são tipos auxiliares para uso no frontend
-// Os tipos principais vêm de lib/supabase.ts
 
 export interface Client {
   id: string;
@@ -19,7 +17,13 @@ export interface Client {
 export interface Appointment {
   id: string;
   client_id: string;
-  client?: Client;
+  // 👇 ADICIONAR ESSA PROPRIEDADE
+  client?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+  };
   scheduled_date: string;
   service_type: string;
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
@@ -55,7 +59,6 @@ export interface DashboardMetrics {
 export type AppointmentStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 export type PaymentMethod = 'dinheiro' | 'cartao' | 'pix' | 'transferencia';
 
-// Clientes Mensais
 export interface MonthlyClient {
   id: string;
   client_id: string;
