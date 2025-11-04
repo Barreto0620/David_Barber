@@ -121,6 +121,32 @@ export default function Dashboard() {
 
   return (
     <div className="flex-1 space-y-6">
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+          border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: hsl(var(--muted-foreground) / 0.3);
+          border-radius: 10px;
+          transition: background 0.2s ease;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: hsl(var(--muted-foreground) / 0.5);
+        }
+        
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+        }
+      `}</style>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
@@ -270,7 +296,7 @@ export default function Dashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 max-h-80 overflow-y-auto">
+              <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-2">
                 {todaysAppointments.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
