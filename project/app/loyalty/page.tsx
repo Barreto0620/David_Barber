@@ -813,8 +813,10 @@ export default function LoyaltyPage() {
               </div>
 
               <div className="text-center space-y-1">
-                <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-blue-200 via-purple-200 to-blue-200 bg-clip-text text-transparent">
-                  🎉 PARABÉNS! 🎉
+                <DialogTitle className="text-3xl font-bold">
+                  <span>🎉</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-purple-200 to-blue-200"> PARABÉNS! </span>
+                  <span>🎉</span>
                 </DialogTitle>
                 <DialogDescription className="text-base text-indigo-200">
                   Temos um grande vencedor!
