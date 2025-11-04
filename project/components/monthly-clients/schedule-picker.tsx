@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ScheduleLimitDialog } from '@/components/monthly-clients/ScheduleLimitDialog';
 
 const DAYS_OF_WEEK = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -568,51 +569,16 @@ export function MonthlySchedulePicker({
         </Card>
       )}
 
-      <Dialog open={showLimitDialog} onOpenChange={setShowLimitDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center mb-4">
-              <span className="text-4xl">⚠️</span>
-            </div>
-            <DialogTitle className="text-center text-2xl">
-              Limite Atingido!
-            </DialogTitle>
-            <DialogDescription className="text-center text-base pt-2">
-              Você já atingiu o limite de <strong>{maxSchedules} agendamentos</strong> para o plano {planInfo.name}.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-200 dark:border-orange-800">
-            <CardContent className="p-4">
-              <div className="text-center space-y-2">
-                <div className="text-3xl font-bold text-orange-600">
-                  {selectedSchedules.length} / {maxSchedules}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Agendamentos selecionados
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-2 pt-2">
-            <p className="text-sm text-muted-foreground text-center">
-              Para adicionar mais agendamentos, você pode:
-            </p>
-            <ul className="text-sm space-y-1 pl-6">
-              <li>✅ Remover um agendamento existente</li>
-              <li>✅ Ou escolher um plano com mais visitas</li>
-            </ul>
-          </div>
-
-          <Button 
-            onClick={() => setShowLimitDialog(false)}
-            className="w-full h-12"
-          >
-            Entendi
-          </Button>
-        </DialogContent>
-      </Dialog>
+      {/* 🔥 NOVO POPUP DE LIMITE */}
+      <ScheduleLimitDialog
+        open={showLimitDialog}
+        onOpenChange={setShowLimitDialog}
+        currentCount={selectedSchedules.length}
+        maxSchedules={maxSchedules}
+        planName={planInfo.name}
+        planIcon={planInfo.icon}
+        planGradient={planInfo.gradient}
+      />
     </div>
   );
 }
