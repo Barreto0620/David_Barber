@@ -861,10 +861,10 @@ export default function LoyaltyPage() {
             <DialogFooter>
               <Button
                 onClick={() => setWinnerDialogOpen(false)}
-                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
+                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg text-white"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                Fantástico! Fechar
+                 Concluído!
               </Button>
             </DialogFooter>
           </div>
