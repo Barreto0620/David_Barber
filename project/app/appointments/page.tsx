@@ -69,6 +69,7 @@ export default function AppointmentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterService, setFilterService] = useState('all');
   const [filterDateRange, setFilterDateRange] = useState('all');
+  const [sortBy, setSortBy] = useState('date-desc'); // Ordenação padrão: data mais recente
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // ===== SISTEMA DE LEMBRETES AUTOMÁTICOS (NOVO) =====
@@ -211,8 +212,48 @@ export default function AppointmentsPage() {
     // Filtro por range de data
     filtered = filtered.filter(filterByDateRange);
     
-    return filtered;
-  }, [displayAppointments, activeTab, searchQuery, filterService, filterDateRange, getClientById]);
+    // Aplicar ordenação
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'date-asc': // Data mais antiga primeiro
+          return new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime();
+        
+        case 'date-desc': // Data mais recente primeiro (padrão)
+          return new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime();
+        
+        case 'client-asc': // Cliente A-Z
+          const clientA = a.client || getClientById(a.client_id);
+          const clientB = b.client || getClientById(b.client_id);
+          const nameA = clientA?.name?.toLowerCase() || '';
+          const nameB = clientB?.name?.toLowerCase() || '';
+          return nameA.localeCompare(nameB);
+        
+        case 'client-desc': // Cliente Z-A
+          const clientA2 = a.client || getClientById(a.client_id);
+          const clientB2 = b.client || getClientById(b.client_id);
+          const nameA2 = clientA2?.name?.toLowerCase() || '';
+          const nameB2 = clientB2?.name?.toLowerCase() || '';
+          return nameB2.localeCompare(nameA2);
+        
+        case 'service-asc': // Serviço A-Z
+          return (a.service_type || '').localeCompare(b.service_type || '');
+        
+        case 'service-desc': // Serviço Z-A
+          return (b.service_type || '').localeCompare(a.service_type || '');
+        
+        case 'price-asc': // Preço menor primeiro
+          return (a.price || 0) - (b.price || 0);
+        
+        case 'price-desc': // Preço maior primeiro
+          return (b.price || 0) - (a.price || 0);
+        
+        default:
+          return 0;
+      }
+    });
+    
+    return sorted;
+  }, [displayAppointments, activeTab, searchQuery, filterService, filterDateRange, sortBy, getClientById]);
 
   const getStatusCount = (status) => {
     return getAppointmentsByStatus(displayAppointments, status).length;
@@ -222,9 +263,10 @@ export default function AppointmentsPage() {
     setSearchQuery('');
     setFilterService('all');
     setFilterDateRange('all');
+    setSortBy('date-desc'); // Reseta para ordenação padrão
   };
   
-  const hasActiveFilters = searchQuery || filterService !== 'all' || filterDateRange !== 'all';
+  const hasActiveFilters = searchQuery || filterService !== 'all' || filterDateRange !== 'all' || sortBy !== 'date-desc';
 
   const handleCompleteAppointment = (id) => {
     const appointment = appointments.find(apt => apt.id === id);
@@ -398,6 +440,26 @@ export default function AppointmentsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Ordenação */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Ordenar por</label>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a ordenação" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date-desc">📅 Data: Mais recente primeiro</SelectItem>
+                        <SelectItem value="date-asc">📅 Data: Mais antiga primeiro</SelectItem>
+                        <SelectItem value="client-asc">👤 Cliente: A → Z</SelectItem>
+                        <SelectItem value="client-desc">👤 Cliente: Z → A</SelectItem>
+                        <SelectItem value="service-asc">✂️ Serviço: A → Z</SelectItem>
+                        <SelectItem value="service-desc">✂️ Serviço: Z → A</SelectItem>
+                        <SelectItem value="price-asc">💰 Preço: Menor → Maior</SelectItem>
+                        <SelectItem value="price-desc">💰 Preço: Maior → Menor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
@@ -438,6 +500,25 @@ export default function AppointmentsPage() {
                   }
                   <span 
                     onClick={() => setFilterDateRange('all')} 
+                    className="ml-1 hover:text-destructive cursor-pointer inline-flex items-center justify-center w-4 h-4"
+                  >
+                    <X className="h-3 w-3" />
+                  </span>
+                </Badge>
+              )}
+              {sortBy !== 'date-desc' && (
+                <Badge variant="secondary" className="gap-1 pr-1">
+                  Ordem: {
+                    sortBy === 'date-asc' ? '📅 Data Antiga' :
+                    sortBy === 'client-asc' ? '👤 Cliente A-Z' :
+                    sortBy === 'client-desc' ? '👤 Cliente Z-A' :
+                    sortBy === 'service-asc' ? '✂️ Serviço A-Z' :
+                    sortBy === 'service-desc' ? '✂️ Serviço Z-A' :
+                    sortBy === 'price-asc' ? '💰 Preço ↑' :
+                    sortBy === 'price-desc' ? '💰 Preço ↓' : ''
+                  }
+                  <span 
+                    onClick={() => setSortBy('date-desc')} 
                     className="ml-1 hover:text-destructive cursor-pointer inline-flex items-center justify-center w-4 h-4"
                   >
                     <X className="h-3 w-3" />
