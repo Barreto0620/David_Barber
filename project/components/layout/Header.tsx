@@ -2,7 +2,7 @@
 // src/components/layout/Header.tsx
 "use client";
 
-import { Bell, LogOut, X, Scissors, Check, Trash2 } from "lucide-react";
+import { Bell, LogOut, X, Scissors, Check, Trash2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,20 +11,47 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Sidebar } from "./Sidebar";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { 
+  LayoutDashboard, 
+  Calendar, 
+  Users, 
+  DollarSign, 
+  Settings, 
+  UserCheck,
+  Gift
+} from 'lucide-react';
+
+const navigation = [
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Agendamentos', href: '/appointments', icon: Calendar },
+  { name: 'Clientes', href: '/clients', icon: Users },
+  { name: 'Clientes Mensais', href: '/monthly-clients', icon: UserCheck },
+  { name: 'Fidelidade', href: '/loyalty', icon: Gift },
+  { name: 'Financeiro', href: '/financial', icon: DollarSign },
+  { name: 'Configurações', href: '/settings', icon: Settings },
+];
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Estados de notificação do Zustand
   const {
@@ -87,11 +114,61 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        {/* Padding lateral ajustado (px-4 para mobile, px-8 para desktop) - Mantido para corrigir a margem */}
         <div className="flex h-16 items-center px-4 md:px-8 gap-4"> 
-          {/* Mobile sidebar */}
+          {/* Mobile Menu Button */}
           <div className="md:hidden">
-            <Sidebar />
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="transition-all duration-200 hover:scale-110">
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80 p-0">
+                <div className="flex flex-col h-full">
+                  <div className="px-6 py-4 border-b">
+                    <div className="flex items-center space-x-2">
+                      <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
+                        <Scissors className="h-4 w-4 text-primary-foreground" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-semibold">David Barber</h2>
+                        <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <nav className="flex-1 px-4 py-4 space-y-2">
+                    {navigation.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <Link key={item.name} href={item.href} className="block">
+                          <Button
+                            variant={isActive ? "default" : "ghost"}
+                            className={cn(
+                              "w-full justify-start transition-all duration-200 hover:scale-[1.02]",
+                              isActive && "bg-primary text-primary-foreground shadow-lg"
+                            )}
+                            onClick={() => setMobileMenuOpen(false)}
+                          >
+                            <item.icon className="h-4 w-4 mr-2" />
+                            {item.name}
+                          </Button>
+                        </Link>
+                      );
+                    })}
+                  </nav>
+
+                  <div className="px-4 py-4 border-t border-b">
+                    <div className="mb-4">
+                      <ThemeToggle />
+                    </div>
+                    <div className="text-xs text-muted-foreground text-center">
+                      <p>WebCashCompany©</p>
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
 
           <div className="flex-1 flex items-center justify-between">
@@ -107,7 +184,6 @@ export function Header() {
                   <img 
                     src="/logo_david_barber.png"
                     alt="David Barber Logo"
-                    // Tamanho w-12 h-12 mantido. Renderização ajustada: Borda fina e shadow.
                     className="w-12 h-12 rounded-full object-cover shadow-md border border-zinc-700" 
                   />
                 </a>
