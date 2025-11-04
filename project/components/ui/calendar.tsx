@@ -2,106 +2,306 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { DayPicker } from 'react-day-picker';
-import { ptBR } from 'date-fns/locale';
-
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from '@/components/ui/button';
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+export type CalendarProps = {
+  mode?: 'single' | 'range';
+  selected?: Date | { from?: Date; to?: Date };
+  onSelect?: (date: Date | { from?: Date; to?: Date }) => void;
+  className?: string;
+  disabled?: (date: Date) => boolean;
+  numberOfMonths?: number;
+};
 
 function Calendar({
+  mode = 'single',
+  selected,
+  onSelect,
   className,
-  classNames,
-  showOutsideDays = false,
-  ...props
+  disabled,
+  numberOfMonths = 1,
 }: CalendarProps) {
+  const [currentMonth, setCurrentMonth] = React.useState(new Date());
+  const [hoverDate, setHoverDate] = React.useState(null);
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    const days = [];
+    
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    
+    return days;
+  };
+
+  const isSameDay = (date1, date2) => {
+    if (!date1 || !date2) return false;
+    return date1.toDateString() === date2.toDateString();
+  };
+
+  const isInRange = (date) => {
+    if (mode !== 'range' || !selected?.from || !date) return false;
+    
+    const compareDate = selected?.to || hoverDate;
+    if (!compareDate) return false;
+    
+    const start = selected.from < compareDate ? selected.from : compareDate;
+    const end = selected.from < compareDate ? compareDate : selected.from;
+    
+    return date >= start && date <= end;
+  };
+
+  const handleDateClick = (date) => {
+    if (disabled && disabled(date)) return;
+
+    if (mode === 'single') {
+      onSelect?.(date);
+    } else if (mode === 'range') {
+      if (!selected?.from || (selected?.from && selected?.to)) {
+        onSelect?.({ from: date, to: null });
+      } else {
+        if (date < selected.from) {
+          onSelect?.({ from: date, to: selected.from });
+        } else {
+          onSelect?.({ from: selected.from, to: date });
+        }
+      }
+    }
+  };
+
+  const days = getDaysInMonth(currentMonth);
+
+  const isSelected = (day) => {
+    if (mode === 'single') {
+      return isSameDay(day, selected);
+    } else {
+      return isSameDay(day, selected?.from) || isSameDay(day, selected?.to);
+    }
+  };
+
   return (
-    <div className="relative group light" data-theme="light">
-      {/* Glow effect sutil */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-      
-      <div className="light" style={{ colorScheme: 'light' }}>
-        <DayPicker
-          showOutsideDays={showOutsideDays}
-          locale={ptBR}
-          className={cn(
-            'p-6 rounded-2xl relative',
-            'bg-white',
-            'border border-slate-200',
-            'shadow-sm',
-            className
-          )}
-          style={{
-            backgroundColor: '#ffffff',
-            color: '#0f172a'
-          }}
-          classNames={{
-            months: 'flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0',
-            month: 'space-y-4',
-            caption: 'flex justify-center pt-1 relative items-center mb-4',
-            caption_label: 'text-base font-semibold capitalize',
-            nav: 'flex items-center gap-1',
-            nav_button: cn(
-              'h-9 w-9 p-0 rounded-lg transition-all duration-100',
-              'bg-transparent hover:bg-slate-100',
-              'border border-transparent hover:border-slate-200'
-            ),
-            nav_button_previous: 'absolute left-1',
-            nav_button_next: 'absolute right-1',
-            table: 'w-full border-collapse space-y-1',
-            head_row: 'flex gap-1',
-            head_cell: 'w-9 font-medium text-xs uppercase tracking-wider',
-            row: 'flex w-full mt-1 gap-1',
-            cell: 'relative text-center text-sm focus-within:relative',
-            day: cn(
-              'h-9 w-9 p-0 font-medium rounded-lg transition-all duration-100',
-              'hover:bg-slate-100',
-              'focus:outline-none',
-              'cursor-pointer'
-            ),
-            day_range_end: 'day-range-end',
-            day_selected: 'bg-slate-200 text-slate-900 font-semibold hover:bg-slate-300',
-            day_today: cn(
-              'bg-blue-50',
-              'text-blue-600 font-semibold',
-              'ring-1 ring-blue-300'
-            ),
-            day_outside: 'invisible',
-            day_disabled: 'opacity-50 cursor-not-allowed hover:bg-transparent',
-            day_range_middle: 'aria-selected:bg-slate-100 aria-selected:text-slate-900',
-            day_hidden: 'invisible',
-            ...classNames,
-          }}
-          modifiersStyles={{
-            selected: {
-              backgroundColor: '#e2e8f0',
-              color: '#0f172a',
-              fontWeight: '600'
-            }
-          }}
-          styles={{
-            root: { backgroundColor: '#ffffff' },
-            caption_label: { color: '#0f172a' },
-            head_cell: { color: '#475569' },
-            day: { color: '#0f172a' },
-            nav_button: { color: '#475569' },
-          }}
-          components={{
-            IconLeft: ({ ...props }) => (
-              <ChevronLeft className="h-4 w-4" style={{ color: '#475569' }} />
-            ),
-            IconRight: ({ ...props }) => (
-              <ChevronRight className="h-4 w-4" style={{ color: '#475569' }} />
-            ),
-          }}
-          {...props}
-        />
+    <div className={cn("bg-white rounded-2xl shadow-lg p-6", className)}>
+      {/* Header do mês */}
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5 text-slate-600" />
+        </button>
+        <h2 className="text-lg font-semibold text-slate-800">
+          {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        </h2>
+        <button
+          onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+        >
+          <ChevronRight className="w-5 h-5 text-slate-600" />
+        </button>
+      </div>
+
+      {/* Dias da semana */}
+      <div className="grid grid-cols-7 gap-2 mb-2">
+        {weekDays.map((day) => (
+          <div key={day} className="text-center text-xs font-medium text-slate-500 py-2">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Dias do mês */}
+      <div className="grid grid-cols-7 gap-2">
+        {days.map((day, index) => {
+          if (!day) {
+            return <div key={index} />;
+          }
+
+          const selected = isSelected(day);
+          const inRange = isInRange(day);
+          const isToday = isSameDay(day, new Date());
+          const isDisabled = disabled && disabled(day);
+
+          return (
+            <button
+              key={index}
+              onClick={() => handleDateClick(day)}
+              onMouseEnter={() => setHoverDate(day)}
+              onMouseLeave={() => setHoverDate(null)}
+              disabled={isDisabled}
+              className={cn(
+                "aspect-square rounded-lg text-sm font-medium transition-all relative",
+                selected && "bg-blue-600 text-white shadow-md hover:bg-blue-700",
+                !selected && inRange && "bg-blue-100 text-blue-900",
+                !selected && !inRange && "text-slate-700 hover:bg-slate-100",
+                isToday && !selected && "ring-2 ring-blue-400",
+                isDisabled && "opacity-30 cursor-not-allowed hover:bg-transparent"
+              )}
+            >
+              {day.getDate()}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
+
 Calendar.displayName = 'Calendar';
 
 export { Calendar };
+
+// Componente com Popover e Shortcuts
+export function CalendarWithPopover({
+  mode = 'range',
+  selected,
+  onSelect,
+  placeholder = 'Selecione o período',
+}) {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const shortcuts = [
+    { label: 'Hoje', getValue: () => {
+      const today = new Date();
+      return mode === 'range' ? { from: today, to: today } : today;
+    }},
+    { label: 'Últimos 7 dias', getValue: () => {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 6);
+      return { from, to };
+    }},
+    { label: 'Últimos 30 dias', getValue: () => {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 29);
+      return { from, to };
+    }},
+    { label: 'Este mês', getValue: () => {
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { from, to };
+    }},
+    { label: 'Último mês', getValue: () => {
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const to = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { from, to };
+    }}
+  ];
+
+  const formatDateRange = () => {
+    if (mode === 'single' && selected) {
+      return selected.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    
+    if (mode === 'range') {
+      if (!selected?.from) return placeholder;
+      
+      const formatDate = (date) => {
+        return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+      };
+      
+      if (!selected?.to) return formatDate(selected.from);
+      return `${formatDate(selected.from)} - ${formatDate(selected.to)}`;
+    }
+    
+    return placeholder;
+  };
+
+  const clearDates = () => {
+    onSelect?.(mode === 'range' ? { from: null, to: null } : null);
+  };
+
+  const handleShortcut = (shortcut) => {
+    const value = shortcut.getValue();
+    onSelect?.(value);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full bg-white rounded-xl shadow-md p-4 flex items-center justify-between hover:shadow-lg transition-shadow border border-slate-200"
+      >
+        <span className="text-slate-700 font-medium">{formatDateRange()}</span>
+        {((mode === 'single' && selected) || (mode === 'range' && selected?.from)) && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              clearDates();
+            }}
+            className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
+          <div className="flex flex-col md:flex-row">
+            {mode === 'range' && (
+              <div className="bg-slate-50 p-4 border-b md:border-b-0 md:border-r border-slate-200">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase mb-3">Atalhos</h3>
+                <div className="space-y-1">
+                  {shortcuts.map((shortcut, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleShortcut(shortcut)}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-white hover:text-blue-600 rounded-lg transition-colors"
+                    >
+                      {shortcut.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="p-4">
+              <Calendar
+                mode={mode}
+                selected={selected}
+                onSelect={onSelect}
+              />
+              
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
+                <button
+                  onClick={clearDates}
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors"
+                >
+                  Limpar
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+                >
+                  Aplicar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
