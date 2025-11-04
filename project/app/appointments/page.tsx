@@ -213,13 +213,24 @@ export default function AppointmentsPage() {
     filtered = filtered.filter(filterByDateRange);
     
     // Aplicar ordenação
+    // Aplicar ordenação
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
-        case 'date-asc': // Data mais antiga primeiro
-          return new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime();
+       
         
-        case 'date-desc': // Data mais recente primeiro (padrão)
-          return new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime();
+        case 'nearest': { // Agendamento mais próximo (relativo ao horário atual)
+          const now = new Date().getTime();
+          const diffA = Math.abs(new Date(a.scheduled_date).getTime() - now);
+          const diffB = Math.abs(new Date(b.scheduled_date).getTime() - now);
+          return diffA - diffB;
+        }
+        
+        case 'farthest': { // Agendamento mais distante (relativo ao horário atual)
+          const now = new Date().getTime();
+          const diffA = Math.abs(new Date(a.scheduled_date).getTime() - now);
+          const diffB = Math.abs(new Date(b.scheduled_date).getTime() - now);
+          return diffB - diffA;
+        }
         
         case 'client-asc': // Cliente A-Z
           const clientA = a.client || getClientById(a.client_id);
@@ -449,8 +460,7 @@ export default function AppointmentsPage() {
                         <SelectValue placeholder="Selecione a ordenação" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="date-desc">📅 Data: Mais recente primeiro</SelectItem>
-                        <SelectItem value="date-asc">📅 Data: Mais antiga primeiro</SelectItem>
+                        <SelectItem value="date-desc">📅 Data: Mais recente</SelectItem>
                         <SelectItem value="nearest">🎯 Agendamento: Mais próximo</SelectItem>
                         <SelectItem value="farthest">📆 Agendamento: Mais distante</SelectItem>
                         <SelectItem value="price-asc">💰 Preço: Menor → Maior</SelectItem>
