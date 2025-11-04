@@ -703,7 +703,7 @@ export default function FinancialPage() {
         <Dialog open={editingGoal} onOpenChange={setEditingGoal}>
           <DialogTrigger asChild>
             <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/50 dark:to-red-800/30 relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow">
-              <div className="absolute top-2 right-2 p-1.5 bg-white/80 dark:bg-white/10 rounded-full">
+              <div className="absolute bottom-2 right-2 p-1.5 bg-white/80 dark:bg-white/10 rounded-full">
                 <Edit3 className="h-4 w-4 text-orange-600 dark:text-orange-300" />
               </div>
               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16" />
@@ -760,7 +760,7 @@ export default function FinancialPage() {
                 </div>
               </div>
             </div>
-            <DialogFooter>
+            <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={handleCancelEdit}>
                 <X className="h-4 w-4 mr-2" />
                 Cancelar
@@ -769,7 +769,7 @@ export default function FinancialPage() {
                 <Save className="h-4 w-4 mr-2" />
                 Salvar Meta
               </Button>
-            </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -1260,146 +1260,6 @@ export default function FinancialPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Summary Cards */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-emerald-900 dark:text-white">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  Resumo de Receitas Confirmadas
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                    <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">
-                      {formatCurrency(financialData.confirmedRevenue)}
-                    </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">Receita Total</div>
-                  </div>
-                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                    <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">
-                      {financialData.totalAppointments}
-                    </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">Atendimentos</div>
-                  </div>
-                </div>
-                
-                <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Ticket Médio</span>
-                    <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                      {formatCurrency(financialData.averageTicket)}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400">
-                    Por atendimento realizado
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Goal Progress */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <Target className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                  Progresso da Meta Mensal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-800/20 rounded-lg">
-                    <div className="text-5xl font-bold text-orange-600 dark:text-orange-400 mb-2">
-                      {goalProgress.toFixed(1)}%
-                    </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300">
-                      da meta alcançada
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Progresso</span>
-                      <div className="flex items-center gap-2">
-                        {goalProgress >= 100 ? (
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">Meta atingida! 🎉</span>
-                        ) : goalProgress >= 75 ? (
-                          <span className="font-medium text-orange-600 dark:text-orange-400">Quase lá!</span>
-                        ) : (
-                          <span className="font-medium text-cyan-600 dark:text-cyan-400">Continue assim!</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
-                      <div 
-                        className={`h-4 rounded-full transition-all duration-500 ${
-                          goalProgress >= 100 
-                            ? "bg-gradient-to-r from-emerald-500 to-emerald-600" 
-                            : goalProgress >= 75
-                            ? "bg-gradient-to-r from-orange-500 to-red-600"
-                            : "bg-gradient-to-r from-cyan-500 to-cyan-600"
-                        }`}
-                        style={{ width: `${Math.min(goalProgress, 100)}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
-                      <span>Meta: {formatCurrency(monthlyGoal)}</span>
-                      <span>
-                        {goalProgress >= 100 
-                          ? `Superou em: ${formatCurrency(financialData.confirmedRevenue - monthlyGoal)}`
-                          : `Faltam: ${formatCurrency(Math.max(0, monthlyGoal - financialData.confirmedRevenue))}`
-                        }
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Revenue Projection */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 md:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <TrendingUp className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                  Projeção de Receita Total
-                </CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-400">
-                  Receita confirmada + receita futura esperada
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg">
-                    <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-3" />
-                    <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mb-1">
-                      {formatCurrency(financialData.confirmedRevenue)}
-                    </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300">Receita Confirmada</div>
-                  </div>
-                  
-                  <div className="text-center p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/20 rounded-lg">
-                    <Clock className="h-8 w-8 text-cyan-600 dark:text-cyan-400 mx-auto mb-3" />
-                    <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400 mb-1">
-                      {formatCurrency(financialData.expectedRevenue)}
-                    </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300">Receita Futura</div>
-                  </div>
-                  
-                  <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg">
-                    <DollarSign className="h-8 w-8 text-purple-600 dark:text-purple-400 mx-auto mb-3" />
-                    <div className="text-2xl font-bold text-purple-700 dark:text-purple-400 mb-1">
-                      {formatCurrency(financialData.confirmedRevenue + financialData.expectedRevenue)}
-                    </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300">Projeção Total</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
