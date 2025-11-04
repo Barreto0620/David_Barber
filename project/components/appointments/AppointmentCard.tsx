@@ -162,7 +162,7 @@ export function AppointmentCard({
         <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-lg flex items-center space-x-1 border-2 border-white">
           <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: '3s' }} />
           <span>MENSAL</span>
-          <Sparkles className="h-3 w-3 animate-pulse" />
+          
         </div>
       </div>
 
