@@ -5,24 +5,33 @@ import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { AddMonthlyClientModal } from '@/components/monthly-clients/forms';
-import { MonthlyAppointmentsView } from '@/components/monthly-clients/monthly-appointments-view';
 import { MonthlySchedulePicker } from '@/components/monthly-clients/schedule-picker';
 import { MonthlyClientCard } from '@/components/monthly-clients/monthly-client-card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Plus, UserCheck, Users, TrendingUp, Clock, AlertTriangle, Play, Pause } from 'lucide-react';
+import { Search, Plus, UserCheck, Users, TrendingUp, Clock, AlertTriangle, Play, Pause, Phone, Mail, Calendar, CreditCard, RefreshCw, Package, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const PLAN_INFO = {
-  basic: { name: 'Básico', color: 'bg-blue-500', visits: '1x/semana', icon: '🔷' },
-  premium: { name: 'Premium', color: 'bg-purple-500', visits: '2x/semana', icon: '💎' },
-  vip: { name: 'VIP', color: 'bg-amber-500', visits: 'Até 4x/semana', icon: '👑' }
+  basic: { name: 'Básico', color: 'from-blue-500 to-blue-600', visits: '1x/semana', icon: '🔷' },
+  premium: { name: 'Premium', color: 'from-purple-500 to-violet-600', visits: '2x/semana', icon: '💎' },
+  vip: { name: 'VIP', color: 'from-amber-500 to-orange-600', visits: 'Até 4x/semana', icon: '👑' }
+};
+
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+const STATUS_CONFIG = {
+  scheduled: { label: 'Agendado', color: 'bg-blue-100 text-blue-700 border-blue-300', icon: Clock },
+  completed: { label: 'Concluído', color: 'bg-green-100 text-green-700 border-green-300', icon: CheckCircle2 },
+  cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700 border-red-300', icon: XCircle },
+  no_show: { label: 'Faltou', color: 'bg-orange-100 text-orange-700 border-orange-300', icon: AlertTriangle }
 };
 
 export default function MonthlyClientsPage() {
@@ -76,6 +85,27 @@ export default function MonthlyClientsPage() {
       return matchesSearch && matchesStatus && matchesPayment;
     });
   }, [monthlyClients, searchTerm, filterStatus, filterPayment]);
+
+  const getClientAppointments = (clientId: string) => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const filtered = appointments.filter(apt => {
+      if (apt.client_id !== clientId) return false;
+      
+      const aptDate = new Date(apt.scheduled_date);
+      const isInCurrentMonth = aptDate >= startOfMonth && aptDate <= endOfMonth;
+      
+      const isMonthlyAppointment = apt.notes?.includes('Cliente Mensal') || apt.notes?.includes('Recorrente');
+      
+      return isInCurrentMonth && (isMonthlyAppointment || apt.status !== 'cancelled');
+    });
+
+    return filtered.sort((a, b) => 
+      new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime()
+    );
+  };
 
   const handleViewDetails = (client: any) => {
     setSelectedClient(client);
@@ -138,7 +168,6 @@ export default function MonthlyClientsPage() {
     if (!clientToEdit) return;
     
     try {
-      // 1. Remove todos os agendamentos antigos
       const oldAppointments = appointments.filter(apt => 
         apt.client_id === clientToEdit.client_id && 
         apt.status !== 'cancelled' && 
@@ -149,7 +178,6 @@ export default function MonthlyClientsPage() {
         await deleteAppointment(apt.id);
       }
 
-      // 2. Cria novos agendamentos
       const { data: userAuth } = await supabase.auth.getUser();
       if (!userAuth.user) {
         toast.error('Erro de autenticação');
@@ -195,18 +223,18 @@ export default function MonthlyClientsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active': return <Badge variant="outline" className="border-green-500 text-green-500">Ativo</Badge>;
-      case 'suspended': return <Badge variant="outline" className="border-orange-500 text-orange-500">Suspenso</Badge>;
-      case 'inactive': return <Badge variant="outline" className="border-gray-500 text-gray-500">Inativo</Badge>;
+      case 'active': return <Badge variant="outline" className="border-green-500 text-green-500 bg-green-50 dark:bg-green-950/20 font-semibold">✓ Ativo</Badge>;
+      case 'suspended': return <Badge variant="outline" className="border-orange-500 text-orange-500 bg-orange-50 dark:bg-orange-950/20 font-semibold">⏸ Suspenso</Badge>;
+      case 'inactive': return <Badge variant="outline" className="border-gray-500 text-gray-500 bg-gray-50 dark:bg-gray-950/20 font-semibold">○ Inativo</Badge>;
       default: return null;
     }
   };
 
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
-      case 'paid': return <Badge className="bg-green-500">Pago</Badge>;
-      case 'pending': return <Badge className="bg-yellow-500">Pendente</Badge>;
-      case 'overdue': return <Badge className="bg-red-500">Atrasado</Badge>;
+      case 'paid': return <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 shadow-md">✓ Pago</Badge>;
+      case 'pending': return <Badge className="bg-gradient-to-r from-yellow-500 to-orange-600 shadow-md">⏱ Pendente</Badge>;
+      case 'overdue': return <Badge className="bg-gradient-to-r from-red-500 to-rose-600 shadow-md animate-pulse">⚠ Atrasado</Badge>;
       default: return null;
     }
   };
@@ -414,96 +442,341 @@ export default function MonthlyClientsPage() {
       </AlertDialog>
 
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           {selectedClient && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-2xl">{selectedClient.client.name}</DialogTitle>
-                <DialogDescription>Detalhes completos do plano mensal</DialogDescription>
-              </DialogHeader>
-              <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="info">Informações</TabsTrigger>
-                  <TabsTrigger value="appointments">Agendamentos</TabsTrigger>
-                </TabsList>
-                <TabsContent value="info" className="space-y-4 mt-4">
-                  <div className="flex gap-2 flex-wrap">
-                    {getStatusBadge(selectedClient.status)}
-                    {getPaymentStatusBadge(selectedClient.payment_status)}
-                    <Badge className={PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].color}>
-                      {PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].name}
-                    </Badge>
+              <DialogHeader className="border-b pb-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <DialogTitle className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent mb-2">
+                      {selectedClient.client.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-base">
+                      Detalhes completos do plano mensal
+                    </DialogDescription>
                   </div>
-                  <Card>
+                  <div className={cn(
+                    "px-6 py-3 rounded-full text-base font-bold text-white shadow-xl flex items-center gap-2",
+                    `bg-gradient-to-r ${PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].color}`
+                  )}>
+                    <RefreshCw className="h-5 w-5 animate-spin" style={{ animationDuration: '3s' }} />
+                    <span className="text-2xl">{PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].icon}</span>
+                    {PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].name}
+                  </div>
+                </div>
+                <div className="flex gap-3 flex-wrap mt-4">
+                  {getStatusBadge(selectedClient.status)}
+                  {getPaymentStatusBadge(selectedClient.payment_status)}
+                </div>
+              </DialogHeader>
+
+              <Tabs defaultValue="info" className="w-full mt-6">
+                <TabsList className="grid w-full grid-cols-2 h-12">
+                  <TabsTrigger value="info" className="text-base font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white">
+                    📋 Informações
+                  </TabsTrigger>
+                  <TabsTrigger value="appointments" className="text-base font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white">
+                    📅 Agendamentos
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="info" className="space-y-6 mt-8">
+                  <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-950/20 dark:to-background">
                     <CardHeader>
-                      <CardTitle className="text-lg">Informações de Contato</CardTitle>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                          <Phone className="h-5 w-5 text-white" />
+                        </div>
+                        Informações de Contato
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Telefone:</span>
-                        <span className="font-medium">{selectedClient.client.phone}</span>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-white dark:bg-background rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <Phone className="h-5 w-5 text-purple-600" />
+                          <span className="text-sm text-muted-foreground">Telefone</span>
+                        </div>
+                        <span className="font-bold text-lg">{selectedClient.client.phone}</span>
                       </div>
                       {selectedClient.client.email && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Email:</span>
-                          <span className="font-medium">{selectedClient.client.email}</span>
+                        <div className="flex items-center justify-between p-3 bg-white dark:bg-background rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <Mail className="h-5 w-5 text-purple-600" />
+                            <span className="text-sm text-muted-foreground">Email</span>
+                          </div>
+                          <span className="font-bold text-lg">{selectedClient.client.email}</span>
                         </div>
                       )}
                     </CardContent>
                   </Card>
-                  <Card>
+
+                  <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50/50 to-white dark:from-green-950/20 dark:to-background">
                     <CardHeader>
-                      <CardTitle className="text-lg">Detalhes do Plano</CardTitle>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                          <CreditCard className="h-5 w-5 text-white" />
+                        </div>
+                        Detalhes Financeiros
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Valor Mensal:</span>
-                        <span className="font-bold text-green-600">R$ {Number(selectedClient.monthly_price).toFixed(2)}</span>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg border-2 border-green-300 dark:border-green-700">
+                        <span className="text-sm font-medium text-muted-foreground">Valor Mensal</span>
+                        <span className="font-bold text-2xl text-green-600 dark:text-green-400">
+                          R$ {Number(selectedClient.monthly_price).toFixed(2)}
+                        </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Data de Início:</span>
-                        <span className="font-medium">{new Date(selectedClient.start_date).toLocaleDateString('pt-BR')}</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-white dark:bg-background rounded-lg border">
+                          <div className="text-xs text-muted-foreground mb-1">Início do Plano</div>
+                          <div className="font-bold">
+                            {new Date(selectedClient.start_date).toLocaleDateString('pt-BR', { 
+                              day: '2-digit', 
+                              month: 'long',
+                              year: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-white dark:bg-background rounded-lg border">
+                          <div className="text-xs text-muted-foreground mb-1">Próximo Vencimento</div>
+                          <div className="font-bold text-purple-600 dark:text-purple-400">
+                            {new Date(selectedClient.next_payment_date).toLocaleDateString('pt-BR', { 
+                              day: '2-digit', 
+                              month: 'long',
+                              year: 'numeric' 
+                            })}
+                          </div>
+                        </div>
                       </div>
                       {selectedClient.last_payment_date && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Último Pagamento:</span>
-                          <span className="font-medium">{new Date(selectedClient.last_payment_date).toLocaleDateString('pt-BR')}</span>
+                        <div className="p-3 bg-white dark:bg-background rounded-lg border">
+                          <div className="text-xs text-muted-foreground mb-1">Último Pagamento</div>
+                          <div className="font-bold text-green-600 dark:text-green-400">
+                            {new Date(selectedClient.last_payment_date).toLocaleDateString('pt-BR', { 
+                              day: '2-digit', 
+                              month: 'long',
+                              year: 'numeric' 
+                            })}
+                          </div>
                         </div>
                       )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Próximo Vencimento:</span>
-                        <span className="font-medium">{new Date(selectedClient.next_payment_date).toLocaleDateString('pt-BR')}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total de Visitas:</span>
-                        <span className="font-bold">{selectedClient.total_visits}</span>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-950/20 dark:to-background">
+                    <CardHeader>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                          <TrendingUp className="h-5 w-5 text-white" />
+                        </div>
+                        Estatísticas do Plano
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-lg border-2 border-blue-300 dark:border-blue-700 text-center">
+                          <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                            {selectedClient.total_visits}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">Total de Visitas</div>
+                        </div>
+                        <div className="p-4 bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 rounded-lg border-2 border-purple-300 dark:border-purple-700 text-center">
+                          <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                            {selectedClient.schedules?.length || 0}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">Horários/Semana</div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
+
                   {selectedClient.notes && (
-                    <Card>
+                    <Card className="border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50/50 to-white dark:from-amber-950/20 dark:to-background">
                       <CardHeader>
-                        <CardTitle className="text-lg">Observações</CardTitle>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                            <AlertTriangle className="h-5 w-5 text-white" />
+                          </div>
+                          Observações
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground">{selectedClient.notes}</p>
+                        <p className="text-sm p-4 bg-white dark:bg-background rounded-lg border italic">
+                          {selectedClient.notes}
+                        </p>
                       </CardContent>
                     </Card>
                   )}
                 </TabsContent>
-                <TabsContent value="appointments" className="space-y-4 mt-4">
-                  <MonthlyAppointmentsView clientId={selectedClient.client_id} schedules={selectedClient.schedules} />
+
+                <TabsContent value="appointments" className="space-y-4 mt-6">
+                  {(() => {
+                    const clientAppointments = getClientAppointments(selectedClient.client_id);
+                    const stats = {
+                      total: clientAppointments.length,
+                      completed: clientAppointments.filter(a => a.status === 'completed').length,
+                      scheduled: clientAppointments.filter(a => a.status === 'scheduled').length,
+                      cancelled: clientAppointments.filter(a => a.status === 'cancelled').length
+                    };
+
+                    if (clientAppointments.length === 0) {
+                      return (
+                        <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700">
+                          <CardContent className="p-12">
+                            <div className="text-center">
+                              <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                              <p className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                Nenhum agendamento encontrado
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-500">
+                                Os agendamentos deste cliente aparecerão aqui
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+
+                    return (
+                      <>
+                        <div className="grid grid-cols-4 gap-4">
+                          <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
+                            <CardContent className="p-6 text-center">
+                              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</div>
+                              <div className="text-xs text-muted-foreground mt-1">Total</div>
+                            </CardContent>
+                          </Card>
+                          
+                          <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-background">
+                            <CardContent className="p-6 text-center">
+                              <div className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.completed}</div>
+                              <div className="text-xs text-muted-foreground mt-1">Concluídos</div>
+                            </CardContent>
+                          </Card>
+                          
+                          <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
+                            <CardContent className="p-6 text-center">
+                              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.scheduled}</div>
+                              <div className="text-xs text-muted-foreground mt-1">Agendados</div>
+                            </CardContent>
+                          </Card>
+                          
+                          <Card className="border-2 border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-background">
+                            <CardContent className="p-6 text-center">
+                              <div className="text-3xl font-bold text-red-600 dark:text-red-400">{stats.cancelled}</div>
+                              <div className="text-xs text-muted-foreground mt-1">Cancelados</div>
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        <Card className="border-2 border-purple-200 dark:border-purple-800">
+                          <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 border-b-2 border-purple-200 dark:border-purple-800">
+                            <CardTitle className="text-xl flex items-center gap-2">
+                              <Calendar className="h-5 w-5 text-purple-600" />
+                              Agendamentos do Mês
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-6">
+                            <div className="space-y-3">
+                              {clientAppointments.map((apt) => {
+                                const aptDate = new Date(apt.scheduled_date);
+                                const statusConfig = STATUS_CONFIG[apt.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.scheduled;
+                                const StatusIcon = statusConfig.icon;
+                                
+                                return (
+                                  <div
+                                    key={apt.id}
+                                    className={cn(
+                                      "p-5 rounded-xl border-2 transition-all hover:shadow-lg",
+                                      apt.status === 'completed' && "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-300 dark:border-green-700",
+                                      apt.status === 'scheduled' && "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-300 dark:border-blue-700",
+                                      apt.status === 'cancelled' && "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-300 dark:border-red-700 opacity-60",
+                                      apt.status === 'no_show' && "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-300 dark:border-orange-700"
+                                    )}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-4 flex-1">
+                                        <div className="flex items-center justify-center w-14 h-14 rounded-full bg-white dark:bg-background border-2 border-current shadow-md">
+                                          <Calendar className="h-6 w-6" />
+                                        </div>
+                                        
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3 mb-2">
+                                            <span className="text-lg font-bold">
+                                              {DIAS_SEMANA[aptDate.getDay()]}, {aptDate.getDate()}/{aptDate.getMonth() + 1}
+                                            </span>
+                                            <Badge variant="outline" className="font-semibold border-2">
+                                              <Clock className="h-3 w-3 mr-1" />
+                                              {aptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            </Badge>
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-2">
+                                            <Package className="h-4 w-4 text-muted-foreground" />
+                                            <span className="font-semibold text-base">{apt.service_type}</span>
+                                            {apt.notes?.includes('Recorrente') && (
+                                              <Badge variant="secondary" className="text-xs">
+                                                🔄 Recorrente
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-4">
+                                        <div className="text-right">
+                                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                            R$ {Number(apt.price || 0).toFixed(2)}
+                                          </div>
+                                          {apt.payment_method && (
+                                            <div className="text-xs text-muted-foreground">
+                                              {apt.payment_method}
+                                            </div>
+                                          )}
+                                        </div>
+                                        
+                                        <Badge className={cn("text-sm font-semibold border-2 px-3 py-1.5", statusConfig.color)}>
+                                          <StatusIcon className="h-4 w-4 mr-1.5" />
+                                          {statusConfig.label}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                       
+                      </>
+                    );
+                  })()}
                 </TabsContent>
               </Tabs>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>Fechar</Button>
+
+              <DialogFooter className="border-t pt-4 mt-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setViewDetailsOpen(false)}
+                  className="border-purple-300 hover:bg-purple-50 dark:border-purple-700 dark:hover:bg-purple-950/30"
+                >
+                  Fechar
+                </Button>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      <AddMonthlyClientModal open={addClientOpen} onClose={() => setAddClientOpen(false)} onSuccess={() => { setAddClientOpen(false); fetchMonthlyClients(); }} />
+      <AddMonthlyClientModal 
+        open={addClientOpen} 
+        onClose={() => setAddClientOpen(false)} 
+        onSuccess={() => { 
+          setAddClientOpen(false); 
+          fetchMonthlyClients(); 
+        }} 
+      />
     </div>
   );
 }

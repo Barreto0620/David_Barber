@@ -977,6 +977,43 @@ export const useAppStore = create<AppStore>()(
       addMonthlyClient: async (data) => {
         return get().convertToMonthlyClient(data);
       },
+// Adicione esta função no store.ts, logo após a função addMonthlyClient
+
+updateMonthlyClient: async (id, data) => {
+  try {
+    set({ monthlyClientsLoading: true });
+    
+    const { id: _, created_at: __, ...updateData } = data as any;
+
+    const { data: updated, error } = await supabase
+      .from('monthly_clients')
+      .update(updateData)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('❌ Erro ao atualizar cliente mensal:', error);
+      throw error;
+    }
+
+    // Atualiza o estado local
+    set(state => ({
+      monthlyClients: state.monthlyClients.map(mc => 
+        mc.id === id ? { ...mc, ...updated } : mc
+      ),
+      lastSync: new Date().toISOString(),
+      monthlyClientsLoading: false
+    }));
+
+    await get().fetchMonthlyClients(); // Recarrega para garantir dados sincronizados
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao atualizar cliente mensal:', error);
+    set({ monthlyClientsLoading: false });
+    return false;
+  }
+},
 
       convertToMonthlyClient: async (data) => {
         try {
