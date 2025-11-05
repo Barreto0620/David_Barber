@@ -94,22 +94,31 @@ export default function FinancialPage() {
   const financialData = useMemo(() => {
     const now = new Date();
     let startDate;
+    let endDate;
     
     switch (selectedPeriod) {
       case 'today':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         break;
       case 'week':
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         break;
       case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        // Início do mês atual
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        // Fim do mês atual (último dia às 23:59:59)
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         break;
       case 'year':
-        startDate = new Date(now.getFullYear(), 0, 1);
+        startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
         break;
       default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     }
 
     // Filter by search term (client name)
@@ -125,7 +134,7 @@ export default function FinancialPage() {
     // Completed appointments (confirmed revenue)
     const completedAppointments = filteredAppointments.filter(apt => {
       const aptDate = new Date(apt.scheduled_date);
-      const isInPeriod = aptDate >= startDate && aptDate <= now;
+      const isInPeriod = aptDate >= startDate && aptDate <= endDate;
       const isCompleted = apt.status === 'completed';
       const matchesPayment = selectedPaymentMethod === 'all' || apt.payment_method === selectedPaymentMethod;
       
