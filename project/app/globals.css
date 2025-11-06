@@ -24,7 +24,7 @@
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
+    --primary: 0 0% 9%; /* Cor Primária (Preto no Light Mode) */
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
@@ -43,7 +43,12 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    
+    /* VARIÁVEIS PARA SCROLLBAR LIGHT MODE */
+    --scrollbar-thumb: 0 0% 9%; /* Usando --primary */
+    --scrollbar-track: 0 0% 96.1%; /* Usando --secondary */
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -51,7 +56,7 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
+    --primary: 0 0% 98%; /* Cor Primária (Branco no Dark Mode) */
     --primary-foreground: 0 0% 9%;
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
@@ -69,7 +74,45 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+
+    /* VARIÁVEIS PARA SCROLLBAR DARK MODE */
+    --scrollbar-thumb: 0 0% 98%; /* Usando --primary (claro) */
+    --scrollbar-track: 0 0% 14.9%; /* Usando --secondary (escuro) */
   }
+}
+
+/* ================================================= */
+/* ESTILIZAÇÃO DA SCROLLBAR COM SUPORTE A DARK MODE  */
+/* ================================================= */
+
+/* 1. WEBKIT (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Trilho (Track) */
+::-webkit-scrollbar-track {
+  background: hsl(var(--scrollbar-track));
+  border-radius: 10px;
+}
+
+/* Alça (Thumb) */
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--scrollbar-thumb));
+  border-radius: 10px;
+}
+
+/* Hover na Alça (Thumb Hover) */
+::-webkit-scrollbar-thumb:hover {
+  /* Escurece a cor da alça no hover */
+  background: color-mix(in srgb, hsl(var(--scrollbar-thumb)) 80%, black);
+}
+
+/* 2. FIREFOX */
+/* Usamos as variáveis de cor para o modo claro/escuro */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--scrollbar-thumb)) hsl(var(--scrollbar-track));
 }
 
 @layer base {
