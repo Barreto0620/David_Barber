@@ -16,7 +16,8 @@ import {
   Menu,
   Scissors,
   UserCheck,
-  Gift
+  Gift,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
   { name: 'Clientes', href: '/clients', icon: Users },
   { name: 'Clientes Mensais', href: '/monthly-clients', icon: UserCheck },
+  { name: 'Serviços', href: '/services', icon: Sparkles },
   { name: 'Fidelidade', href: '/loyalty', icon: Gift },
   { name: 'Financeiro', href: '/financial', icon: DollarSign },
   { name: 'Configurações', href: '/settings', icon: Settings },

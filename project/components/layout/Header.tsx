@@ -132,7 +132,7 @@ export function Header() {
                       </div>
                       <div>
                         <h2 className="text-lg font-semibold">David Barber</h2>
-                        <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
+                        <p className="text-xs text-muted-foreground"> de Gestão</p>
                       </div>
                     </div>
                   </div>

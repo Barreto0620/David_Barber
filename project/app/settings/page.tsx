@@ -35,12 +35,6 @@ export default function SettingsPage() {
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [reminderEnabled, setReminderEnabled] = useState(true);
   const [reminderHours, setReminderHours] = useState('24');
-  
-  // Service management
-  const [newServiceName, setNewServiceName] = useState('');
-  const [newServicePrice, setNewServicePrice] = useState('');
-  const [newServiceDuration, setNewServiceDuration] = useState('');
-  const [newServiceDescription, setNewServiceDescription] = useState('');
 
   const handleSaveBusinessSettings = () => {
     // In a real implementation, this would save to database
@@ -50,48 +44,6 @@ export default function SettingsPage() {
   const handleSaveNotificationSettings = () => {
     // In a real implementation, this would save to database
     toast.success('Configurações de notificação salvas com sucesso!');
-  };
-
-  const handleAddService = () => {
-    if (!newServiceName || !newServicePrice || !newServiceDuration) {
-      toast.error('Preencha todos os campos obrigatórios');
-      return;
-    }
-
-    const newService = {
-      id: `service_${Date.now()}`,
-      name: newServiceName,
-      price: parseFloat(newServicePrice),
-      duration_minutes: parseInt(newServiceDuration),
-      description: newServiceDescription || undefined,
-      active: true,
-    };
-
-    setServices([...services, newService]);
-    
-    // Reset form
-    setNewServiceName('');
-    setNewServicePrice('');
-    setNewServiceDuration('');
-    setNewServiceDescription('');
-    
-    toast.success('Serviço adicionado com sucesso!');
-  };
-
-  const handleToggleService = (serviceId: string) => {
-    const updatedServices = services.map(service =>
-      service.id === serviceId 
-        ? { ...service, active: !service.active }
-        : service
-    );
-    setServices(updatedServices);
-    toast.success('Status do serviço atualizado!');
-  };
-
-  const handleDeleteService = (serviceId: string) => {
-    const updatedServices = services.filter(service => service.id !== serviceId);
-    setServices(updatedServices);
-    toast.success('Serviço removido com sucesso!');
   };
 
   return (
@@ -219,109 +171,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Services Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <SettingsIcon className="h-5 w-5" />
-            <span>Gerenciar Serviços</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Add New Service */}
-          <div className="grid gap-4 p-4 border rounded-lg">
-            <h3 className="font-semibold">Adicionar Novo Serviço</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="serviceName">Nome do Serviço</Label>
-                <Input
-                  id="serviceName"
-                  value={newServiceName}
-                  onChange={(e) => setNewServiceName(e.target.value)}
-                  placeholder="Ex: Corte Degradê"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="servicePrice">Preço (R$)</Label>
-                <Input
-                  id="servicePrice"
-                  type="number"
-                  step="0.01"
-                  value={newServicePrice}
-                  onChange={(e) => setNewServicePrice(e.target.value)}
-                  placeholder="25.00"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="serviceDuration">Duração (minutos)</Label>
-                <Input
-                  id="serviceDuration"
-                  type="number"
-                  value={newServiceDuration}
-                  onChange={(e) => setNewServiceDuration(e.target.value)}
-                  placeholder="30"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="serviceDescription">Descrição</Label>
-                <Input
-                  id="serviceDescription"
-                  value={newServiceDescription}
-                  onChange={(e) => setNewServiceDescription(e.target.value)}
-                  placeholder="Descrição opcional"
-                />
-              </div>
-            </div>
-            
-            <Button onClick={handleAddService} className="w-full">
-              Adicionar Serviço
-            </Button>
-          </div>
-
-          {/* Existing Services */}
-          <div className="space-y-4">
-            <h3 className="font-semibold">Serviços Existentes</h3>
-            <div className="grid gap-3">
-              {services.map((service) => (
-                <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <h4 className="font-medium">{service.name}</h4>
-                      <Badge variant={service.active ? "default" : "secondary"}>
-                        {service.active ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-                      <span>R$ {service.price.toFixed(2)}</span>
-                      <span>{service.duration_minutes} min</span>
-                      {service.description && <span>{service.description}</span>}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={service.active}
-                      onCheckedChange={() => handleToggleService(service.id)}
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleDeleteService(service.id)}
-                      className="h-8 w-8"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Integration Status */}
       <Card>
