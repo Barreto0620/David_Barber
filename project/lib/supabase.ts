@@ -229,3 +229,235 @@ export async function deleteService(id: string): Promise<boolean> {
 export async function toggleServiceActive(id: string, active: boolean): Promise<Service> {
   return updateService(id, { active });
 }
+
+// ==================== FUNÇÕES DE CALENDÁRIO/AGENDAMENTOS ====================
+
+/**
+ * Buscar agendamentos por intervalo de datas
+ */
+export async function fetchAppointmentsByDateRange(
+  startDate: string,
+  endDate: string
+): Promise<Appointment[]> {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .gte('scheduled_date', startDate)
+      .lte('scheduled_date', endDate)
+      .order('scheduled_date', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao buscar agendamentos:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Erro ao buscar agendamentos:', error);
+    throw error;
+  }
+}
+
+/**
+ * Buscar agendamentos de um dia específico
+ */
+export async function fetchAppointmentsByDate(date: string): Promise<Appointment[]> {
+  try {
+    const startOfDay = `${date}T00:00:00`;
+    const endOfDay = `${date}T23:59:59`;
+    
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .gte('scheduled_date', startOfDay)
+      .lte('scheduled_date', endOfDay)
+      .order('scheduled_date', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao buscar agendamentos do dia:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Erro ao buscar agendamentos do dia:', error);
+    throw error;
+  }
+}
+
+/**
+ * Criar novo agendamento
+ */
+export async function createAppointment(appointment: {
+  client_id?: string;
+  scheduled_date: string;
+  service_type: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  price: number;
+  payment_method?: 'dinheiro' | 'cartao' | 'pix' | 'transferencia';
+  created_via: 'whatsapp' | 'manual';
+  notes?: string;
+}): Promise<Appointment> {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .insert([{
+        client_id: appointment.client_id || null,
+        scheduled_date: appointment.scheduled_date,
+        service_type: appointment.service_type,
+        status: appointment.status,
+        price: appointment.price,
+        payment_method: appointment.payment_method || null,
+        created_via: appointment.created_via,
+        notes: appointment.notes || null,
+        completed_at: null
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao criar agendamento:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Erro ao criar agendamento:', error);
+    throw error;
+  }
+}
+
+/**
+ * Atualizar agendamento existente
+ */
+export async function updateAppointment(
+  id: string,
+  updates: Partial<Appointment>
+): Promise<Appointment> {
+  try {
+    // Remover campos que não devem ser atualizados
+    const cleanUpdates = { ...updates };
+    delete cleanUpdates.id;
+    delete cleanUpdates.created_at;
+    
+    // Se estiver atualizando scheduled_date, verificar conflitos
+    if (cleanUpdates.scheduled_date) {
+      const { data: conflicts, error: conflictError } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('scheduled_date', cleanUpdates.scheduled_date)
+        .neq('id', id)
+        .neq('status', 'cancelled')
+        .limit(1);
+
+      if (conflictError) {
+        console.error('Erro ao verificar conflitos:', conflictError);
+      }
+
+      if (conflicts && conflicts.length > 0) {
+        throw new Error('Já existe um agendamento neste horário');
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('appointments')
+      .update(cleanUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao atualizar agendamento:', error);
+      
+      // Mensagem mais amigável para erro de constraint
+      if (error.code === '23505') {
+        throw new Error('Já existe um agendamento neste horário. Escolha outro horário.');
+      }
+      
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Erro ao atualizar agendamento:', error);
+    throw error;
+  }
+}
+
+/**
+ * Deletar agendamento
+ */
+export async function deleteAppointment(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Erro ao deletar agendamento:', error);
+      throw error;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao deletar agendamento:', error);
+    throw error;
+  }
+}
+
+/**
+ * Atualizar horário do agendamento (para drag and drop)
+ */
+export async function updateAppointmentTime(
+  id: string,
+  newScheduledDate: string
+): Promise<Appointment> {
+  return updateAppointment(id, { scheduled_date: newScheduledDate });
+}
+
+/**
+ * Buscar cliente por ID (para exibir nome no calendário)
+ */
+export async function fetchClientById(clientId: string): Promise<Client | null> {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+
+    if (error) {
+      console.error('Erro ao buscar cliente:', error);
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar cliente:', error);
+    return null;
+  }
+}
+
+/**
+ * Buscar todos os clientes (para dropdown ao criar agendamento)
+ */
+export async function fetchClients(): Promise<Client[]> {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao buscar clientes:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Erro ao buscar clientes:', error);
+    throw error;
+  }
+}

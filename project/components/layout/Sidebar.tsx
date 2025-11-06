@@ -17,12 +17,14 @@ import {
   Scissors,
   UserCheck,
   Gift,
-  Sparkles
+  Sparkles,
+  CalendarDays
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Calendário', href: '/calendar', icon: CalendarDays },
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
   { name: 'Clientes', href: '/clients', icon: Users },
   { name: 'Clientes Mensais', href: '/monthly-clients', icon: UserCheck },
