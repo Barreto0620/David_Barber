@@ -63,30 +63,49 @@ export default function AppointmentsPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
-  const [viewMode, setViewMode] = useState('daily');
+  const [viewMode, setViewMode] = useState('all'); // 🔥 MUDADO DE 'daily' PARA 'all'
   
   // Estados para busca e filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [filterService, setFilterService] = useState('all');
   const [filterDateRange, setFilterDateRange] = useState('all');
-  const [sortBy, setSortBy] = useState('date-desc'); // Ordenação padrão: data mais recente
+  const [sortBy, setSortBy] = useState('date-desc');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // ===== SISTEMA DE LEMBRETES AUTOMÁTICOS (NOVO) =====
+  // 🔥 CORREÇÃO PRINCIPAL: Lógica de exibição de agendamentos
+  const displayAppointments = useMemo(() => {
+    // Se viewMode for 'all', retorna TODOS os agendamentos do banco
+    if (viewMode === 'all') {
+      console.log('📊 Modo "Todos": Mostrando todos os', appointments.length, 'agendamentos');
+      return appointments;
+    }
+    
+    // Se viewMode for 'daily', filtra apenas pelo dia selecionado
+    const dailyAppointments = getAppointmentsByDate(appointments, selectedDate);
+    console.log('📅 Modo "Diária":', dailyAppointments.length, 'agendamentos para', selectedDate.toLocaleDateString());
+    return dailyAppointments;
+  }, [appointments, viewMode, selectedDate]);
+
+  // Log para debug
+  useEffect(() => {
+    console.log('🔍 DEBUG:');
+    console.log('  - Total no banco:', appointments.length);
+    console.log('  - Modo de visualização:', viewMode);
+    console.log('  - Exibindo:', displayAppointments.length);
+    console.log('  - Tab ativa:', activeTab);
+  }, [appointments, viewMode, displayAppointments, activeTab]);
+
+  // ===== SISTEMA DE LEMBRETES AUTOMÁTICOS =====
   useEffect(() => {
     const checkUpcomingAppointments = () => {
       const now = new Date();
       
       appointments.forEach(apt => {
-        // Só processa agendamentos agendados (não completados/cancelados)
         if (apt.status !== 'scheduled') return;
         
         const scheduledDate = new Date(apt.scheduled_date);
-        
-        // Calcula diferença em minutos
         const diffMinutes = Math.round((scheduledDate.getTime() - now.getTime()) / (1000 * 60));
         
-        // Cria lembretes em momentos específicos: 30, 15 e 5 minutos antes
         if (diffMinutes === 30 || diffMinutes === 15 || diffMinutes === 5) {
           const client = apt.client || getClientById(apt.client_id);
           
@@ -99,11 +118,8 @@ export default function AppointmentsPage() {
             serviceType: apt.service_type,
             scheduledDate: apt.scheduled_date,
           });
-          
-          console.log(`📢 Lembrete criado: ${client?.name} em ${diffMinutes} minutos`);
         }
         
-        // Notificação quando o agendamento está atrasado (5 minutos após o horário)
         if (diffMinutes === -5) {
           const client = apt.client || getClientById(apt.client_id);
           
@@ -120,40 +136,18 @@ export default function AppointmentsPage() {
       });
     };
 
-    // Verifica imediatamente ao carregar
     checkUpcomingAppointments();
-    
-    // Configura verificação automática a cada 1 minuto
     const interval = setInterval(checkUpcomingAppointments, 60000);
-    
-    // Limpa o interval quando o componente for desmontado
     return () => clearInterval(interval);
   }, [appointments, addNotification, getClientById]);
-  // ===== FIM DO SISTEMA DE LEMBRETES =====
 
-  // Lógica para definir a lista de agendamentos a ser exibida
-  const displayAppointments = viewMode === 'all' 
-    ? appointments 
-    : getAppointmentsByDate(appointments, selectedDate);
-  
   // Obter lista única de serviços para o filtro
   const uniqueServices = useMemo(() => {
     const services = new Set(appointments.map(apt => apt.service_type));
     return Array.from(services).sort();
   }, [appointments]);
-  
-  // Obter lista única de datas para o filtro
-  const uniqueDates = useMemo(() => {
-    const dates = new Set(
-      appointments.map(apt => {
-        const date = new Date(apt.scheduled_date);
-        return date.toISOString().split('T')[0];
-      })
-    );
-    return Array.from(dates).sort().reverse();
-  }, [appointments]);
-  
-  // Função para filtrar por range de data
+
+  // 🔥 CORREÇÃO: Função de filtro de data agora considera TODOS os agendamentos
   const filterByDateRange = (apt) => {
     if (filterDateRange === 'all') return true;
     
@@ -162,100 +156,119 @@ export default function AppointmentsPage() {
     today.setHours(0, 0, 0, 0);
     
     switch (filterDateRange) {
-      case 'recent':
+      case 'recent': {
+        // Agendamentos futuros (a partir de agora)
         const now = new Date();
         return aptDate >= now;
+      }
       
-      case 'today':
+      case 'today': {
         const todayStr = today.toISOString().split('T')[0];
         const aptStr = aptDate.toISOString().split('T')[0];
         return todayStr === aptStr;
+      }
       
-      case 'week':
+      case 'week': {
         const weekFromNow = new Date(today);
         weekFromNow.setDate(today.getDate() + 7);
         return aptDate >= today && aptDate <= weekFromNow;
+      }
       
-      case 'month':
+      case 'month': {
         const monthFromNow = new Date(today);
         monthFromNow.setMonth(today.getMonth() + 1);
         return aptDate >= today && aptDate <= monthFromNow;
+      }
+      
+      case 'past': { // 🔥 NOVO: Filtro para agendamentos passados
+        return aptDate < today;
+      }
       
       default:
         return true;
     }
   };
-  
-  // Aplicar busca e filtros
+
+  // 🔥 CORREÇÃO: Aplicar filtros sobre displayAppointments (já filtrado por viewMode)
   const filteredAppointments = useMemo(() => {
     let filtered = activeTab === 'all' 
       ? displayAppointments 
       : getAppointmentsByStatus(displayAppointments, activeTab);
     
-    // Filtro de busca por nome do cliente ou serviço
+    console.log('🔧 Filtros aplicados:');
+    console.log('  - Antes dos filtros:', filtered.length);
+    
+    // Filtro de busca
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(apt => {
         const client = apt.client || (apt.client_id ? getClientById(apt.client_id) : null);
         const clientName = client?.name?.toLowerCase() || '';
         const serviceName = apt.service_type?.toLowerCase() || '';
-        
         return clientName.includes(query) || serviceName.includes(query);
       });
+      console.log('  - Após busca:', filtered.length);
     }
     
     // Filtro por serviço
     if (filterService !== 'all') {
       filtered = filtered.filter(apt => apt.service_type === filterService);
+      console.log('  - Após filtro de serviço:', filtered.length);
     }
     
     // Filtro por range de data
     filtered = filtered.filter(filterByDateRange);
+    console.log('  - Após filtro de data:', filtered.length);
     
-    // Aplicar ordenação
-    // Aplicar ordenação
+    // Ordenação
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
-       
+        case 'date-desc':
+          return new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime();
         
-        case 'nearest': { // Agendamento mais próximo (relativo ao horário atual)
+        case 'date-asc':
+          return new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime();
+        
+        case 'nearest': {
           const now = new Date().getTime();
           const diffA = Math.abs(new Date(a.scheduled_date).getTime() - now);
           const diffB = Math.abs(new Date(b.scheduled_date).getTime() - now);
           return diffA - diffB;
         }
         
-        case 'farthest': { // Agendamento mais distante (relativo ao horário atual)
+        case 'farthest': {
           const now = new Date().getTime();
           const diffA = Math.abs(new Date(a.scheduled_date).getTime() - now);
           const diffB = Math.abs(new Date(b.scheduled_date).getTime() - now);
           return diffB - diffA;
         }
         
-        case 'client-asc': // Cliente A-Z
+        case 'client-asc': {
           const clientA = a.client || getClientById(a.client_id);
           const clientB = b.client || getClientById(b.client_id);
           const nameA = clientA?.name?.toLowerCase() || '';
           const nameB = clientB?.name?.toLowerCase() || '';
           return nameA.localeCompare(nameB);
+        }
         
-        case 'client-desc': // Cliente Z-A
-          const clientA2 = a.client || getClientById(a.client_id);
-          const clientB2 = b.client || getClientById(b.client_id);
-          const nameA2 = clientA2?.name?.toLowerCase() || '';
-          const nameB2 = clientB2?.name?.toLowerCase() || '';
-          return nameB2.localeCompare(nameA2);
+        case 'client-desc': {
+          const clientA = a.client || getClientById(a.client_id);
+          const clientB = b.client || getClientById(b.client_id);
+          const nameA = clientA?.name?.toLowerCase() || '';
+          const nameB = clientB?.name?.toLowerCase() || '';
+          return nameB.localeCompare(nameA);
+        }
         
-        case 'service-asc': // Serviço A-Z
+        case 'service-asc':
           return (a.service_type || '').localeCompare(b.service_type || '');
         
-        case 'service-desc': // Serviço Z-A
+        case 'service-desc':
           return (b.service_type || '').localeCompare(a.service_type || '');
         
-        case 'price-asc': // Preço menor primeiro
+        case 'price-asc':
           return (a.price || 0) - (b.price || 0);
         
-        case 'price-desc': // Preço maior primeiro
+        case 'price-desc':
           return (b.price || 0) - (a.price || 0);
         
         default:
@@ -263,6 +276,7 @@ export default function AppointmentsPage() {
       }
     });
     
+    console.log('  - Final após ordenação:', sorted.length);
     return sorted;
   }, [displayAppointments, activeTab, searchQuery, filterService, filterDateRange, sortBy, getClientById]);
 
@@ -274,7 +288,7 @@ export default function AppointmentsPage() {
     setSearchQuery('');
     setFilterService('all');
     setFilterDateRange('all');
-    setSortBy('date-desc'); // Reseta para ordenação padrão
+    setSortBy('date-desc');
   };
   
   const hasActiveFilters = searchQuery || filterService !== 'all' || filterDateRange !== 'all' || sortBy !== 'date-desc';
@@ -445,9 +459,10 @@ export default function AppointmentsPage() {
                       <SelectContent>
                         <SelectItem value="all">Todas as datas</SelectItem>
                         <SelectItem value="today">Hoje</SelectItem>
-                        <SelectItem value="recent">Mais Recentes</SelectItem>
+                        <SelectItem value="recent">Próximos agendamentos</SelectItem>
                         <SelectItem value="week">Próximos 7 dias</SelectItem>
                         <SelectItem value="month">Próximos 30 dias</SelectItem>
+                        <SelectItem value="past">Agendamentos passados</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -461,8 +476,13 @@ export default function AppointmentsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="date-desc">📅 Data: Mais recente</SelectItem>
+                        <SelectItem value="date-asc">📅 Data: Mais antiga</SelectItem>
                         <SelectItem value="nearest">🎯 Agendamento: Mais próximo</SelectItem>
                         <SelectItem value="farthest">📆 Agendamento: Mais distante</SelectItem>
+                        <SelectItem value="client-asc">👤 Cliente: A → Z</SelectItem>
+                        <SelectItem value="client-desc">👤 Cliente: Z → A</SelectItem>
+                        <SelectItem value="service-asc">✂️ Serviço: A → Z</SelectItem>
+                        <SelectItem value="service-desc">✂️ Serviço: Z → A</SelectItem>
                         <SelectItem value="price-asc">💰 Preço: Menor → Maior</SelectItem>
                         <SelectItem value="price-desc">💰 Preço: Maior → Menor</SelectItem>
                       </SelectContent>
@@ -501,10 +521,11 @@ export default function AppointmentsPage() {
               {filterDateRange !== 'all' && (
                 <Badge variant="secondary" className="gap-1 pr-1">
                   Período: {
-                    filterDateRange === 'recent' ? 'Mais Recentes' :
+                    filterDateRange === 'recent' ? 'Próximos' :
                     filterDateRange === 'today' ? 'Hoje' :
                     filterDateRange === 'week' ? 'Próximos 7 dias' :
-                    filterDateRange === 'month' ? 'Próximos 30 dias' : ''
+                    filterDateRange === 'month' ? 'Próximos 30 dias' :
+                    filterDateRange === 'past' ? 'Passados' : ''
                   }
                   <span 
                     onClick={() => setFilterDateRange('all')} 
@@ -516,15 +537,7 @@ export default function AppointmentsPage() {
               )}
               {sortBy !== 'date-desc' && (
                 <Badge variant="secondary" className="gap-1 pr-1">
-                  Ordem: {
-                    sortBy === 'date-asc' ? '📅 Data Antiga' :
-                    sortBy === 'client-asc' ? '👤 Cliente A-Z' :
-                    sortBy === 'client-desc' ? '👤 Cliente Z-A' :
-                    sortBy === 'service-asc' ? '✂️ Serviço A-Z' :
-                    sortBy === 'service-desc' ? '✂️ Serviço Z-A' :
-                    sortBy === 'price-asc' ? '💰 Preço ↑' :
-                    sortBy === 'price-desc' ? '💰 Preço ↓' : ''
-                  }
+                  Ordem personalizada
                   <span 
                     onClick={() => setSortBy('date-desc')} 
                     className="ml-1 hover:text-destructive cursor-pointer inline-flex items-center justify-center w-4 h-4"
