@@ -1,3 +1,4 @@
+// app/layout.tsx
 // @ts-nocheck
 import { Metadata } from 'next'
 import { Inter } from 'next/font/google'
@@ -8,9 +9,14 @@ import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
+// AQUI ESTÁ A MUDANÇA: Adicionamos a propriedade 'icons'
 export const metadata: Metadata = {
   title: 'David Barber - Sistema de Gestão',
   description: 'Sistema de gerenciamento para barbearia',
+  icons: {
+    // Aponta para o arquivo que está em /public/favicon.png
+    icon: '/favicon.png', 
+  },
 }
 
 export default function RootLayout({
