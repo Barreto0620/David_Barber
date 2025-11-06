@@ -117,3 +117,115 @@ export async function testConnection() {
     return { success: false, message: err.message || 'Erro desconhecido' };
   }
 }
+
+// ==================== FUNÇÕES DE SERVIÇOS ====================
+
+/**
+ * Buscar todos os serviços
+ */
+export async function fetchServices(): Promise<Service[]> {
+  try {
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao buscar serviços:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Erro ao buscar serviços:', error);
+    throw error;
+  }
+}
+
+/**
+ * Criar novo serviço
+ */
+export async function createService(service: {
+  name: string;
+  price: number;
+  duration_minutes: number;
+  description?: string;
+  active: boolean;
+}): Promise<Service> {
+  try {
+    const { data, error } = await supabase
+      .from('services')
+      .insert([{
+        name: service.name,
+        price: service.price,
+        duration_minutes: service.duration_minutes,
+        description: service.description || null,
+        active: service.active
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao criar serviço:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Erro ao criar serviço:', error);
+    throw error;
+  }
+}
+
+/**
+ * Atualizar serviço existente
+ */
+export async function updateService(id: string, updates: Partial<Service>): Promise<Service> {
+  try {
+    const { data, error } = await supabase
+      .from('services')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao atualizar serviço:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Erro ao atualizar serviço:', error);
+    throw error;
+  }
+}
+
+/**
+ * Deletar serviço
+ */
+export async function deleteService(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('services')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Erro ao deletar serviço:', error);
+      throw error;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao deletar serviço:', error);
+    throw error;
+  }
+}
+
+/**
+ * Alternar status ativo/inativo
+ */
+export async function toggleServiceActive(id: string, active: boolean): Promise<Service> {
+  return updateService(id, { active });
+}
