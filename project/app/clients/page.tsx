@@ -127,18 +127,19 @@ export default function ClientsPage() {
   }, [totalPages]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Clientes</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Gerencie a base de clientes da barbearia
           </p>
         </div>
-        <Button onClick={() => setNewClientModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Cliente
+        <Button onClick={() => setNewClientModalOpen(true)} className="w-full sm:w-auto">
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Novo Cliente</span>
+          <span className="sm:hidden">Novo</span>
         </Button>
       </div>
 

@@ -25,21 +25,25 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Users, 
-  DollarSign, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  DollarSign,
+  Settings,
   UserCheck,
-  Gift
+  Gift,
+  Sparkles,
+  CalendarDays
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Calendário', href: '/calendar', icon: CalendarDays },
   { name: 'Agendamentos', href: '/appointments', icon: Calendar },
   { name: 'Clientes', href: '/clients', icon: Users },
   { name: 'Clientes Mensais', href: '/monthly-clients', icon: UserCheck },
+  { name: 'Serviços', href: '/services', icon: Sparkles },
   { name: 'Fidelidade', href: '/loyalty', icon: Gift },
   { name: 'Financeiro', href: '/financial', icon: DollarSign },
   { name: 'Configurações', href: '/settings', icon: Settings },
