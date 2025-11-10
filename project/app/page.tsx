@@ -120,37 +120,37 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex-1 space-y-6">
+    <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6">
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 8px;
         }
-        
+
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
           border-radius: 10px;
         }
-        
+
         .custom-scrollbar::-webkit-scrollbar-thumb {
           background: hsl(var(--muted-foreground) / 0.3);
           border-radius: 10px;
           transition: background 0.2s ease;
         }
-        
+
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: hsl(var(--muted-foreground) / 0.5);
         }
-        
+
         .custom-scrollbar {
           scrollbar-width: thin;
           scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
         }
       `}</style>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Visão geral da sua barbearia
           </p>
         </div>
@@ -160,9 +160,10 @@ export default function Dashboard() {
             disabled={isRefreshing}
             variant="outline"
             size="sm"
+            className="w-full sm:w-auto"
           >
-            <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
-            Atualizar
+            <RefreshCw className={cn("h-4 w-4 sm:mr-2", isRefreshing && "animate-spin")} />
+            <span className="hidden sm:inline">Atualizar</span>
           </Button>
         </div>
       </div>
@@ -173,7 +174,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Receita Hoje"
           value={isClient ? metrics.todayRevenue : 0}
@@ -183,7 +184,7 @@ export default function Dashboard() {
           icon={<DollarSign className="h-4 w-4" />}
           className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
         />
-        
+
         <MetricCard
           title="Agendamentos Hoje"
           value={isClient ? metrics.todayAppointments : 0}
@@ -192,7 +193,7 @@ export default function Dashboard() {
           icon={<Calendar className="h-4 w-4" />}
           className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
         />
-        
+
         <MetricCard
           title="Receita Semanal"
           value={isClient ? metrics.weeklyRevenue : 0}
@@ -200,7 +201,7 @@ export default function Dashboard() {
           trend="neutral"
           icon={<TrendingUp className="h-4 w-4" />}
         />
-        
+
         <MetricCard
           title="Total de Clientes"
           value={isClient ? clients.length : 0}
@@ -210,7 +211,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-1 space-y-4">
           {currentAppointment && (
             <div>
@@ -344,15 +345,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <RevenueChart />
         </div>
-        
+
         <Card>
           <CardHeader>
-            <CardTitle>Clientes Recentes</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Clientes Recentes</CardTitle>
+            <CardDescription className="text-sm">
               Últimos clientes atendidos
             </CardDescription>
           </CardHeader>
@@ -361,19 +362,19 @@ export default function Dashboard() {
               {recentClients.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum cliente recente</p>
+                  <p className="text-sm">Nenhum cliente recente</p>
                 </div>
               ) : (
                 recentClients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{client.name}</div>
-                      <div className="text-sm text-muted-foreground">
+                  <div key={client.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{client.name}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground truncate">
                         {client.last_visit && `Última visita: ${new Date(client.last_visit).toLocaleDateString('pt-BR')}`}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium">{client.total_visits} visitas</div>
+                    <div className="text-left sm:text-right shrink-0">
+                      <div className="text-xs sm:text-sm font-medium">{client.total_visits} visitas</div>
                       <div className="text-xs text-muted-foreground">
                         {formatCurrency(client.total_spent)}
                       </div>

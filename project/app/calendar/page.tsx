@@ -199,7 +199,7 @@ export default function CalendarPage() {
     const weekDays = [];
     for (let i = 0; i < 7; i++) {
       weekDays.push(
-        <div key={i} className="text-center text-sm font-semibold text-muted-foreground py-2">
+        <div key={i} className="text-center text-xs sm:text-sm font-semibold text-muted-foreground py-2">
           {format(addDays(startDate, i), 'EEE', { locale: ptBR })}
         </div>
       );
@@ -222,26 +222,26 @@ export default function CalendarPage() {
         days.push(
           <div
             key={day.toString()}
-            className={`min-h-[120px] border-r border-b p-2 transition-colors ${
+            className={`min-h-[80px] sm:min-h-[120px] border-r border-b p-1 sm:p-2 transition-colors ${
               !isCurrentMonth ? 'bg-muted/30' : ''
             } ${
-              isPastDate 
-                ? 'bg-muted/50 opacity-50 cursor-not-allowed' 
+              isPastDate
+                ? 'bg-muted/50 opacity-50 cursor-not-allowed'
                 : 'cursor-pointer hover:bg-accent/50'
             }`}
             onClick={() => !isPastDate && handleDateClick(cloneDay)}
             title={isPastDate ? 'Data passada - não é possível agendar' : 'Clique para agendar'}
           >
-            <div className={`text-sm font-medium mb-1 ${
+            <div className={`text-xs sm:text-sm font-medium mb-1 ${
               isDayToday
-                ? 'bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center'
+                ? 'bg-primary text-primary-foreground rounded-full w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center text-xs'
                 : isCurrentMonth && !isPastDate
                 ? 'text-foreground'
                 : 'text-muted-foreground'
             }`}>
               {format(day, 'd')}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 hidden sm:block">
               {dayAppointments.slice(0, 3).map((apt) => (
                 <div
                   key={apt.id}
@@ -263,6 +263,12 @@ export default function CalendarPage() {
                 </div>
               )}
             </div>
+            {/* Mobile: apenas mostra indicador de quantidade */}
+            {dayAppointments.length > 0 && (
+              <div className="sm:hidden flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+              </div>
+            )}
           </div>
         );
         day = addDays(day, 1);
@@ -483,62 +489,67 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Calendário</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Calendário</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Visualize e gerencie seus agendamentos
           </p>
         </div>
 
         {/* View Mode Selector */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
           <Button
             variant={viewMode === 'day' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setViewMode('day')}
+            className="flex-shrink-0"
           >
-            <CalendarDays className="h-4 w-4 mr-2" />
-            Dia
+            <CalendarDays className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Dia</span>
           </Button>
           <Button
             variant={viewMode === 'week' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setViewMode('week')}
+            className="flex-shrink-0 hidden sm:flex"
           >
-            <CalendarRange className="h-4 w-4 mr-2" />
-            Semana
+            <CalendarRange className="h-4 w-4 sm:mr-2" />
+            <span>Semana</span>
           </Button>
           <Button
             variant={viewMode === 'month' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setViewMode('month')}
+            className="flex-shrink-0"
           >
-            <Grid3x3 className="h-4 w-4 mr-2" />
-            Mês
+            <Grid3x3 className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Mês</span>
           </Button>
         </div>
       </div>
 
       {/* Navigation */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={handlePrevious}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" onClick={handleToday}>
-                Hoje
-              </Button>
-              <Button variant="outline" size="icon" onClick={handleNext}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2 justify-between sm:justify-start">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={handlePrevious} className="h-9 w-9">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" onClick={handleToday} size="sm">
+                  Hoje
+                </Button>
+                <Button variant="outline" size="icon" onClick={handleNext} className="h-9 w-9">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-base sm:text-2xl font-bold text-center sm:text-left order-first sm:order-none">
               {viewMode === 'month' &&
                 format(currentDate, 'MMMM yyyy', { locale: ptBR })}
               {viewMode === 'week' &&
@@ -551,9 +562,10 @@ export default function CalendarPage() {
                 format(currentDate, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
             </h2>
 
-            <Button onClick={() => handleDateClick(new Date())}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Agendamento
+            <Button onClick={() => handleDateClick(new Date())} size="sm" className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Novo Agendamento</span>
+              <span className="sm:hidden">Novo</span>
             </Button>
           </div>
         </CardContent>

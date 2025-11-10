@@ -564,22 +564,24 @@ export default function FinancialPage() {
   const goalProgress = monthlyGoal > 0 ? (financialData.confirmedRevenue / monthlyGoal) * 100 : 0;
 
   return (
-    <div className="flex-1 space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             Financeiro
           </h2>
-          <p className="text-slate-600 dark:text-slate-300">
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
             Controle completo de receitas, métricas e análises financeiras
           </p>
         </div>
-        <Button 
-          onClick={() => setExportDialogOpen(true)} 
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+        <Button
+          onClick={() => setExportDialogOpen(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
+          size="sm"
         >
-          <Download className="h-4 w-4 mr-2" />
-          Exportar Relatório
+          <Download className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Exportar Relatório</span>
+          <span className="sm:hidden">Exportar</span>
         </Button>
       </div>
 
@@ -622,12 +624,12 @@ export default function FinancialPage() {
 
       {/* Filters */}
       <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="w-32 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
+                <SelectTrigger className="w-full sm:w-32 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -640,9 +642,9 @@ export default function FinancialPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <Filter className="h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
               <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-                <SelectTrigger className="w-40 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
+                <SelectTrigger className="w-full sm:w-40 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -659,14 +661,14 @@ export default function FinancialPage() {
               placeholder="🔍 Buscar por cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-64 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+              className="w-full sm:w-64 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
             />
           </div>
         </CardContent>
       </Card>
 
       {/* Metrics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/50 dark:to-emerald-800/30 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full -mr-16 -mt-16" />
           <CardHeader className="relative">
@@ -804,7 +806,7 @@ export default function FinancialPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             {/* Payment Methods */}
             <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
               <CardHeader>
@@ -1065,7 +1067,7 @@ export default function FinancialPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             {/* Revenue Comparison */}
             <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
               <CardHeader>
@@ -1272,7 +1274,7 @@ export default function FinancialPage() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             {/* Summary Cards */}
             <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20">
               <CardHeader>
