@@ -79,10 +79,10 @@ export default function Dashboard() {
 
   const SafeBadge = ({ count, children }) => {
     if (!isClient) {
-      return <Badge variant="secondary">0</Badge>;
+      return <Badge variant="secondary" className="text-xs px-2 py-0.5">0</Badge>;
     }
     return (
-      <Badge variant="secondary">
+      <Badge variant="secondary" className="text-xs px-2 py-0.5">
         {count} {children}
       </Badge>
     );
@@ -110,20 +110,21 @@ export default function Dashboard() {
 
   if (isLoading && !lastSync) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center min-h-screen px-4">
         <div className="text-center space-y-4">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="text-muted-foreground">Carregando dados...</p>
+          <RefreshCw className="h-8 w-8 sm:h-10 sm:w-10 animate-spin mx-auto text-muted-foreground" />
+          <p className="text-sm sm:text-base text-muted-foreground">Carregando dados...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6">
+    <div className="flex-1 w-full">
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
+          width: 6px;
+          height: 6px;
         }
 
         .custom-scrollbar::-webkit-scrollbar-track {
@@ -145,246 +146,274 @@ export default function Dashboard() {
           scrollbar-width: thin;
           scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
         }
+
+        @media (max-width: 640px) {
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+          }
+        }
       `}</style>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Visão geral da sua barbearia
-          </p>
+      <div className="space-y-4 sm:space-y-5 md:space-y-6 p-3 sm:p-4 md:p-6 max-w-[2000px] mx-auto">
+        {/* Header Section */}
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="space-y-1">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h2>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
+                Visão geral da sua barbearia
+              </p>
+            </div>
+            <Button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto h-9 sm:h-10"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2", isRefreshing && "animate-spin")} />
+              <span className="text-xs sm:text-sm">Atualizar</span>
+            </Button>
+          </div>
+
+          {lastSync && (
+            <div className="text-[10px] sm:text-xs text-muted-foreground">
+              Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            variant="outline"
-            size="sm"
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw className={cn("h-4 w-4 sm:mr-2", isRefreshing && "animate-spin")} />
-            <span className="hidden sm:inline">Atualizar</span>
-          </Button>
+
+        {/* Metrics Grid */}
+        <div className="grid gap-2.5 sm:gap-3 md:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            title="Receita Hoje"
+            value={isClient ? metrics.todayRevenue : 0}
+            type="currency"
+            trend="up"
+            trendValue="+12.5% vs ontem"
+            icon={<DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+            className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+          />
+
+          <MetricCard
+            title="Agendamentos Hoje"
+            value={isClient ? metrics.todayAppointments : 0}
+            trend="up"
+            trendValue={isClient ? `${metrics.completedToday} concluídos` : "0 concluídos"}
+            icon={<Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+            className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
+          />
+
+          <MetricCard
+            title="Receita Semanal"
+            value={isClient ? metrics.weeklyRevenue : 0}
+            type="currency"
+            trend="neutral"
+            icon={<TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+          />
+
+          <MetricCard
+            title="Total de Clientes"
+            value={isClient ? clients.length : 0}
+            trend="up"
+            trendValue="+3 este mês"
+            icon={<Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+          />
         </div>
-      </div>
 
-      {lastSync && (
-        <div className="text-xs text-muted-foreground">
-          Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}
-        </div>
-      )}
+        {/* Main Content Grid */}
+        <div className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 lg:grid-cols-3">
+          {/* Left Column - Current/Next Appointment */}
+          <div className="lg:col-span-1 space-y-3 sm:space-y-4">
+            {currentAppointment && (
+              <div className="space-y-2 sm:space-y-3">
+                <h3 className="text-sm sm:text-base md:text-lg font-semibold flex items-center gap-1.5 sm:gap-2 px-1">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <span className="truncate">Atendimento em Andamento</span>
+                </h3>
+                <div className="space-y-3 sm:space-y-4">
+                  <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
+                    <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3 space-y-1.5 sm:space-y-2">
+                      <CardTitle className="text-sm sm:text-base flex items-start sm:items-center justify-between gap-2">
+                        <span className="truncate flex-1 min-w-0">
+                          {clients.find(c => c.id === currentAppointment.client_id)?.name || 'Cliente'}
+                        </span>
+                        <Badge className={cn(getStatusColor(currentAppointment.status), "text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 flex-shrink-0")}>
+                          {getStatusLabel(currentAppointment.status)}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm break-words">
+                        {currentAppointment.service_type} • {formatTime(currentAppointment.scheduled_date)}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                  
+                  <Timer
+                    appointment={currentAppointment}
+                    serviceDuration={services.find(s => s.name === currentAppointment.service_type)?.duration_minutes || 30}
+                  />
+                </div>
+              </div>
+            )}
 
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Receita Hoje"
-          value={isClient ? metrics.todayRevenue : 0}
-          type="currency"
-          trend="up"
-          trendValue="+12.5% vs ontem"
-          icon={<DollarSign className="h-4 w-4" />}
-          className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
-        />
-
-        <MetricCard
-          title="Agendamentos Hoje"
-          value={isClient ? metrics.todayAppointments : 0}
-          trend="up"
-          trendValue={isClient ? `${metrics.completedToday} concluídos` : "0 concluídos"}
-          icon={<Calendar className="h-4 w-4" />}
-          className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
-        />
-
-        <MetricCard
-          title="Receita Semanal"
-          value={isClient ? metrics.weeklyRevenue : 0}
-          type="currency"
-          trend="neutral"
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
-
-        <MetricCard
-          title="Total de Clientes"
-          value={isClient ? clients.length : 0}
-          trend="up"
-          trendValue="+3 este mês"
-          icon={<Users className="h-4 w-4" />}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
-        <div className="lg:col-span-1 space-y-4">
-          {currentAppointment && (
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Atendimento em Andamento
-              </h3>
-              <div className="space-y-4">
-                <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center justify-between">
-                      <span>{clients.find(c => c.id === currentAppointment.client_id)?.name || 'Cliente'}</span>
-                      <Badge className={getStatusColor(currentAppointment.status)}>
-                        {getStatusLabel(currentAppointment.status)}
+            {nextAppointment && !currentAppointment && (
+              <div className="space-y-2 sm:space-y-3">
+                <h3 className="text-sm sm:text-base md:text-lg font-semibold flex items-center gap-1.5 sm:gap-2 px-1">
+                  <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <span className="truncate">Próximo Agendamento</span>
+                </h3>
+                <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+                  <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3 space-y-1.5 sm:space-y-2">
+                    <CardTitle className="text-sm sm:text-base flex items-start sm:items-center justify-between gap-2">
+                      <span className="truncate flex-1 min-w-0">
+                        {clients.find(c => c.id === nextAppointment.client_id)?.name || 'Cliente'}
+                      </span>
+                      <Badge className={cn(getStatusColor(nextAppointment.status), "text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 flex-shrink-0")}>
+                        {getStatusLabel(nextAppointment.status)}
                       </Badge>
                     </CardTitle>
-                    <CardDescription>
-                      {currentAppointment.service_type} • {formatTime(currentAppointment.scheduled_date)}
+                    <CardDescription className="text-xs sm:text-sm break-words">
+                      {nextAppointment.service_type} • {formatTime(nextAppointment.scheduled_date)}
                     </CardDescription>
                   </CardHeader>
+                  <CardContent className="p-3 sm:p-4 pt-0">
+                    <Timer
+                      appointment={nextAppointment}
+                      serviceDuration={services.find(s => s.name === nextAppointment.service_type)?.duration_minutes || 30}
+                    />
+                  </CardContent>
                 </Card>
-                
-                <Timer
-                  appointment={currentAppointment}
-                  serviceDuration={services.find(s => s.name === currentAppointment.service_type)?.duration_minutes || 30}
-                />
               </div>
-            </div>
-          )}
+            )}
 
-          {nextAppointment && !currentAppointment && (
-            <div>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Próximo Agendamento
-              </h3>
-              <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center justify-between">
-                    <span>{clients.find(c => c.id === nextAppointment.client_id)?.name || 'Cliente'}</span>
-                    <Badge className={getStatusColor(nextAppointment.status)}>
-                      {getStatusLabel(nextAppointment.status)}
-                    </Badge>
+            {!currentAppointment && !nextAppointment && (
+              <Card>
+                <CardHeader className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
+                  <CardTitle className="text-sm sm:text-base flex items-center gap-1.5 sm:gap-2">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
+                    <span className="truncate">Sem agendamentos pendentes</span>
                   </CardTitle>
-                  <CardDescription>
-                    {nextAppointment.service_type} • {formatTime(nextAppointment.scheduled_date)}
+                  <CardDescription className="text-xs sm:text-sm">
+                    Todos os atendimentos de hoje foram concluídos!
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <Timer
-                    appointment={nextAppointment}
-                    serviceDuration={services.find(s => s.name === nextAppointment.service_type)?.duration_minutes || 30}
-                  />
-                </CardContent>
               </Card>
-            </div>
-          )}
+            )}
+          </div>
 
-          {!currentAppointment && !nextAppointment && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  Sem agendamentos pendentes
+          {/* Right Column - Today's Appointments */}
+          <div className="lg:col-span-2">
+            <Card className="h-full">
+              <CardHeader className="p-3 sm:p-4 md:p-6 space-y-1.5 sm:space-y-2">
+                <CardTitle className="text-sm sm:text-base md:text-lg flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
+                  <span className="truncate">Agendamentos de Hoje</span>
+                  <SafeBadge count={todaysAppointments.length}>total</SafeBadge>
                 </CardTitle>
-                <CardDescription>
-                  Todos os atendimentos de hoje foram concluídos!
+                <CardDescription className="text-xs sm:text-sm">
+                  {isClient ? `${metrics.completedToday} concluídos • ${metrics.scheduledToday} pendentes` : '0 concluídos • 0 pendentes'}
                 </CardDescription>
               </CardHeader>
+              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                <div className="space-y-2 sm:space-y-2.5 md:space-y-3 max-h-[300px] sm:max-h-[350px] md:max-h-96 overflow-y-auto custom-scrollbar pr-1 sm:pr-2">
+                  {todaysAppointments.length === 0 ? (
+                    <div className="text-center py-6 sm:py-8 md:py-10 text-muted-foreground">
+                      <Calendar className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-xs sm:text-sm">Nenhum agendamento para hoje</p>
+                    </div>
+                  ) : (
+                    todaysAppointments.map((appointment) => {
+                      const client = clients.find(c => c.id === appointment.client_id);
+                      const service = services.find(s => s.name === appointment.service_type);
+                      
+                      return (
+                        <div
+                          key={appointment.id}
+                          className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                              <span className="font-medium text-xs sm:text-sm truncate">
+                                {client?.name || 'Cliente não encontrado'}
+                              </span>
+                              <Badge className={cn(getStatusColor(appointment.status), "text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 flex-shrink-0")}>
+                                {getStatusLabel(appointment.status)}
+                              </Badge>
+                            </div>
+                            <div className="text-[10px] sm:text-xs md:text-sm text-muted-foreground break-words">
+                              {appointment.service_type} • {formatTime(appointment.scheduled_date)}
+                              {service && ` • ${service.duration_minutes}min`}
+                            </div>
+                          </div>
+                          <div className="flex xs:flex-col items-center xs:items-end justify-between xs:justify-start gap-1 xs:gap-0.5 flex-shrink-0">
+                            <div className="font-medium text-xs sm:text-sm">{formatCurrency(appointment.price)}</div>
+                            {appointment.payment_method && (
+                              <div className="text-[10px] sm:text-xs text-muted-foreground capitalize">
+                                {appointment.payment_method}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </CardContent>
             </Card>
-          )}
+          </div>
         </div>
 
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Agendamentos de Hoje</span>
-                <SafeBadge count={todaysAppointments.length}>total</SafeBadge>
-              </CardTitle>
-              <CardDescription>
-                {isClient ? `${metrics.completedToday} concluídos • ${metrics.scheduledToday} pendentes` : '0 concluídos • 0 pendentes'}
+        {/* Bottom Grid - Revenue Chart & Recent Clients */}
+        <div className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 lg:grid-cols-3">
+          {/* Revenue Chart */}
+          <div className="lg:col-span-2 order-2 lg:order-1">
+            <RevenueChart />
+          </div>
+
+          {/* Recent Clients */}
+          <Card className="order-1 lg:order-2">
+            <CardHeader className="p-3 sm:p-4 md:p-6 space-y-1.5 sm:space-y-2">
+              <CardTitle className="text-sm sm:text-base md:text-lg">Clientes Recentes</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Últimos clientes atendidos
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-2">
-                {todaysAppointments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Nenhum agendamento para hoje</p>
+            <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+              <div className="space-y-2.5 sm:space-y-3 max-h-[250px] sm:max-h-[300px] overflow-y-auto custom-scrollbar pr-1 sm:pr-2">
+                {recentClients.length === 0 ? (
+                  <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                    <Users className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs sm:text-sm">Nenhum cliente recente</p>
                   </div>
                 ) : (
-                  todaysAppointments.map((appointment) => {
-                    const client = clients.find(c => c.id === appointment.client_id);
-                    const service = services.find(s => s.name === appointment.service_type);
-                    
-                    return (
-                      <div
-                        key={appointment.id}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">
-                              {client?.name || 'Cliente não encontrado'}
-                            </span>
-                            <Badge className={getStatusColor(appointment.status)}>
-                              {getStatusLabel(appointment.status)}
-                            </Badge>
+                  recentClients.map((client) => (
+                    <div 
+                      key={client.id} 
+                      className="flex items-center justify-between gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-lg hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="font-medium text-xs sm:text-sm truncate">{client.name}</div>
+                        {client.last_visit && (
+                          <div className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                            Última visita: {new Date(client.last_visit).toLocaleDateString('pt-BR')}
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {appointment.service_type} • {formatTime(appointment.scheduled_date)}
-                            {service && ` • ${service.duration_minutes}min`}
-                          </div>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0 space-y-0.5">
+                        <div className="text-xs sm:text-sm font-medium whitespace-nowrap">
+                          {client.total_visits} visitas
                         </div>
-                        <div className="text-right">
-                          <div className="font-medium">{formatCurrency(appointment.price)}</div>
-                          {appointment.payment_method && (
-                            <div className="text-xs text-muted-foreground capitalize">
-                              {appointment.payment_method}
-                            </div>
-                          )}
+                        <div className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                          {formatCurrency(client.total_spent)}
                         </div>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RevenueChart />
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Clientes Recentes</CardTitle>
-            <CardDescription className="text-sm">
-              Últimos clientes atendidos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentClients.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Nenhum cliente recente</p>
-                </div>
-              ) : (
-                recentClients.map((client) => (
-                  <div key={client.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{client.name}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground truncate">
-                        {client.last_visit && `Última visita: ${new Date(client.last_visit).toLocaleDateString('pt-BR')}`}
-                      </div>
-                    </div>
-                    <div className="text-left sm:text-right shrink-0">
-                      <div className="text-xs sm:text-sm font-medium">{client.total_visits} visitas</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatCurrency(client.total_spent)}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
