@@ -156,30 +156,32 @@ export default function LoyaltyPage() {
     // ============================================
     
     return (
-        <div className="p-6 space-y-6">
-            
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+
             {/* Título e Botão de Configuração */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                        <Gift className="h-8 w-8 text-primary" />
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
+                        <Gift className="h-6 h-8 sm:h-8 w-8 text-primary" />
                         Programa de Fidelidade
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-sm sm:text-base text-muted-foreground">
                         Recompense seus clientes fiéis e faça sorteios especiais
                     </p>
                 </div>
-                <Button 
+                <Button
                     onClick={() => setSettingsOpen(true)}
                     disabled={loading}
+                    className="w-full sm:w-auto"
                 >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Configurar Fidelidade
+                    <Settings className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Configurar Fidelidade</span>
+                    <span className="sm:hidden">Configurar</span>
                 </Button>
             </div>
 
             {/* Cards de Métricas (Usando stats reais) */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total de Pontos</CardTitle>

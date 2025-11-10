@@ -253,19 +253,20 @@ export default function MonthlyClientsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clientes Mensais</h1>
-          <p className="text-muted-foreground">Gerencie planos mensais e agendamentos recorrentes</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Clientes Mensais</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Gerencie planos mensais e agendamentos recorrentes</p>
         </div>
-        <Button onClick={() => setAddClientOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Cliente Mensal
+        <Button onClick={() => setAddClientOpen(true)} className="w-full sm:w-auto">
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Adicionar Cliente Mensal</span>
+          <span className="sm:hidden">Adicionar</span>
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>

@@ -151,27 +151,28 @@ export default function ServicesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Serviços</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Serviços</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Gerencie os serviços oferecidos pela barbearia
           </p>
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="icon"
           onClick={loadServices}
           disabled={loading}
+          className="self-end sm:self-auto"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -231,9 +232,9 @@ export default function ServicesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="serviceName">
+              <Label htmlFor="serviceName" className="text-sm sm:text-base">
                 Nome do Serviço <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -242,11 +243,12 @@ export default function ServicesPage() {
                 onChange={(e) => setNewServiceName(e.target.value)}
                 placeholder="Ex: Corte Degradê"
                 disabled={submitting}
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="servicePrice">
+              <Label htmlFor="servicePrice" className="text-sm sm:text-base">
                 Preço (R$) <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -257,11 +259,12 @@ export default function ServicesPage() {
                 onChange={(e) => setNewServicePrice(e.target.value)}
                 placeholder="25.00"
                 disabled={submitting}
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="serviceDuration">
+              <Label htmlFor="serviceDuration" className="text-sm sm:text-base">
                 Duração (minutos) <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -271,17 +274,19 @@ export default function ServicesPage() {
                 onChange={(e) => setNewServiceDuration(e.target.value)}
                 placeholder="30"
                 disabled={submitting}
+                className="text-sm sm:text-base"
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="serviceDescription">Descrição</Label>
+              <Label htmlFor="serviceDescription" className="text-sm sm:text-base">Descrição</Label>
               <Input
                 id="serviceDescription"
                 value={newServiceDescription}
                 onChange={(e) => setNewServiceDescription(e.target.value)}
                 placeholder="Descrição opcional"
                 disabled={submitting}
+                className="text-sm sm:text-base"
               />
             </div>
           </div>
@@ -323,23 +328,23 @@ export default function ServicesPage() {
           ) : (
             <div className="grid gap-3">
               {services.map((service) => (
-                <div 
-                  key={service.id} 
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                <div
+                  key={service.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg hover:bg-accent/50 transition-colors gap-3"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
                         <Scissors className="h-5 w-5 text-primary" />
                       </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h4 className="font-semibold">{service.name}</h4>
-                          <Badge variant={service.active ? "default" : "secondary"}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-semibold text-sm sm:text-base truncate">{service.name}</h4>
+                          <Badge variant={service.active ? "default" : "secondary"} className="text-xs">
                             {service.active ? 'Ativo' : 'Inativo'}
                           </Badge>
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground mt-1">
                           <span className="flex items-center">
                             <DollarSign className="h-3 w-3 mr-1" />
                             R$ {service.price.toFixed(2)}
@@ -348,15 +353,15 @@ export default function ServicesPage() {
                             <Clock className="h-3 w-3 mr-1" />
                             {service.duration_minutes} min
                           </span>
-                          {service.description && (
-                            <span className="text-xs">• {service.description}</span>
-                          )}
                         </div>
+                        {service.description && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">{service.description}</p>
+                        )}
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
+
+                  <div className="flex items-center justify-end gap-2 sm:gap-2">
                     <Switch
                       checked={service.active}
                       onCheckedChange={() => handleToggleService(service.id, service.active)}
