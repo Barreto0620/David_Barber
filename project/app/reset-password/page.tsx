@@ -64,8 +64,8 @@ export default function ResetPasswordPage() {
 
   if (success) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-primary/10 to-background">
-        <Card className="w-full max-w-md shadow-lg">
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-primary/10 to-background p-4">
+        <Card className="w-full max-w-md shadow-lg mx-4">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
               <div className="p-3 bg-green-500 rounded-full">
@@ -91,8 +91,8 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gradient-to-br from-primary/10 to-background">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="flex h-screen items-center justify-center bg-gradient-to-br from-primary/10 to-background p-4">
+      <Card className="w-full max-w-md shadow-lg mx-4">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-primary rounded-full">

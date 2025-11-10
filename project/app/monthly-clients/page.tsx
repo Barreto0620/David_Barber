@@ -241,11 +241,11 @@ export default function MonthlyClientsPage() {
 
   if (monthlyClientsLoading && monthlyClients.length === 0) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando clientes mensais...</p>
+            <p className="text-sm sm:text-base text-muted-foreground">Carregando clientes mensais...</p>
           </div>
         </div>
       </div>

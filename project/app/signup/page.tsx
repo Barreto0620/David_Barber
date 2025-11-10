@@ -33,8 +33,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gradient-to-br from-primary/10 to-background">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="flex h-screen items-center justify-center bg-gradient-to-br from-primary/10 to-background p-4">
+      <Card className="w-full max-w-md shadow-lg mx-4">
         <CardHeader>
           <CardTitle className="text-center text-2xl font-bold">Cadastro</CardTitle>
         </CardHeader>
