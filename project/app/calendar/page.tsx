@@ -158,7 +158,6 @@ export default function CalendarPage() {
       loadAppointments();
       setIsModalOpen(false);
     } catch (error: any) {
-      // Mensagem de erro mais específica
       const errorMessage = error?.message || 'Erro ao salvar agendamento';
       toast.error(errorMessage);
       console.error(error);
@@ -198,9 +197,10 @@ export default function CalendarPage() {
     // Header dos dias da semana
     const weekDays = [];
     for (let i = 0; i < 7; i++) {
+      const dayFormat = window.innerWidth < 640 ? 'EEEEE' : 'EEE';
       weekDays.push(
-        <div key={i} className="text-center text-xs sm:text-sm font-semibold text-muted-foreground py-2">
-          {format(addDays(startDate, i), 'EEE', { locale: ptBR })}
+        <div key={i} className="text-center text-[10px] xs:text-xs sm:text-sm font-semibold text-muted-foreground py-1.5 sm:py-2 px-0.5">
+          {format(addDays(startDate, i), dayFormat, { locale: ptBR })}
         </div>
       );
     }
@@ -222,30 +222,32 @@ export default function CalendarPage() {
         days.push(
           <div
             key={day.toString()}
-            className={`min-h-[80px] sm:min-h-[120px] border-r border-b p-1 sm:p-2 transition-colors ${
+            className={`min-h-[60px] xs:min-h-[70px] sm:min-h-[90px] md:min-h-[110px] border-r border-b p-0.5 xs:p-1 sm:p-2 transition-colors ${
               !isCurrentMonth ? 'bg-muted/30' : ''
             } ${
               isPastDate
                 ? 'bg-muted/50 opacity-50 cursor-not-allowed'
-                : 'cursor-pointer hover:bg-accent/50'
+                : 'cursor-pointer hover:bg-accent/50 active:bg-accent'
             }`}
             onClick={() => !isPastDate && handleDateClick(cloneDay)}
             title={isPastDate ? 'Data passada - não é possível agendar' : 'Clique para agendar'}
           >
-            <div className={`text-xs sm:text-sm font-medium mb-1 ${
+            <div className={`text-[10px] xs:text-xs sm:text-sm font-medium mb-0.5 sm:mb-1 flex items-center justify-center ${
               isDayToday
-                ? 'bg-primary text-primary-foreground rounded-full w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center text-xs'
+                ? 'bg-primary text-primary-foreground rounded-full w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-[9px] xs:text-[10px] sm:text-xs'
                 : isCurrentMonth && !isPastDate
                 ? 'text-foreground'
                 : 'text-muted-foreground'
             }`}>
               {format(day, 'd')}
             </div>
-            <div className="space-y-1 hidden sm:block">
-              {dayAppointments.slice(0, 3).map((apt) => (
+            
+            {/* Desktop: mostra agendamentos */}
+            <div className="space-y-0.5 sm:space-y-1 hidden md:block">
+              {dayAppointments.slice(0, 2).map((apt) => (
                 <div
                   key={apt.id}
-                  className={`text-xs p-1 rounded border-l-2 ${STATUS_COLORS[apt.status]} cursor-pointer hover:opacity-80`}
+                  className={`text-[10px] p-0.5 sm:p-1 rounded border-l-2 ${STATUS_COLORS[apt.status]} cursor-pointer hover:opacity-80 transition-opacity`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleAppointmentClick(apt);
@@ -254,19 +256,33 @@ export default function CalendarPage() {
                   <div className="font-semibold truncate">
                     {format(parseISO(apt.scheduled_date), 'HH:mm')}
                   </div>
-                  <div className="truncate">{apt.service_type}</div>
+                  <div className="truncate leading-tight">{apt.service_type}</div>
                 </div>
               ))}
-              {dayAppointments.length > 3 && (
-                <div className="text-xs text-muted-foreground pl-1">
-                  +{dayAppointments.length - 3} mais
+              {dayAppointments.length > 2 && (
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground pl-0.5 sm:pl-1">
+                  +{dayAppointments.length - 2} mais
                 </div>
               )}
             </div>
-            {/* Mobile: apenas mostra indicador de quantidade */}
+            
+            {/* Mobile/Tablet: indicadores de quantidade */}
             {dayAppointments.length > 0 && (
-              <div className="sm:hidden flex items-center justify-center">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+              <div className="md:hidden flex items-center justify-center gap-0.5 mt-0.5">
+                {dayAppointments.slice(0, 3).map((apt, idx) => (
+                  <div 
+                    key={apt.id}
+                    className={`w-1 h-1 xs:w-1.5 xs:h-1.5 rounded-full ${
+                      apt.status === 'scheduled' ? 'bg-blue-500' :
+                      apt.status === 'in_progress' ? 'bg-yellow-500' :
+                      apt.status === 'completed' ? 'bg-green-500' :
+                      'bg-red-500'
+                    }`}
+                  />
+                ))}
+                {dayAppointments.length > 3 && (
+                  <span className="text-[8px] xs:text-[9px] text-muted-foreground ml-0.5">+{dayAppointments.length - 3}</span>
+                )}
               </div>
             )}
           </div>
@@ -293,26 +309,26 @@ export default function CalendarPage() {
     return (
       <div className="border rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-8 border-b bg-muted/30">
-          <div className="p-2 border-r"></div>
+        <div className="grid grid-cols-[50px_repeat(7,1fr)] sm:grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/30">
+          <div className="p-1 sm:p-2 border-r"></div>
           {days.map((day) => {
             const isPastDate = day < today;
             return (
               <div
                 key={day.toString()}
-                className={`p-2 text-center border-r last:border-r-0 ${
+                className={`p-1 sm:p-2 text-center border-r last:border-r-0 ${
                   isToday(day) ? 'bg-primary/10' : ''
                 } ${
                   isPastDate ? 'opacity-50 bg-muted/50' : ''
                 }`}
               >
-                <div className="text-sm font-semibold">
+                <div className="text-[9px] xs:text-[10px] sm:text-xs font-semibold truncate">
                   {format(day, 'EEE', { locale: ptBR })}
                 </div>
                 <div
-                  className={`text-2xl font-bold ${
+                  className={`text-sm xs:text-base sm:text-xl md:text-2xl font-bold ${
                     isToday(day)
-                      ? 'bg-primary text-primary-foreground rounded-full w-10 h-10 flex items-center justify-center mx-auto'
+                      ? 'bg-primary text-primary-foreground rounded-full w-6 h-6 xs:w-7 xs:h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center mx-auto text-xs sm:text-base'
                       : ''
                   }`}
                 >
@@ -324,10 +340,32 @@ export default function CalendarPage() {
         </div>
 
         {/* Grid de horários */}
-        <div className="overflow-auto max-h-[600px]">
+        <div className="overflow-auto max-h-[400px] sm:max-h-[500px] md:max-h-[600px] custom-scrollbar">
+          <style jsx>{`
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 6px;
+              height: 6px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: hsl(var(--muted-foreground) / 0.3);
+              border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: hsl(var(--muted-foreground) / 0.5);
+            }
+            @media (max-width: 640px) {
+              .custom-scrollbar::-webkit-scrollbar {
+                width: 4px;
+                height: 4px;
+              }
+            }
+          `}</style>
           {hours.map((hour) => (
-            <div key={hour} className="grid grid-cols-8 border-b">
-              <div className="p-2 border-r text-xs text-muted-foreground text-right">
+            <div key={hour} className="grid grid-cols-[50px_repeat(7,1fr)] sm:grid-cols-[60px_repeat(7,1fr)] border-b">
+              <div className="p-1 sm:p-2 border-r text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground text-right flex-shrink-0">
                 {hour.toString().padStart(2, '0')}:00
               </div>
               {days.map((day) => {
@@ -343,10 +381,10 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={`${day}-${hour}`}
-                    className={`p-1 border-r last:border-r-0 min-h-[60px] transition-colors ${
+                    className={`p-0.5 xs:p-1 border-r last:border-r-0 min-h-[50px] sm:min-h-[60px] transition-colors ${
                       isDisabled 
                         ? 'bg-muted/50 opacity-50 cursor-not-allowed'
-                        : 'cursor-pointer hover:bg-accent/50'
+                        : 'cursor-pointer hover:bg-accent/50 active:bg-accent'
                     }`}
                     onClick={() => {
                       if (!isDisabled) {
@@ -360,16 +398,16 @@ export default function CalendarPage() {
                     {dayAppointments.map((apt) => (
                       <div
                         key={apt.id}
-                        className={`text-xs p-1 rounded mb-1 border-l-2 ${STATUS_COLORS[apt.status]} cursor-pointer hover:opacity-80`}
+                        className={`text-[9px] xs:text-[10px] sm:text-xs p-0.5 sm:p-1 rounded mb-0.5 sm:mb-1 border-l-2 ${STATUS_COLORS[apt.status]} cursor-pointer hover:opacity-80 transition-opacity`}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAppointmentClick(apt);
                         }}
                       >
-                        <div className="font-semibold">
+                        <div className="font-semibold truncate">
                           {format(parseISO(apt.scheduled_date), 'HH:mm')}
                         </div>
-                        <div className="truncate">{apt.service_type}</div>
+                        <div className="truncate leading-tight hidden sm:block">{apt.service_type}</div>
                       </div>
                     ))}
                   </div>
@@ -391,25 +429,25 @@ export default function CalendarPage() {
     return (
       <div className="border rounded-lg overflow-hidden">
         {/* Header */}
-        <div className={`p-4 border-b bg-muted/30 ${isPastDate ? 'opacity-50' : ''}`}>
-          <div className="text-center">
-            <div className="text-sm font-semibold text-muted-foreground">
+        <div className={`p-3 sm:p-4 border-b bg-muted/30 ${isPastDate ? 'opacity-50' : ''}`}>
+          <div className="text-center space-y-1 sm:space-y-2">
+            <div className="text-xs sm:text-sm font-semibold text-muted-foreground">
               {format(currentDate, 'EEEE', { locale: ptBR })}
             </div>
             <div
-              className={`text-3xl font-bold ${
+              className={`text-2xl sm:text-3xl font-bold ${
                 isToday(currentDate)
-                  ? 'bg-primary text-primary-foreground rounded-full w-14 h-14 flex items-center justify-center mx-auto mt-2'
-                  : 'mt-2'
+                  ? 'bg-primary text-primary-foreground rounded-full w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center mx-auto'
+                  : ''
               }`}
             >
               {format(currentDate, 'd')}
             </div>
-            <div className="text-sm text-muted-foreground mt-1">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
             </div>
             {isPastDate && (
-              <div className="text-sm text-amber-600 dark:text-amber-500 mt-2 font-medium">
+              <div className="text-xs sm:text-sm text-amber-600 dark:text-amber-500 font-medium mt-2">
                 ⚠️ Data passada - não é possível criar novos agendamentos
               </div>
             )}
@@ -417,7 +455,29 @@ export default function CalendarPage() {
         </div>
 
         {/* Timeline */}
-        <div className="overflow-auto max-h-[600px]">
+        <div className="overflow-auto max-h-[500px] sm:max-h-[600px] custom-scrollbar">
+          <style jsx>{`
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 6px;
+              height: 6px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: hsl(var(--muted-foreground) / 0.3);
+              border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: hsl(var(--muted-foreground) / 0.5);
+            }
+            @media (max-width: 640px) {
+              .custom-scrollbar::-webkit-scrollbar {
+                width: 4px;
+                height: 4px;
+              }
+            }
+          `}</style>
           {hours.map((hour) => {
             const isPastHour = isToday(currentDate) && hour < new Date().getHours();
             const isDisabled = isPastDate || isPastHour;
@@ -429,14 +489,14 @@ export default function CalendarPage() {
 
             return (
               <div key={hour} className="flex border-b">
-                <div className="w-20 p-2 border-r text-sm text-muted-foreground text-right flex-shrink-0">
+                <div className="w-14 sm:w-20 p-1.5 sm:p-2 border-r text-[10px] sm:text-sm text-muted-foreground text-right flex-shrink-0">
                   {hour.toString().padStart(2, '0')}:00
                 </div>
                 <div
-                  className={`flex-1 p-2 min-h-[80px] transition-colors ${
+                  className={`flex-1 p-2 sm:p-3 min-h-[60px] sm:min-h-[80px] transition-colors ${
                     isDisabled 
                       ? 'bg-muted/50 opacity-50 cursor-not-allowed'
-                      : 'cursor-pointer hover:bg-accent/50'
+                      : 'cursor-pointer hover:bg-accent/50 active:bg-accent'
                   }`}
                   onClick={() => {
                     if (!isDisabled) {
@@ -450,20 +510,22 @@ export default function CalendarPage() {
                   {hourAppointments.map((apt) => (
                     <div
                       key={apt.id}
-                      className={`p-3 rounded-lg mb-2 border-l-4 ${STATUS_COLORS[apt.status]} cursor-pointer hover:opacity-80`}
+                      className={`p-2 sm:p-3 rounded-lg mb-2 border-l-4 ${STATUS_COLORS[apt.status]} cursor-pointer hover:opacity-80 transition-opacity`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAppointmentClick(apt);
                       }}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="font-semibold">
+                      <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-1 xs:gap-2 mb-1">
+                        <div className="font-semibold text-xs sm:text-sm">
                           {format(parseISO(apt.scheduled_date), 'HH:mm')}
                         </div>
-                        <Badge variant="outline">{STATUS_LABELS[apt.status]}</Badge>
+                        <Badge variant="outline" className="text-[10px] sm:text-xs w-fit">
+                          {STATUS_LABELS[apt.status]}
+                        </Badge>
                       </div>
-                      <div className="font-medium">{apt.service_type}</div>
-                      <div className="text-sm text-muted-foreground mt-1">
+                      <div className="font-medium text-xs sm:text-sm truncate">{apt.service_type}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground mt-1">
                         R$ {apt.price.toFixed(2)}
                       </div>
                     </div>
@@ -479,138 +541,172 @@ export default function CalendarPage() {
 
   if (loading && appointments.length === 0) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Carregando calendário...</p>
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin mx-auto text-primary" />
+          <p className="text-sm sm:text-base text-muted-foreground">Carregando calendário...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Calendário</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Visualize e gerencie seus agendamentos
-          </p>
+    <div className="w-full max-w-[2000px] mx-auto">
+      <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Calendário</h1>
+            <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
+              Visualize e gerencie seus agendamentos
+            </p>
+          </div>
+
+          {/* View Mode Selector */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <style jsx>{`
+              .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+              }
+              .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
+            <Button
+              variant={viewMode === 'day' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('day')}
+              className="flex-shrink-0 h-9 text-xs sm:text-sm"
+            >
+              <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+              <span>Dia</span>
+            </Button>
+            <Button
+              variant={viewMode === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('week')}
+              className="flex-shrink-0 h-9 text-xs sm:text-sm"
+            >
+              <CalendarRange className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+              <span>Semana</span>
+            </Button>
+            <Button
+              variant={viewMode === 'month' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('month')}
+              className="flex-shrink-0 h-9 text-xs sm:text-sm"
+            >
+              <Grid3x3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+              <span>Mês</span>
+            </Button>
+          </div>
         </div>
 
-        {/* View Mode Selector */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-          <Button
-            variant={viewMode === 'day' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('day')}
-            className="flex-shrink-0"
-          >
-            <CalendarDays className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Dia</span>
-          </Button>
-          <Button
-            variant={viewMode === 'week' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('week')}
-            className="flex-shrink-0 hidden sm:flex"
-          >
-            <CalendarRange className="h-4 w-4 sm:mr-2" />
-            <span>Semana</span>
-          </Button>
-          <Button
-            variant={viewMode === 'month' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('month')}
-            className="flex-shrink-0"
-          >
-            <Grid3x3 className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Mês</span>
-          </Button>
-        </div>
-      </div>
+        {/* Navigation */}
+        <Card>
+          <CardContent className="p-2.5 sm:p-3 md:p-4">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              {/* Title - Mobile first */}
+              <h2 className="text-sm sm:text-lg md:text-2xl font-bold text-center px-2">
+                {viewMode === 'month' &&
+                  format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+                {viewMode === 'week' &&
+                  `${format(startOfWeek(currentDate, { locale: ptBR }), 'd MMM', {
+                    locale: ptBR,
+                  })} - ${format(endOfWeek(currentDate, { locale: ptBR }), 'd MMM yyyy', {
+                    locale: ptBR,
+                  })}`}
+                {viewMode === 'day' &&
+                  format(currentDate, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </h2>
 
-      {/* Navigation */}
-      <Card>
-        <CardContent className="p-3 sm:p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-2 justify-between sm:justify-start">
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" onClick={handlePrevious} className="h-9 w-9">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" onClick={handleToday} size="sm">
-                  Hoje
-                </Button>
-                <Button variant="outline" size="icon" onClick={handleNext} className="h-9 w-9">
-                  <ChevronRight className="h-4 w-4" />
+              {/* Controls */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={handlePrevious} 
+                    className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleToday} 
+                    size="sm"
+                    className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    Hoje
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={handleNext} 
+                    className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  </Button>
+                </div>
+
+                <Button 
+                  onClick={() => handleDateClick(new Date())} 
+                  size="sm" 
+                  className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
+                >
+                  <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+                  <span className="hidden xs:inline">Novo</span>
+                  <span className="xs:hidden">+</span>
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <h2 className="text-base sm:text-2xl font-bold text-center sm:text-left order-first sm:order-none">
-              {viewMode === 'month' &&
-                format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-              {viewMode === 'week' &&
-                `${format(startOfWeek(currentDate, { locale: ptBR }), 'd MMM', {
-                  locale: ptBR,
-                })} - ${format(endOfWeek(currentDate, { locale: ptBR }), 'd MMM yyyy', {
-                  locale: ptBR,
-                })}`}
-              {viewMode === 'day' &&
-                format(currentDate, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-            </h2>
+        {/* Calendar Views */}
+        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+          {viewMode === 'month' && renderMonthView()}
+          {viewMode === 'week' && renderWeekView()}
+          {viewMode === 'day' && renderDayView()}
+        </div>
 
-            <Button onClick={() => handleDateClick(new Date())} size="sm" className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Novo Agendamento</span>
-              <span className="sm:hidden">Novo</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Calendar Views */}
-      {viewMode === 'month' && renderMonthView()}
-      {viewMode === 'week' && renderWeekView()}
-      {viewMode === 'day' && renderDayView()}
-
-      {/* Legend */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-blue-500/20 border border-blue-500"></div>
-              <span className="text-sm">Agendado</span>
+        {/* Legend */}
+        <Card>
+          <CardContent className="p-3 sm:p-4">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-4">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-blue-500/20 border border-blue-500 flex-shrink-0"></div>
+                <span className="text-xs sm:text-sm truncate">Agendado</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-yellow-500/20 border border-yellow-500 flex-shrink-0"></div>
+                <span className="text-xs sm:text-sm truncate">Em Andamento</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-green-500/20 border border-green-500 flex-shrink-0"></div>
+                <span className="text-xs sm:text-sm truncate">Concluído</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-red-500/20 border border-red-500 flex-shrink-0"></div>
+                <span className="text-xs sm:text-sm truncate">Cancelado</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-yellow-500/20 border border-yellow-500"></div>
-              <span className="text-sm">Em Andamento</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-green-500/20 border border-green-500"></div>
-              <span className="text-sm">Concluído</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-red-500/20 border border-red-500"></div>
-              <span className="text-sm">Cancelado</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Modal */}
-      <AppointmentModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        appointment={selectedAppointment}
-        selectedDate={selectedDate}
-        clients={clients}
-        services={services}
-        onSave={handleSaveAppointment}
-        onDelete={handleDeleteAppointment}
-      />
+        {/* Modal */}
+        <AppointmentModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          appointment={selectedAppointment}
+          selectedDate={selectedDate}
+          clients={clients}
+          services={services}
+          onSave={handleSaveAppointment}
+          onDelete={handleDeleteAppointment}
+        />
+      </div>
     </div>
   );
 }
