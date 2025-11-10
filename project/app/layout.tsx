@@ -9,13 +9,19 @@ import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
-// AQUI ESTÁ A MUDANÇA: Adicionamos a propriedade 'icons'
+// Metadata com configurações para melhor responsividade
 export const metadata: Metadata = {
   title: 'David Barber - Sistema de Gestão',
   description: 'Sistema de gerenciamento para barbearia',
   icons: {
     // Aponta para o arquivo que está em /public/favicon.png
-    icon: '/favicon.png', 
+    icon: '/favicon.png',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
   },
 }
 
