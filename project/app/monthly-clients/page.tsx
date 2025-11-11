@@ -223,29 +223,29 @@ export default function MonthlyClientsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active': return <Badge variant="outline" className="border-green-500 text-green-500 bg-green-50 dark:bg-green-950/20 font-semibold">✓ Ativo</Badge>;
-      case 'suspended': return <Badge variant="outline" className="border-orange-500 text-orange-500 bg-orange-50 dark:bg-orange-950/20 font-semibold">⏸ Suspenso</Badge>;
-      case 'inactive': return <Badge variant="outline" className="border-gray-500 text-gray-500 bg-gray-50 dark:bg-gray-950/20 font-semibold">○ Inativo</Badge>;
+      case 'active': return <Badge variant="outline" className="border-green-500 text-green-500 bg-green-50 dark:bg-green-950/20 font-semibold text-xs">✓ Ativo</Badge>;
+      case 'suspended': return <Badge variant="outline" className="border-orange-500 text-orange-500 bg-orange-50 dark:bg-orange-950/20 font-semibold text-xs">⏸ Suspenso</Badge>;
+      case 'inactive': return <Badge variant="outline" className="border-gray-500 text-gray-500 bg-gray-50 dark:bg-gray-950/20 font-semibold text-xs">○ Inativo</Badge>;
       default: return null;
     }
   };
 
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
-      case 'paid': return <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 shadow-md">✓ Pago</Badge>;
-      case 'pending': return <Badge className="bg-gradient-to-r from-yellow-500 to-orange-600 shadow-md">⏱ Pendente</Badge>;
-      case 'overdue': return <Badge className="bg-gradient-to-r from-red-500 to-rose-600 shadow-md animate-pulse">⚠ Atrasado</Badge>;
+      case 'paid': return <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 shadow-md text-xs">✓ Pago</Badge>;
+      case 'pending': return <Badge className="bg-gradient-to-r from-yellow-500 to-orange-600 shadow-md text-xs">⏱ Pendente</Badge>;
+      case 'overdue': return <Badge className="bg-gradient-to-r from-red-500 to-rose-600 shadow-md animate-pulse text-xs">⚠ Atrasado</Badge>;
       default: return null;
     }
   };
 
   if (monthlyClientsLoading && monthlyClients.length === 0) {
     return (
-      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-sm sm:text-base text-muted-foreground">Carregando clientes mensais...</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Carregando clientes mensais...</p>
           </div>
         </div>
       </div>
@@ -253,106 +253,137 @@ export default function MonthlyClientsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Clientes Mensais</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Gerencie planos mensais e agendamentos recorrentes</p>
+    <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6 pb-20 sm:pb-6">
+      {/* Header - Otimizado para Mobile */}
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+            Clientes Mensais
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Gerencie planos mensais e agendamentos recorrentes
+          </p>
         </div>
-        <Button onClick={() => setAddClientOpen(true)} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Adicionar Cliente Mensal</span>
-          <span className="sm:hidden">Adicionar</span>
+        <Button 
+          onClick={() => setAddClientOpen(true)} 
+          className="w-full sm:w-auto sm:self-end h-11 text-base font-medium shadow-sm active:scale-95 transition-transform touch-manipulation"
+          size="lg"
+        >
+          <Plus className="h-5 w-5 sm:mr-2" />
+          <span className="hidden xs:inline">Adicionar Cliente Mensal</span>
+          <span className="xs:hidden">Adicionar Cliente</span>
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+      {/* Stats Cards - Grid Responsivo */}
+      <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium truncate pr-2">Clientes Ativos</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.active}</div>
-            <p className="text-xs text-muted-foreground">{monthlyClients.length} total</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold">{stats.active}</div>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">{monthlyClients.length} total</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Mensal</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium truncate pr-2">Receita Mensal</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R$ {stats.totalRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">De clientes ativos</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold truncate">R$ {stats.totalRevenue.toFixed(2)}</div>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">De clientes ativos</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pagamentos Pendentes</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium truncate pr-2">Pendentes</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500 flex-shrink-0" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingPayments}</div>
-            <p className="text-xs text-muted-foreground">Aguardando pagamento</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold">{stats.pendingPayments}</div>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Aguardando</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pagamentos Atrasados</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium truncate pr-2">Atrasados</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">{stats.overduePayments}</div>
-            <p className="text-xs text-muted-foreground">Requer atenção</p>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-xl sm:text-2xl font-bold text-red-500">{stats.overduePayments}</div>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Requer atenção</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+      {/* Filtros - Otimizado para Mobile */}
+      <Card className="shadow-sm">
+        <CardContent className="p-3 sm:p-4 md:pt-6">
+          <div className="flex flex-col gap-2 sm:gap-3">
+            {/* Barra de Busca */}
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por nome ou telefone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input 
+                placeholder="Buscar por nome ou telefone..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="pl-9 h-11 text-base"
+              />
             </div>
-            <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
-                <SelectItem value="active">Ativos</SelectItem>
-                <SelectItem value="suspended">Suspensos</SelectItem>
-                <SelectItem value="inactive">Inativos</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterPayment} onValueChange={(v: any) => setFilterPayment(v)}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Pagamento" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos Pagamentos</SelectItem>
-                <SelectItem value="paid">Pagos</SelectItem>
-                <SelectItem value="pending">Pendentes</SelectItem>
-                <SelectItem value="overdue">Atrasados</SelectItem>
-              </SelectContent>
-            </Select>
+            
+            {/* Filtros */}
+            <div className="flex gap-2 sm:gap-3">
+              <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+                <SelectTrigger className="flex-1 h-10 text-xs sm:text-sm">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Status</SelectItem>
+                  <SelectItem value="active">Ativos</SelectItem>
+                  <SelectItem value="suspended">Suspensos</SelectItem>
+                  <SelectItem value="inactive">Inativos</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={filterPayment} onValueChange={(v: any) => setFilterPayment(v)}>
+                <SelectTrigger className="flex-1 h-10 text-xs sm:text-sm">
+                  <SelectValue placeholder="Pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="paid">Pagos</SelectItem>
+                  <SelectItem value="pending">Pendentes</SelectItem>
+                  <SelectItem value="overdue">Atrasados</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Lista de Clientes */}
       {filteredClients.length === 0 ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="text-center">
-              <UserCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-lg font-medium">Nenhum cliente mensal encontrado</p>
-              <p className="text-muted-foreground">{searchTerm ? 'Tente ajustar sua busca' : 'Comece adicionando clientes mensais'}</p>
+        <Card className="shadow-sm">
+          <CardContent className="p-6 sm:p-8">
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+                <UserCheck className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <p className="text-base sm:text-lg font-medium">Nenhum cliente mensal encontrado</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {searchTerm ? 'Tente ajustar sua busca' : 'Comece adicionando clientes mensais'}
+              </p>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {filteredClients.map((mc) => (
             <MonthlyClientCard
               key={mc.id}
@@ -368,13 +399,14 @@ export default function MonthlyClientsPage() {
         </div>
       )}
 
+      {/* Dialog Editar Agendamentos - Otimizado para Mobile */}
       <Dialog open={editSchedulesOpen} onOpenChange={setEditSchedulesOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-5xl max-h-[90vh] overflow-y-auto rounded-lg">
           {clientToEdit && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl">Editar Agendamentos</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="text-lg sm:text-xl md:text-2xl">Editar Agendamentos</DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm">
                   {clientToEdit.client.name} - Gerencie os agendamentos do mês
                 </DialogDescription>
               </DialogHeader>
@@ -386,55 +418,86 @@ export default function MonthlyClientsPage() {
                 currentClientId={clientToEdit.client_id}
               />
 
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setEditSchedulesOpen(false)}>Cancelar</Button>
-                <Button onClick={handleSaveSchedules}>Salvar Alterações</Button>
+              <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEditSchedulesOpen(false)}
+                  className="w-full sm:w-auto h-11 active:scale-95 transition-transform touch-manipulation"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleSaveSchedules}
+                  className="w-full sm:w-auto h-11 active:scale-95 transition-transform touch-manipulation"
+                >
+                  Salvar Alterações
+                </Button>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
 
+      {/* AlertDialog Cancelar - Otimizado para Mobile */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto rounded-lg">
           <AlertDialogHeader>
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-3 sm:mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
               <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-500" />
             </div>
-            <AlertDialogTitle className="text-center text-xl">Cancelar Plano Mensal?</AlertDialogTitle>
-            <AlertDialogDescription className="text-center">Esta ação irá cancelar o plano mensal do cliente e remover todos os agendamentos recorrentes automaticamente. Esta ação não pode ser desfeita.</AlertDialogDescription>
+            <AlertDialogTitle className="text-center text-lg sm:text-xl">
+              Cancelar Plano Mensal?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-xs sm:text-sm">
+              Esta ação irá cancelar o plano mensal do cliente e remover todos os agendamentos recorrentes automaticamente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Manter Plano</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmCancelPlan} className="bg-red-600 hover:bg-red-700">Sim, Cancelar Plano</AlertDialogAction>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto mt-0 h-11 active:scale-95 transition-transform touch-manipulation">
+              Manter Plano
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmCancelPlan} 
+              className="w-full sm:w-auto h-11 bg-red-600 hover:bg-red-700 active:scale-95 transition-transform touch-manipulation"
+            >
+              Sim, Cancelar Plano
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* AlertDialog Suspender - Otimizado para Mobile */}
       <AlertDialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto rounded-lg">
           <AlertDialogHeader>
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-orange-100 dark:bg-orange-900/20">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-3 sm:mb-4 rounded-full bg-orange-100 dark:bg-orange-900/20">
               {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? (
                 <Play className="w-6 h-6 text-green-600 dark:text-green-500" />
               ) : (
                 <Pause className="w-6 h-6 text-orange-600 dark:text-orange-500" />
               )}
             </div>
-            <AlertDialogTitle className="text-center text-xl">
+            <AlertDialogTitle className="text-center text-lg sm:text-xl">
               {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? 'Reativar Plano Mensal?' : 'Suspender Plano Mensal?'}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-center">
+            <AlertDialogDescription className="text-center text-xs sm:text-sm">
               {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
                 ? 'Esta ação irá reativar o plano mensal e os agendamentos recorrentes do cliente.'
                 : 'Esta ação irá suspender temporariamente o plano mensal e os agendamentos recorrentes. Você pode reativá-lo a qualquer momento.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <AlertDialogCancel className="w-full sm:w-auto mt-0 h-11 active:scale-95 transition-transform touch-manipulation">
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmSuspendPlan}
-              className={monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? "bg-green-600 hover:bg-green-700" : "bg-orange-600 hover:bg-orange-700"}
+              className={cn(
+                "w-full sm:w-auto h-11 active:scale-95 transition-transform touch-manipulation",
+                monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' 
+                  ? "bg-green-600 hover:bg-green-700" 
+                  : "bg-orange-600 hover:bg-orange-700"
+              )}
             >
               {monthlyClients.find(c => c.id === clientToSuspend)?.status === 'suspended' ? 'Sim, Reativar Plano' : 'Sim, Suspender Plano'}
             </AlertDialogAction>
@@ -442,325 +505,342 @@ export default function MonthlyClientsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Dialog Detalhes - Otimizado para Mobile */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] sm:max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto rounded-lg p-0">
           {selectedClient && (
             <>
-              <DialogHeader className="border-b pb-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <DialogTitle className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent mb-2">
+              <DialogHeader className="border-b pb-4 sm:pb-6 px-4 sm:px-6 pt-4 sm:pt-6 sticky top-0 bg-background z-10">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent mb-1 sm:mb-2 truncate">
                       {selectedClient.client.name}
                     </DialogTitle>
-                    <DialogDescription className="text-base">
+                    <DialogDescription className="text-xs sm:text-sm md:text-base">
                       Detalhes completos do plano mensal
                     </DialogDescription>
                   </div>
                   <div className={cn(
-                    "px-6 py-3 rounded-full text-base font-bold text-white shadow-xl flex items-center gap-2",
+                    "px-3 sm:px-6 py-2 sm:py-3 rounded-full text-sm sm:text-base font-bold text-white shadow-xl flex items-center gap-2 self-start",
                     `bg-gradient-to-r ${PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].color}`
                   )}>
-                    <RefreshCw className="h-5 w-5 animate-spin" style={{ animationDuration: '3s' }} />
-                    <span className="text-2xl">{PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].icon}</span>
-                    {PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].name}
+                    <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 animate-spin flex-shrink-0" style={{ animationDuration: '3s' }} />
+                    <span className="text-lg sm:text-2xl">{PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].icon}</span>
+                    <span className="hidden xs:inline">{PLAN_INFO[selectedClient.plan_type as keyof typeof PLAN_INFO].name}</span>
                   </div>
                 </div>
-                <div className="flex gap-3 flex-wrap mt-4">
+                <div className="flex gap-2 flex-wrap mt-3 sm:mt-4">
                   {getStatusBadge(selectedClient.status)}
                   {getPaymentStatusBadge(selectedClient.payment_status)}
                 </div>
               </DialogHeader>
 
-              <Tabs defaultValue="info" className="w-full mt-6">
-                <TabsList className="grid w-full grid-cols-2 h-12">
-                  <TabsTrigger value="info" className="text-base font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white">
-                    📋 Informações
-                  </TabsTrigger>
-                  <TabsTrigger value="appointments" className="text-base font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white">
-                    📅 Agendamentos
-                  </TabsTrigger>
-                </TabsList>
+              <div className="px-4 sm:px-6">
+                <Tabs defaultValue="info" className="w-full mt-4 sm:mt-6">
+                  <TabsList className="grid w-full grid-cols-2 h-10 sm:h-12 gap-1">
+                    <TabsTrigger 
+                      value="info" 
+                      className="text-xs sm:text-sm md:text-base font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white"
+                    >
+                      <span className="hidden xs:inline">📋 Informações</span>
+                      <span className="xs:hidden">📋 Info</span>
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="appointments" 
+                      className="text-xs sm:text-sm md:text-base font-semibold data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white"
+                    >
+                      <span className="hidden xs:inline">📅 Agendamentos</span>
+                      <span className="xs:hidden">📅 Agend.</span>
+                    </TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="info" className="space-y-6 mt-8">
-                  <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-950/20 dark:to-background">
-                    <CardHeader>
-                      <CardTitle className="text-xl flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
-                          <Phone className="h-5 w-5 text-white" />
-                        </div>
-                        Informações de Contato
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-white dark:bg-background rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <Phone className="h-5 w-5 text-purple-600" />
-                          <span className="text-sm text-muted-foreground">Telefone</span>
-                        </div>
-                        <span className="font-bold text-lg">{selectedClient.client.phone}</span>
-                      </div>
-                      {selectedClient.client.email && (
-                        <div className="flex items-center justify-between p-3 bg-white dark:bg-background rounded-lg border">
-                          <div className="flex items-center gap-3">
-                            <Mail className="h-5 w-5 text-purple-600" />
-                            <span className="text-sm text-muted-foreground">Email</span>
+                  <TabsContent value="info" className="space-y-3 sm:space-y-4 md:space-y-6 mt-4 sm:mt-6 md:mt-8">
+                    {/* Informações de Contato */}
+                    <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-950/20 dark:to-background">
+                      <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                        <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+                            <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                           </div>
-                          <span className="font-bold text-lg">{selectedClient.client.email}</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50/50 to-white dark:from-green-950/20 dark:to-background">
-                    <CardHeader>
-                      <CardTitle className="text-xl flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                          <CreditCard className="h-5 w-5 text-white" />
-                        </div>
-                        Detalhes Financeiros
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg border-2 border-green-300 dark:border-green-700">
-                        <span className="text-sm font-medium text-muted-foreground">Valor Mensal</span>
-                        <span className="font-bold text-2xl text-green-600 dark:text-green-400">
-                          R$ {Number(selectedClient.monthly_price).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-white dark:bg-background rounded-lg border">
-                          <div className="text-xs text-muted-foreground mb-1">Início do Plano</div>
-                          <div className="font-bold">
-                            {new Date(selectedClient.start_date).toLocaleDateString('pt-BR', { 
-                              day: '2-digit', 
-                              month: 'long',
-                              year: 'numeric' 
-                            })}
-                          </div>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-background rounded-lg border">
-                          <div className="text-xs text-muted-foreground mb-1">Próximo Vencimento</div>
-                          <div className="font-bold text-purple-600 dark:text-purple-400">
-                            {new Date(selectedClient.next_payment_date).toLocaleDateString('pt-BR', { 
-                              day: '2-digit', 
-                              month: 'long',
-                              year: 'numeric' 
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                      {selectedClient.last_payment_date && (
-                        <div className="p-3 bg-white dark:bg-background rounded-lg border">
-                          <div className="text-xs text-muted-foreground mb-1">Último Pagamento</div>
-                          <div className="font-bold text-green-600 dark:text-green-400">
-                            {new Date(selectedClient.last_payment_date).toLocaleDateString('pt-BR', { 
-                              day: '2-digit', 
-                              month: 'long',
-                              year: 'numeric' 
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-950/20 dark:to-background">
-                    <CardHeader>
-                      <CardTitle className="text-xl flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
-                          <TrendingUp className="h-5 w-5 text-white" />
-                        </div>
-                        Estatísticas do Plano
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-lg border-2 border-blue-300 dark:border-blue-700 text-center">
-                          <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                            {selectedClient.total_visits}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">Total de Visitas</div>
-                        </div>
-                        <div className="p-4 bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 rounded-lg border-2 border-purple-300 dark:border-purple-700 text-center">
-                          <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                            {selectedClient.schedules?.length || 0}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">Horários/Semana</div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {selectedClient.notes && (
-                    <Card className="border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50/50 to-white dark:from-amber-950/20 dark:to-background">
-                      <CardHeader>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-                            <AlertTriangle className="h-5 w-5 text-white" />
-                          </div>
-                          Observações
+                          <span className="truncate">Informações de Contato</span>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <p className="text-sm p-4 bg-white dark:bg-background rounded-lg border italic">
-                          {selectedClient.notes}
-                        </p>
+                      <CardContent className="space-y-2 sm:space-y-3 md:space-y-4 px-3 sm:px-6 pb-3 sm:pb-6">
+                        <div className="flex items-center justify-between p-2 sm:p-3 bg-white dark:bg-background rounded-lg border">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm text-muted-foreground">Telefone</span>
+                          </div>
+                          <span className="font-bold text-sm sm:text-base md:text-lg truncate ml-2">{selectedClient.client.phone}</span>
+                        </div>
+                        {selectedClient.client.email && (
+                          <div className="flex items-center justify-between p-2 sm:p-3 bg-white dark:bg-background rounded-lg border">
+                            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                              <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0" />
+                              <span className="text-xs sm:text-sm text-muted-foreground">Email</span>
+                            </div>
+                            <span className="font-bold text-sm sm:text-base md:text-lg truncate ml-2">{selectedClient.client.email}</span>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
-                  )}
-                </TabsContent>
 
-                <TabsContent value="appointments" className="space-y-4 mt-6">
-                  {(() => {
-                    const clientAppointments = getClientAppointments(selectedClient.client_id);
-                    const stats = {
-                      total: clientAppointments.length,
-                      completed: clientAppointments.filter(a => a.status === 'completed').length,
-                      scheduled: clientAppointments.filter(a => a.status === 'scheduled').length,
-                      cancelled: clientAppointments.filter(a => a.status === 'cancelled').length
-                    };
-
-                    if (clientAppointments.length === 0) {
-                      return (
-                        <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700">
-                          <CardContent className="p-12">
-                            <div className="text-center">
-                              <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                              <p className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                                Nenhum agendamento encontrado
-                              </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-500">
-                                Os agendamentos deste cliente aparecerão aqui
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    }
-
-                    return (
-                      <>
-                        <div className="grid grid-cols-4 gap-4">
-                          <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
-                            <CardContent className="p-6 text-center">
-                              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</div>
-                              <div className="text-xs text-muted-foreground mt-1">Total</div>
-                            </CardContent>
-                          </Card>
-                          
-                          <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-background">
-                            <CardContent className="p-6 text-center">
-                              <div className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.completed}</div>
-                              <div className="text-xs text-muted-foreground mt-1">Concluídos</div>
-                            </CardContent>
-                          </Card>
-                          
-                          <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
-                            <CardContent className="p-6 text-center">
-                              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.scheduled}</div>
-                              <div className="text-xs text-muted-foreground mt-1">Agendados</div>
-                            </CardContent>
-                          </Card>
-                          
-                          <Card className="border-2 border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-background">
-                            <CardContent className="p-6 text-center">
-                              <div className="text-3xl font-bold text-red-600 dark:text-red-400">{stats.cancelled}</div>
-                              <div className="text-xs text-muted-foreground mt-1">Cancelados</div>
-                            </CardContent>
-                          </Card>
+                    {/* Detalhes Financeiros */}
+                    <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50/50 to-white dark:from-green-950/20 dark:to-background">
+                      <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                        <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
+                            <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                          </div>
+                          <span className="truncate">Detalhes Financeiros</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2 sm:space-y-3 md:space-y-4 px-3 sm:px-6 pb-3 sm:pb-6">
+                        <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg border-2 border-green-300 dark:border-green-700">
+                          <span className="text-xs sm:text-sm font-medium text-muted-foreground">Valor Mensal</span>
+                          <span className="font-bold text-lg sm:text-xl md:text-2xl text-green-600 dark:text-green-400">
+                            R$ {Number(selectedClient.monthly_price).toFixed(2)}
+                          </span>
                         </div>
-
-                        <Card className="border-2 border-purple-200 dark:border-purple-800">
-                          <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 border-b-2 border-purple-200 dark:border-purple-800">
-                            <CardTitle className="text-xl flex items-center gap-2">
-                              <Calendar className="h-5 w-5 text-purple-600" />
-                              Agendamentos do Mês
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-6">
-                            <div className="space-y-3">
-                              {clientAppointments.map((apt) => {
-                                const aptDate = new Date(apt.scheduled_date);
-                                const statusConfig = STATUS_CONFIG[apt.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.scheduled;
-                                const StatusIcon = statusConfig.icon;
-                                
-                                return (
-                                  <div
-                                    key={apt.id}
-                                    className={cn(
-                                      "p-5 rounded-xl border-2 transition-all hover:shadow-lg",
-                                      apt.status === 'completed' && "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-300 dark:border-green-700",
-                                      apt.status === 'scheduled' && "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-300 dark:border-blue-700",
-                                      apt.status === 'cancelled' && "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-300 dark:border-red-700 opacity-60",
-                                      apt.status === 'no_show' && "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-300 dark:border-orange-700"
-                                    )}
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-4 flex-1">
-                                        <div className="flex items-center justify-center w-14 h-14 rounded-full bg-white dark:bg-background border-2 border-current shadow-md">
-                                          <Calendar className="h-6 w-6" />
-                                        </div>
-                                        
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-3 mb-2">
-                                            <span className="text-lg font-bold">
-                                              {DIAS_SEMANA[aptDate.getDay()]}, {aptDate.getDate()}/{aptDate.getMonth() + 1}
-                                            </span>
-                                            <Badge variant="outline" className="font-semibold border-2">
-                                              <Clock className="h-3 w-3 mr-1" />
-                                              {aptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                            </Badge>
-                                          </div>
-                                          
-                                          <div className="flex items-center gap-2">
-                                            <Package className="h-4 w-4 text-muted-foreground" />
-                                            <span className="font-semibold text-base">{apt.service_type}</span>
-                                            {apt.notes?.includes('Recorrente') && (
-                                              <Badge variant="secondary" className="text-xs">
-                                                🔄 Recorrente
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                      
-                                      <div className="flex items-center gap-4">
-                                        <div className="text-right">
-                                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                            R$ {Number(apt.price || 0).toFixed(2)}
-                                          </div>
-                                          {apt.payment_method && (
-                                            <div className="text-xs text-muted-foreground">
-                                              {apt.payment_method}
-                                            </div>
-                                          )}
-                                        </div>
-                                        
-                                        <Badge className={cn("text-sm font-semibold border-2 px-3 py-1.5", statusConfig.color)}>
-                                          <StatusIcon className="h-4 w-4 mr-1.5" />
-                                          {statusConfig.label}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
+                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                          <div className="p-2 sm:p-3 bg-white dark:bg-background rounded-lg border">
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Início do Plano</div>
+                            <div className="font-bold text-xs sm:text-sm truncate">
+                              {new Date(selectedClient.start_date).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: 'short',
+                                year: 'numeric' 
                               })}
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                          <div className="p-2 sm:p-3 bg-white dark:bg-background rounded-lg border">
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Próximo Vencimento</div>
+                            <div className="font-bold text-xs sm:text-sm text-purple-600 dark:text-purple-400 truncate">
+                              {new Date(selectedClient.next_payment_date).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: 'short',
+                                year: 'numeric' 
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        {selectedClient.last_payment_date && (
+                          <div className="p-2 sm:p-3 bg-white dark:bg-background rounded-lg border">
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mb-1">Último Pagamento</div>
+                            <div className="font-bold text-xs sm:text-sm text-green-600 dark:text-green-400 truncate">
+                              {new Date(selectedClient.last_payment_date).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: 'short',
+                                year: 'numeric' 
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
-                       
-                      </>
-                    );
-                  })()}
-                </TabsContent>
-              </Tabs>
+                    {/* Estatísticas do Plano */}
+                    <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-950/20 dark:to-background">
+                      <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                        <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center flex-shrink-0">
+                            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                          </div>
+                          <span className="truncate">Estatísticas do Plano</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                          <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-lg border-2 border-blue-300 dark:border-blue-700 text-center">
+                            <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
+                              {selectedClient.total_visits}
+                            </div>
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Total de Visitas</div>
+                          </div>
+                          <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 rounded-lg border-2 border-purple-300 dark:border-purple-700 text-center">
+                            <div className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">
+                              {selectedClient.schedules?.length || 0}
+                            </div>
+                            <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Horários/Semana</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-              <DialogFooter className="border-t pt-4 mt-6">
+                    {/* Observações */}
+                    {selectedClient.notes && (
+                      <Card className="border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50/50 to-white dark:from-amber-950/20 dark:to-background">
+                        <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4">
+                          <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                            </div>
+                            <span className="truncate">Observações</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                          <p className="text-xs sm:text-sm p-3 sm:p-4 bg-white dark:bg-background rounded-lg border italic break-words">
+                            {selectedClient.notes}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="appointments" className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
+                    {(() => {
+                      const clientAppointments = getClientAppointments(selectedClient.client_id);
+                      const stats = {
+                        total: clientAppointments.length,
+                        completed: clientAppointments.filter(a => a.status === 'completed').length,
+                        scheduled: clientAppointments.filter(a => a.status === 'scheduled').length,
+                        cancelled: clientAppointments.filter(a => a.status === 'cancelled').length
+                      };
+
+                      if (clientAppointments.length === 0) {
+                        return (
+                          <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700">
+                            <CardContent className="p-6 sm:p-8 md:p-12">
+                              <div className="text-center space-y-2 sm:space-y-3">
+                                <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+                                  <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
+                                </div>
+                                <p className="text-base sm:text-lg md:text-xl font-semibold text-gray-600 dark:text-gray-400">
+                                  Nenhum agendamento encontrado
+                                </p>
+                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">
+                                  Os agendamentos deste cliente aparecerão aqui
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {/* Stats Cards dos Agendamentos */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+                            <Card className="border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
+                              <CardContent className="p-3 sm:p-4 md:p-6 text-center">
+                                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Total</div>
+                              </CardContent>
+                            </Card>
+                            
+                            <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-background">
+                              <CardContent className="p-3 sm:p-4 md:p-6 text-center">
+                                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">{stats.completed}</div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Concluídos</div>
+                              </CardContent>
+                            </Card>
+                            
+                            <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
+                              <CardContent className="p-3 sm:p-4 md:p-6 text-center">
+                                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.scheduled}</div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Agendados</div>
+                              </CardContent>
+                            </Card>
+                            
+                            <Card className="border-2 border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-background">
+                              <CardContent className="p-3 sm:p-4 md:p-6 text-center">
+                                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-red-600 dark:text-red-400">{stats.cancelled}</div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Cancelados</div>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          {/* Lista de Agendamentos */}
+                          <Card className="border-2 border-purple-200 dark:border-purple-800">
+                            <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 border-b-2 border-purple-200 dark:border-purple-800 px-3 sm:px-6 py-3 sm:py-4">
+                              <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+                                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0" />
+                                <span className="truncate">Agendamentos do Mês</span>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 sm:p-4 md:p-6">
+                              <div className="space-y-2 sm:space-y-3">
+                                {clientAppointments.map((apt) => {
+                                  const aptDate = new Date(apt.scheduled_date);
+                                  const statusConfig = STATUS_CONFIG[apt.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.scheduled;
+                                  const StatusIcon = statusConfig.icon;
+                                  
+                                  return (
+                                    <div
+                                      key={apt.id}
+                                      className={cn(
+                                        "p-3 sm:p-4 md:p-5 rounded-xl border-2 transition-all",
+                                        apt.status === 'completed' && "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-300 dark:border-green-700",
+                                        apt.status === 'scheduled' && "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-300 dark:border-blue-700",
+                                        apt.status === 'cancelled' && "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-300 dark:border-red-700 opacity-60",
+                                        apt.status === 'no_show' && "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 border-orange-300 dark:border-orange-700"
+                                      )}
+                                    >
+                                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                                        <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                          <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full bg-white dark:bg-background border-2 border-current shadow-md flex-shrink-0">
+                                            <Calendar className="h-5 w-5 sm:h-6 sm:w-6" />
+                                          </div>
+                                          
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
+                                              <span className="text-sm sm:text-base md:text-lg font-bold truncate">
+                                                {DIAS_SEMANA[aptDate.getDay()]}, {aptDate.getDate()}/{aptDate.getMonth() + 1}
+                                              </span>
+                                              <Badge variant="outline" className="font-semibold border-2 text-xs flex-shrink-0">
+                                                <Clock className="h-3 w-3 mr-1" />
+                                                {aptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                              </Badge>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <Package className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                                              <span className="font-semibold text-xs sm:text-sm md:text-base truncate">{apt.service_type}</span>
+                                              {apt.notes?.includes('Recorrente') && (
+                                                <Badge variant="secondary" className="text-[10px] sm:text-xs flex-shrink-0">
+                                                  🔄 Recorrente
+                                                </Badge>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+                                          <div className="text-left sm:text-right">
+                                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">
+                                              R$ {Number(apt.price || 0).toFixed(2)}
+                                            </div>
+                                            {apt.payment_method && (
+                                              <div className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                                                {apt.payment_method}
+                                              </div>
+                                            )}
+                                          </div>
+                                          
+                                          <Badge className={cn("text-xs sm:text-sm font-semibold border-2 px-2 sm:px-3 py-1 sm:py-1.5 flex-shrink-0", statusConfig.color)}>
+                                            <StatusIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
+                                            <span className="hidden xs:inline">{statusConfig.label}</span>
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </>
+                      );
+                    })()}
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              <DialogFooter className="border-t pt-3 sm:pt-4 mt-4 sm:mt-6 px-4 sm:px-6 pb-4 sm:pb-6 sticky bottom-0 bg-background">
                 <Button 
                   variant="outline" 
                   onClick={() => setViewDetailsOpen(false)}
-                  className="border-purple-300 hover:bg-purple-50 dark:border-purple-700 dark:hover:bg-purple-950/30"
+                  className="w-full sm:w-auto h-11 border-purple-300 hover:bg-purple-50 dark:border-purple-700 dark:hover:bg-purple-950/30 active:scale-95 transition-transform touch-manipulation"
                 >
                   Fechar
                 </Button>
@@ -770,6 +850,7 @@ export default function MonthlyClientsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal Adicionar Cliente */}
       <AddMonthlyClientModal 
         open={addClientOpen} 
         onClose={() => setAddClientOpen(false)} 
