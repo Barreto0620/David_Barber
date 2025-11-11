@@ -57,6 +57,7 @@ import {
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils/currency';
+import { cn } from '@/lib/utils';
 
 const CHART_COLORS = {
   primary: '#059669',
@@ -107,9 +108,7 @@ export default function FinancialPage() {
         endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         break;
       case 'month':
-        // Início do mês atual
         startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        // Fim do mês atual (último dia às 23:59:59)
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         break;
       case 'year':
@@ -121,7 +120,6 @@ export default function FinancialPage() {
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     }
 
-    // Filter by search term (client name)
     let filteredAppointments = appointments;
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
@@ -131,7 +129,6 @@ export default function FinancialPage() {
       });
     }
 
-    // Completed appointments (confirmed revenue)
     const completedAppointments = filteredAppointments.filter(apt => {
       const aptDate = new Date(apt.scheduled_date);
       const isInPeriod = aptDate >= startDate && aptDate <= endDate;
@@ -141,7 +138,6 @@ export default function FinancialPage() {
       return isInPeriod && isCompleted && matchesPayment;
     });
 
-    // Future appointments (expected revenue)
     const futureAppointments = filteredAppointments.filter(apt => {
       const aptDate = new Date(apt.scheduled_date);
       const isInFuture = aptDate > now;
@@ -155,14 +151,12 @@ export default function FinancialPage() {
     const totalAppointments = completedAppointments.length;
     const averageTicket = totalAppointments > 0 ? confirmedRevenue / totalAppointments : 0;
 
-    // Payment method breakdown
     const paymentMethods = completedAppointments.reduce((acc, apt) => {
       const method = apt.payment_method || 'não informado';
       acc[method] = (acc[method] || 0) + apt.price;
       return acc;
     }, {} as Record<string, number>);
 
-    // Daily revenue for chart
     const dailyData: Record<string, { date: string; revenue: number; count: number }> = {};
     completedAppointments.forEach(apt => {
       const date = apt.scheduled_date.split('T')[0];
@@ -177,7 +171,6 @@ export default function FinancialPage() {
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    // Top services
     const serviceRevenue = completedAppointments.reduce((acc, apt) => {
       acc[apt.service_type] = (acc[apt.service_type] || 0) + apt.price;
       return acc;
@@ -187,7 +180,6 @@ export default function FinancialPage() {
       .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5);
 
-    // Top clients
     const clientRevenue = completedAppointments.reduce((acc, apt) => {
       const client = clients.find(c => c.id === apt.client_id);
       if (client) {
@@ -447,14 +439,15 @@ export default function FinancialPage() {
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-slate-700" />
-            <XAxis dataKey="date" stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
-            <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
+            <XAxis dataKey="date" stroke="#374151" className="dark:stroke-slate-400" fontSize={10} angle={-45} textAnchor="end" height={80} />
+            <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={10} />
             <Tooltip 
               contentStyle={{ 
                 backgroundColor: '#1e293b',
                 border: '1px solid #475569',
                 borderRadius: '8px',
-                padding: '12px'
+                padding: '8px 12px',
+                fontSize: '12px'
               }}
               labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
               itemStyle={{ color: '#e2e8f0' }}
@@ -462,17 +455,17 @@ export default function FinancialPage() {
               position={{ y: 0 }}
               formatter={customTooltipFormatter}
             />
-            <Legend wrapperStyle={{ color: '#1f2937' }} />
+            <Legend wrapperStyle={{ color: '#1f2937', fontSize: '12px' }} />
             {selectedMetric === 'revenue' && (
-              <Line type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={3} dot={{ fill: CHART_COLORS.primary, r: 4 }} />
+              <Line type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={2} dot={{ fill: CHART_COLORS.primary, r: 3 }} />
             )}
             {selectedMetric === 'appointments' && (
-              <Line type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={3} dot={{ fill: CHART_COLORS.secondary, r: 4 }} />
+              <Line type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={2} dot={{ fill: CHART_COLORS.secondary, r: 3 }} />
             )}
             {selectedMetric === 'both' && (
               <>
-                <Line type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={3} dot={{ fill: CHART_COLORS.primary, r: 4 }} />
-                <Line type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={3} dot={{ fill: CHART_COLORS.secondary, r: 4 }} />
+                <Line type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={2} dot={{ fill: CHART_COLORS.primary, r: 3 }} />
+                <Line type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={2} dot={{ fill: CHART_COLORS.secondary, r: 3 }} />
               </>
             )}
           </LineChart>
@@ -483,21 +476,22 @@ export default function FinancialPage() {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-slate-700" />
-            <XAxis dataKey="date" stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
-            <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
+            <XAxis dataKey="date" stroke="#374151" className="dark:stroke-slate-400" fontSize={10} angle={-45} textAnchor="end" height={80} />
+            <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={10} />
             <Tooltip 
               contentStyle={{ 
                 backgroundColor: '#1e293b',
                 border: '1px solid #475569',
                 borderRadius: '8px',
-                padding: '8px 12px'
+                padding: '8px 12px',
+                fontSize: '12px'
               }}
               labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
               itemStyle={{ color: '#e2e8f0' }}
               cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
               formatter={customTooltipFormatter}
             />
-            <Legend wrapperStyle={{ color: '#1f2937' }} />
+            <Legend wrapperStyle={{ color: '#1f2937', fontSize: '12px' }} />
             {selectedMetric === 'revenue' && (
               <Bar dataKey="Receita (R$)" fill={CHART_COLORS.primary} radius={[8, 8, 0, 0]} />
             )}
@@ -528,31 +522,32 @@ export default function FinancialPage() {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-slate-700" />
-            <XAxis dataKey="date" stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
-            <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
+            <XAxis dataKey="date" stroke="#374151" className="dark:stroke-slate-400" fontSize={10} angle={-45} textAnchor="end" height={80} />
+            <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={10} />
             <Tooltip 
               contentStyle={{ 
                 backgroundColor: '#1e293b',
                 border: '1px solid #475569',
                 borderRadius: '8px',
-                padding: '8px 12px'
+                padding: '8px 12px',
+                fontSize: '12px'
               }}
               labelStyle={{ color: '#f1f5f9', fontWeight: 600, marginBottom: '4px' }}
               itemStyle={{ color: '#e2e8f0' }}
               cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
               formatter={customTooltipFormatter}
             />
-            <Legend wrapperStyle={{ color: '#1f2937' }} />
+            <Legend wrapperStyle={{ color: '#1f2937', fontSize: '12px' }} />
             {selectedMetric === 'revenue' && (
-              <Area type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+              <Area type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
             )}
             {selectedMetric === 'appointments' && (
-              <Area type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={3} fillOpacity={1} fill="url(#colorAppointments)" />
+              <Area type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={2} fillOpacity={1} fill="url(#colorAppointments)" />
             )}
             {selectedMetric === 'both' && (
               <>
-                <Area type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                <Area type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={3} fillOpacity={1} fill="url(#colorAppointments)" />
+                <Area type="monotone" dataKey="Receita (R$)" stroke={CHART_COLORS.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
+                <Area type="monotone" dataKey="Atendimentos" stroke={CHART_COLORS.secondary} strokeWidth={2} fillOpacity={1} fill="url(#colorAppointments)" />
               </>
             )}
           </AreaChart>
@@ -564,57 +559,58 @@ export default function FinancialPage() {
   const goalProgress = monthlyGoal > 0 ? (financialData.confirmedRevenue / monthlyGoal) * 100 : 0;
 
   return (
-    <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+    <div className="flex-1 space-y-3 sm:space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6 pb-20 sm:pb-6">
+      {/* Header - Otimizado */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             Financeiro
           </h2>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-0.5">
             Controle completo de receitas, métricas e análises financeiras
           </p>
         </div>
         <Button
           onClick={() => setExportDialogOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
-          size="sm"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto h-11 text-base active:scale-95 transition-transform touch-manipulation"
+          size="lg"
         >
-          <Download className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Exportar Relatório</span>
-          <span className="sm:hidden">Exportar</span>
+          <Download className="h-5 w-5 sm:mr-2" />
+          <span className="hidden xs:inline">Exportar Relatório</span>
+          <span className="xs:hidden">Exportar</span>
         </Button>
       </div>
 
-      {/* Export Dialog */}
+      {/* Export Dialog - Otimizado */}
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px] mx-auto rounded-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Exportar Relatório</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-lg sm:text-2xl">Exportar Relatório</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Escolha o formato de exportação do seu relatório financeiro
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-6">
+          <div className="grid gap-3 sm:gap-4 py-4 sm:py-6">
             <Button 
               onClick={exportToExcel}
-              className="h-20 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-3"
+              className="h-16 sm:h-20 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-3 active:scale-95 transition-transform touch-manipulation"
               size="lg"
             >
-              <FileSpreadsheet className="h-8 w-8" />
+              <FileSpreadsheet className="h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" />
               <div className="text-left">
-                <div className="font-bold text-lg">Excel / CSV</div>
+                <div className="font-bold text-base sm:text-lg">Excel / CSV</div>
                 <div className="text-xs opacity-90">Ideal para análises em planilhas</div>
               </div>
             </Button>
             
             <Button 
               onClick={exportToPDF}
-              className="h-20 bg-cyan-600 hover:bg-cyan-700 text-white flex items-center justify-center gap-3"
+              className="h-16 sm:h-20 bg-cyan-600 hover:bg-cyan-700 text-white flex items-center justify-center gap-3 active:scale-95 transition-transform touch-manipulation"
               size="lg"
             >
-              <Printer className="h-8 w-8" />
+              <Printer className="h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" />
               <div className="text-left">
-                <div className="font-bold text-lg">Imprimir / PDF</div>
+                <div className="font-bold text-base sm:text-lg">Imprimir / PDF</div>
                 <div className="text-xs opacity-90">Formato profissional para impressão</div>
               </div>
             </Button>
@@ -622,124 +618,156 @@ export default function FinancialPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Filters */}
-      <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-        <CardContent className="pt-4 sm:pt-6">
-          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger className="w-full sm:w-32 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Hoje</SelectItem>
-                  <SelectItem value="week">7 dias</SelectItem>
-                  <SelectItem value="month">Este mês</SelectItem>
-                  <SelectItem value="year">Este ano</SelectItem>
-                </SelectContent>
-              </Select>
+      {/* Filters - Otimizado */}
+      <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+        <CardContent className="p-3 sm:p-4 md:pt-6">
+          <div className="flex flex-col gap-2 sm:gap-3">
+            {/* Linha 1: Período e Pagamento */}
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger className="flex-1 h-10 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Hoje</SelectItem>
+                    <SelectItem value="week">7 dias</SelectItem>
+                    <SelectItem value="month">Este mês</SelectItem>
+                    <SelectItem value="year">Este ano</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Filter className="h-4 w-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+                  <SelectTrigger className="flex-1 h-10 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">💼 Todos</SelectItem>
+                    <SelectItem value="dinheiro">💵 Dinheiro</SelectItem>
+                    <SelectItem value="cartao">💳 Cartão</SelectItem>
+                    <SelectItem value="pix">📱 PIX</SelectItem>
+                    <SelectItem value="transferencia">🔄 Transferência</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
-              <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-                <SelectTrigger className="w-full sm:w-40 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">💼 Todos</SelectItem>
-                  <SelectItem value="dinheiro">💵 Dinheiro</SelectItem>
-                  <SelectItem value="cartao">💳 Cartão</SelectItem>
-                  <SelectItem value="pix">📱 PIX</SelectItem>
-                  <SelectItem value="transferencia">🔄 Transferência</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+            {/* Linha 2: Busca */}
             <Input
               placeholder="🔍 Buscar por cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-64 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+              className="w-full h-10 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Metrics Cards */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/50 dark:to-emerald-800/30 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full -mr-16 -mt-16" />
-          <CardHeader className="relative">
+      {/* Metrics Cards - Grid Responsivo */}
+      <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
+        {/* Receita Confirmada */}
+        <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/50 dark:to-emerald-800/30 relative overflow-hidden shadow-sm">
+          <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-emerald-500/10 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16" />
+          <CardHeader className="relative px-3 sm:px-6 pt-3 sm:pt-6 pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-emerald-900 dark:text-emerald-100">Receita Confirmada</CardTitle>
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-emerald-900 dark:text-emerald-100 truncate pr-2">
+                Receita Confirmada
+              </CardTitle>
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
             </div>
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-3xl font-bold text-emerald-900 dark:text-white">{formatCurrency(financialData.confirmedRevenue)}</div>
-            <p className="text-xs text-emerald-700 dark:text-emerald-200 mt-1">{financialData.totalAppointments} atendimentos</p>
+          <CardContent className="relative px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-2xl sm:text-3xl font-bold text-emerald-900 dark:text-white truncate">
+              {formatCurrency(financialData.confirmedRevenue)}
+            </div>
+            <p className="text-[10px] sm:text-xs text-emerald-700 dark:text-emerald-200 mt-1 truncate">
+              {financialData.totalAppointments} atendimentos
+            </p>
           </CardContent>
         </Card>
         
-        <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/50 dark:to-cyan-800/30 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full -mr-16 -mt-16" />
-          <CardHeader className="relative">
+        {/* Receita a Receber */}
+        <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/50 dark:to-cyan-800/30 relative overflow-hidden shadow-sm">
+          <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-cyan-500/10 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16" />
+          <CardHeader className="relative px-3 sm:px-6 pt-3 sm:pt-6 pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-cyan-900 dark:text-cyan-100">Receita a Receber</CardTitle>
-              <Clock className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-cyan-900 dark:text-cyan-100 truncate pr-2">
+                Receita a Receber
+              </CardTitle>
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
             </div>
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-3xl font-bold text-cyan-900 dark:text-white">{formatCurrency(financialData.expectedRevenue)}</div>
-            <p className="text-xs text-cyan-700 dark:text-cyan-200 mt-1">{financialData.futureAppointments.length} agendamentos</p>
+          <CardContent className="relative px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-2xl sm:text-3xl font-bold text-cyan-900 dark:text-white truncate">
+              {formatCurrency(financialData.expectedRevenue)}
+            </div>
+            <p className="text-[10px] sm:text-xs text-cyan-700 dark:text-cyan-200 mt-1 truncate">
+              {financialData.futureAppointments.length} agendamentos
+            </p>
           </CardContent>
         </Card>
         
-        <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/50 dark:to-purple-800/30 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full -mr-16 -mt-16" />
-          <CardHeader className="relative">
+        {/* Atendimentos */}
+        <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/50 dark:to-purple-800/30 relative overflow-hidden shadow-sm">
+          <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-purple-500/10 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16" />
+          <CardHeader className="relative px-3 sm:px-6 pt-3 sm:pt-6 pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-purple-900 dark:text-purple-100">Atendimentos</CardTitle>
-              <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <CardTitle className="text-xs sm:text-sm font-medium text-purple-900 dark:text-purple-100 truncate pr-2">
+                Atendimentos
+              </CardTitle>
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
             </div>
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-3xl font-bold text-purple-900 dark:text-white">{financialData.totalAppointments}</div>
-            <p className="text-xs text-purple-700 dark:text-purple-200 mt-1">Ticket médio: {formatCurrency(financialData.averageTicket)}</p>
+          <CardContent className="relative px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-2xl sm:text-3xl font-bold text-purple-900 dark:text-white">
+              {financialData.totalAppointments}
+            </div>
+            <p className="text-[10px] sm:text-xs text-purple-700 dark:text-purple-200 mt-1 truncate">
+              Ticket médio: {formatCurrency(financialData.averageTicket)}
+            </p>
           </CardContent>
         </Card>
         
+        {/* Meta do Mês */}
         <Dialog open={editingGoal} onOpenChange={setEditingGoal}>
           <DialogTrigger asChild>
-            <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/50 dark:to-red-800/30 relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow">
-              <div className="absolute bottom-2 right-2 p-1.5 bg-white/80 dark:bg-white/10 rounded-full">
-                <Edit3 className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+            <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/50 dark:to-red-800/30 relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow shadow-sm">
+              <div className="absolute bottom-2 right-2 p-1 sm:p-1.5 bg-white/80 dark:bg-white/10 rounded-full">
+                <Edit3 className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 dark:text-orange-300" />
               </div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -mr-16 -mt-16" />
-              <CardHeader className="relative">
+              <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-orange-500/10 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16" />
+              <CardHeader className="relative px-3 sm:px-6 pt-3 sm:pt-6 pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-orange-900 dark:text-orange-100">Meta do Mês</CardTitle>
-                  <Target className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  <CardTitle className="text-xs sm:text-sm font-medium text-orange-900 dark:text-orange-100 truncate pr-2">
+                    Meta do Mês
+                  </CardTitle>
+                  <Target className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
                 </div>
               </CardHeader>
-              <CardContent className="relative">
-                <div className="text-3xl font-bold text-orange-900 dark:text-white">{goalProgress.toFixed(0)}%</div>
-                <p className="text-xs text-orange-700 dark:text-orange-200 mt-1">Meta: {formatCurrency(monthlyGoal)}</p>
+              <CardContent className="relative px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="text-2xl sm:text-3xl font-bold text-orange-900 dark:text-white">
+                  {goalProgress.toFixed(0)}%
+                </div>
+                <p className="text-[10px] sm:text-xs text-orange-700 dark:text-orange-200 mt-1 truncate">
+                  Meta: {formatCurrency(monthlyGoal)}
+                </p>
               </CardContent>
             </Card>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px] mx-auto rounded-lg">
             <DialogHeader>
-              <DialogTitle className="text-2xl">Configurar Meta Mensal</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-lg sm:text-2xl">Configurar Meta Mensal</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
                 Defina sua meta de receita mensal para acompanhar o progresso e alcançar seus objetivos.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="goal" className="text-right font-medium">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3 sm:gap-4">
+                <Label htmlFor="goal" className="sm:text-right font-medium">
                   Meta (R$)
                 </Label>
                 <Input
@@ -747,19 +775,19 @@ export default function FinancialPage() {
                   value={tempGoal}
                   onChange={(e) => setTempGoal(e.target.value)}
                   placeholder="5000"
-                  className="col-span-3"
+                  className="sm:col-span-3 h-11"
                   type="number"
                   min="0"
                   step="0.01"
                 />
               </div>
-              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg">
-                <div className="text-sm text-muted-foreground mb-2">Progresso atual:</div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-2xl font-bold text-emerald-600">
+              <div className="bg-slate-50 dark:bg-slate-900 p-3 sm:p-4 rounded-lg">
+                <div className="text-xs sm:text-sm text-muted-foreground mb-2">Progresso atual:</div>
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                  <span className="text-xl sm:text-2xl font-bold text-emerald-600">
                     {formatCurrency(financialData.confirmedRevenue)}
                   </span>
-                  <Badge variant="outline" className="text-sm">
+                  <Badge variant="outline" className="text-xs sm:text-sm">
                     {goalProgress.toFixed(1)}% da meta
                   </Badge>
                 </div>
@@ -771,12 +799,19 @@ export default function FinancialPage() {
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={handleCancelEdit}>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={handleCancelEdit}
+                className="w-full sm:w-auto h-11 active:scale-95 transition-transform touch-manipulation"
+              >
                 <X className="h-4 w-4 mr-2" />
                 Cancelar
               </Button>
-              <Button onClick={handleSaveGoal} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button 
+                onClick={handleSaveGoal} 
+                className="w-full sm:w-auto h-11 bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-transform touch-manipulation"
+              >
                 <Save className="h-4 w-4 mr-2" />
                 Salvar Meta
               </Button>
@@ -785,62 +820,82 @@ export default function FinancialPage() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700">
-            <PieChartIcon className="h-4 w-4 mr-2" />
-            Visão Geral
+      {/* Tabs - Otimizado */}
+      <Tabs defaultValue="overview" className="space-y-3 sm:space-y-4">
+        <TabsList className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full h-auto grid grid-cols-2 sm:grid-cols-4 p-1 gap-1">
+          <TabsTrigger 
+            value="overview" 
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 text-xs sm:text-sm py-2"
+          >
+            <PieChartIcon className="h-4 w-4 sm:mr-2" />
+            <span className="hidden xs:inline">Visão Geral</span>
+            <span className="xs:hidden">Geral</span>
           </TabsTrigger>
-          <TabsTrigger value="graphics" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Gráficos
+          <TabsTrigger 
+            value="graphics" 
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 text-xs sm:text-sm py-2"
+          >
+            <BarChart3 className="h-4 w-4 sm:mr-2" />
+            <span className="hidden xs:inline">Gráficos</span>
+            <span className="xs:hidden">Gráf.</span>
           </TabsTrigger>
-          <TabsTrigger value="transactions" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700">
-            <DollarSign className="h-4 w-4 mr-2" />
-            Transações
+          <TabsTrigger 
+            value="transactions" 
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 text-xs sm:text-sm py-2"
+          >
+            <DollarSign className="h-4 w-4 sm:mr-2" />
+            <span className="hidden xs:inline">Transações</span>
+            <span className="xs:hidden">Trans.</span>
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700">
-            <LineChartIcon className="h-4 w-4 mr-2" />
-            Analytics
+          <TabsTrigger 
+            value="analytics" 
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 text-xs sm:text-sm py-2"
+          >
+            <LineChartIcon className="h-4 w-4 sm:mr-2" />
+            <span className="hidden xs:inline">Analytics</span>
+            <span className="xs:hidden">Anál.</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        {/* Tab Content: Overview */}
+        <TabsContent value="overview" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
             {/* Payment Methods */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <CreditCard className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  Métodos de Pagamento
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                  <span className="truncate">Métodos de Pagamento</span>
                 </CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-400">
+                <CardDescription className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
                   Distribuição por forma de pagamento
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="space-y-3 sm:space-y-4">
                   {Object.entries(financialData.paymentMethods).map(([method, amount]) => {
                     const percentage = (amount / financialData.confirmedRevenue) * 100;
                     return (
                       <div key={method} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             {paymentMethodIcons[method]}
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
                               {paymentMethodLabels[method] || method}
                             </span>
                           </div>
-                          <div className="text-right">
-                            <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(amount)}</div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                          <div className="text-right flex-shrink-0">
+                            <div className="font-bold text-emerald-600 dark:text-emerald-400 text-sm sm:text-base">
+                              {formatCurrency(amount)}
+                            </div>
+                            <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
                               {percentage.toFixed(1)}%
                             </div>
                           </div>
                         </div>
-                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 sm:h-2">
                           <div 
-                            className="h-2 rounded-full transition-all duration-500"
+                            className="h-1.5 sm:h-2 rounded-full transition-all duration-500"
                             style={{ 
                               width: `${percentage}%`,
                               backgroundColor: paymentMethodColors[method] || '#94a3b8'
@@ -855,20 +910,20 @@ export default function FinancialPage() {
             </Card>
 
             {/* Top Services/Clients */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                      <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                      {topViewMode === 'services' ? 'Top Serviços' : 'Top Clientes'}
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                      <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                      <span className="truncate">{topViewMode === 'services' ? 'Top Serviços' : 'Top Clientes'}</span>
                     </CardTitle>
-                    <CardDescription className="text-slate-600 dark:text-slate-400">
-                      {topViewMode === 'services' ? 'Serviços mais rentáveis do período' : 'Clientes que mais gastaram'}
+                    <CardDescription className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm truncate">
+                      {topViewMode === 'services' ? 'Serviços mais rentáveis' : 'Clientes que mais gastaram'}
                     </CardDescription>
                   </div>
                   <Select value={topViewMode} onValueChange={setTopViewMode}>
-                    <SelectTrigger className="w-32 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
+                    <SelectTrigger className="w-24 sm:w-32 h-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -878,44 +933,48 @@ export default function FinancialPage() {
                   </Select>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="space-y-2 sm:space-y-3">
                   {topViewMode === 'services' ? (
                     financialData.topServices.length > 0 ? (
                       financialData.topServices.map(([service, revenue], index) => (
-                        <div key={service} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="text-xs font-bold border-slate-300 dark:border-slate-600" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
+                        <div key={service} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors gap-2">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <Badge variant="outline" className="text-xs font-bold border-slate-300 dark:border-slate-600 flex-shrink-0" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
                               #{index + 1}
                             </Badge>
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{service}</span>
+                            <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{service}</span>
                           </div>
-                          <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue as number)}</div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm flex-shrink-0">
+                            {formatCurrency(revenue as number)}
+                          </div>
                         </div>
                       ))
                     ) : (
-                      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                      <div className="text-center py-6 sm:py-8 text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
                         Nenhum serviço realizado no período
                       </div>
                     )
                   ) : (
                     financialData.topClients.length > 0 ? (
                       financialData.topClients.map(([name, revenue, count], index) => (
-                        <div key={name} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="text-xs font-bold border-slate-300 dark:border-slate-600" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
+                        <div key={name} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors gap-2">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <Badge variant="outline" className="text-xs font-bold border-slate-300 dark:border-slate-600 flex-shrink-0" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
                               #{index + 1}
                             </Badge>
-                            <div>
-                              <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{name}</div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400">{count} atendimento{count > 1 ? 's' : ''}</div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{name}</div>
+                              <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">{count} atendimento{count > 1 ? 's' : ''}</div>
                             </div>
                           </div>
-                          <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue)}</div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm flex-shrink-0">
+                            {formatCurrency(revenue)}
+                          </div>
                         </div>
                       ))
                     ) : (
-                      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                      <div className="text-center py-6 sm:py-8 text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
                         Nenhum cliente encontrado no período
                       </div>
                     )
@@ -925,24 +984,24 @@ export default function FinancialPage() {
             </Card>
 
             {/* Payment Methods Pie Chart */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <PieChartIcon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                  Distribuição de Pagamentos
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                  <PieChartIcon className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
+                  <span className="truncate">Distribuição de Pagamentos</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                 {pieChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
                         data={pieChartData}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                        outerRadius={80}
+                        label={({ percent }: { percent?: number }) => `${((percent || 0) * 100).toFixed(0)}%`}
+                        outerRadius={60}
                         fill="#8884d8"
                         dataKey="value"
                       >
@@ -956,7 +1015,8 @@ export default function FinancialPage() {
                           border: '1px solid #475569',
                           borderRadius: '8px',
                           color: '#fff',
-                          padding: '8px 12px'
+                          padding: '8px 12px',
+                          fontSize: '12px'
                         }}
                         labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
                         itemStyle={{ color: '#e2e8f0' }}
@@ -965,7 +1025,7 @@ export default function FinancialPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-[250px] flex items-center justify-center text-slate-500 dark:text-slate-400">
+                  <div className="h-[200px] flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
                     Sem dados de pagamento
                   </div>
                 )}
@@ -973,40 +1033,40 @@ export default function FinancialPage() {
             </Card>
 
             {/* Future Revenue */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-cyan-900 dark:text-white">
-                  <Clock className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                  Receita Futura Esperada
+            <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/20 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <CardTitle className="flex items-center gap-2 text-cyan-900 dark:text-white text-base sm:text-lg">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
+                  <span className="truncate">Receita Futura Esperada</span>
                 </CardTitle>
-                <CardDescription className="text-cyan-700 dark:text-cyan-200">
+                <CardDescription className="text-cyan-700 dark:text-cyan-200 text-xs sm:text-sm">
                   Agendamentos confirmados a receber
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center p-6 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                  <div className="text-4xl font-bold text-cyan-700 dark:text-cyan-400 mb-2">
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6 space-y-3 sm:space-y-4">
+                <div className="text-center p-4 sm:p-6 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                  <div className="text-3xl sm:text-4xl font-bold text-cyan-700 dark:text-cyan-400 mb-2 truncate">
                     {formatCurrency(financialData.expectedRevenue)}
                   </div>
-                  <div className="text-sm text-slate-700 dark:text-slate-300">
+                  <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">
                     {financialData.futureAppointments.length} agendamentos pendentes
                   </div>
                 </div>
                 
                 {financialData.futureAppointments.length > 0 && (
                   <div className="space-y-2">
-                    <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Próximos agendamentos:</div>
+                    <div className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">Próximos agendamentos:</div>
                     {financialData.futureAppointments.slice(0, 3).map((apt) => {
                       const client = clients.find(c => c.id === apt.client_id);
                       return (
-                        <div key={apt.id} className="flex items-center justify-between p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                          <div>
-                            <div className="font-medium text-sm text-slate-700 dark:text-slate-200">{client?.name || 'Cliente'}</div>
-                            <div className="text-xs text-slate-600 dark:text-slate-400">{apt.service_type}</div>
+                        <div key={apt.id} className="flex items-center justify-between p-2 sm:p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-xs sm:text-sm text-slate-700 dark:text-slate-200 truncate">{client?.name || 'Cliente'}</div>
+                            <div className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 truncate">{apt.service_type}</div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-bold text-cyan-700 dark:text-cyan-400">{formatCurrency(apt.price)}</div>
-                            <div className="text-xs text-slate-600 dark:text-slate-400">{formatDate(apt.scheduled_date)}</div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="font-bold text-cyan-700 dark:text-cyan-400 text-xs sm:text-sm">{formatCurrency(apt.price)}</div>
+                            <div className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400">{formatDate(apt.scheduled_date)}</div>
                           </div>
                         </div>
                       );
@@ -1018,22 +1078,23 @@ export default function FinancialPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="graphics" className="space-y-4">
-          <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                    <BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    Análise Visual de Performance
+        {/* Tab Content: Graphics */}
+        <TabsContent value="graphics" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+            <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                    <span className="truncate">Análise Visual de Performance</span>
                   </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
+                  <CardDescription className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
                     Visualize tendências e padrões financeiros
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Select value={selectedMetric} onValueChange={setSelectedMetric}>
-                    <SelectTrigger className="w-40 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
+                    <SelectTrigger className="w-full xs:w-32 sm:w-40 h-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1044,7 +1105,7 @@ export default function FinancialPage() {
                   </Select>
                   
                   <Select value={chartType} onValueChange={setChartType}>
-                    <SelectTrigger className="w-32 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900">
+                    <SelectTrigger className="w-full xs:w-28 sm:w-32 h-9 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1056,43 +1117,45 @@ export default function FinancialPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
               {financialData.chartData.length > 0 ? (
                 renderChart()
               ) : (
-                <div className="h-[300px] flex items-center justify-center text-slate-500 dark:text-slate-400">
+                <div className="h-[300px] flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs sm:text-sm px-4 text-center">
                   Nenhum dado disponível para o período selecionado
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          {/* Comparison Charts */}
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
             {/* Revenue Comparison */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  Comparativo de Receitas
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                  <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                  <span className="truncate">Comparativo de Receitas</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={[
                     { name: 'Confirmada', valor: financialData.confirmedRevenue, fill: CHART_COLORS.primary },
                     { name: 'Futura', valor: financialData.expectedRevenue, fill: CHART_COLORS.secondary },
                     { name: 'Meta', valor: monthlyGoal, fill: CHART_COLORS.quaternary }
                   ]}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-slate-700" />
-                    <XAxis dataKey="name" stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
-                    <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
+                    <XAxis dataKey="name" stroke="#374151" className="dark:stroke-slate-400" fontSize={10} />
+                    <YAxis stroke="#374151" className="dark:stroke-slate-400" fontSize={10} />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: '#1e293b',
                         border: '1px solid #475569',
                         borderRadius: '8px',
                         color: '#fff',
-                        padding: '8px 12px'
+                        padding: '8px 12px',
+                        fontSize: '12px'
                       }}
                       labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
                       itemStyle={{ color: '#e2e8f0' }}
@@ -1113,30 +1176,31 @@ export default function FinancialPage() {
             </Card>
 
             {/* Services Performance */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  Performance por Serviço
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                  <span className="truncate">Performance por Serviço</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                 {financialData.topServices.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={200}>
                     <BarChart 
                       data={financialData.topServices.map(([name, value]) => ({ name, valor: value }))}
                       layout="vertical"
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-slate-700" />
-                      <XAxis type="number" stroke="#374151" className="dark:stroke-slate-400" fontSize={12} />
-                      <YAxis dataKey="name" type="category" stroke="#374151" className="dark:stroke-slate-400" fontSize={11} width={100} />
+                      <XAxis type="number" stroke="#374151" className="dark:stroke-slate-400" fontSize={10} />
+                      <YAxis dataKey="name" type="category" stroke="#374151" className="dark:stroke-slate-400" fontSize={9} width={80} />
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: '#1e293b',
                           border: '1px solid #475569',
                           borderRadius: '8px',
                           color: '#fff',
-                          padding: '8px 12px'
+                          padding: '8px 12px',
+                          fontSize: '12px'
                         }}
                         labelStyle={{ color: '#fff', fontWeight: 600, marginBottom: '4px' }}
                         itemStyle={{ color: '#e2e8f0' }}
@@ -1150,7 +1214,7 @@ export default function FinancialPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-[250px] flex items-center justify-center text-slate-500 dark:text-slate-400">
+                  <div className="h-[200px] flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
                     Sem dados de serviços
                   </div>
                 )}
@@ -1159,29 +1223,91 @@ export default function FinancialPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="transactions" className="space-y-4">
-          <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                    <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    Histórico de Transações
+        {/* Tab Content: Transactions - Otimizado para Mobile */}
+        <TabsContent value="transactions" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+            <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+              <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                    <span className="truncate">Histórico de Transações</span>
                   </CardTitle>
-                  <CardDescription className="text-slate-600 dark:text-slate-400">
+                  <CardDescription className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
                     {searchFilteredAppointments.length} transações encontradas
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/30">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {financialData.futureAppointments.length} futuras
-                  </Badge>
-                </div>
+                <Badge variant="outline" className="bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/30 text-xs self-start xs:self-auto">
+                  <Clock className="h-3 w-3 mr-1" />
+                  {financialData.futureAppointments.length} futuras
+                </Badge>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <CardContent className="px-0 sm:px-6 pb-3 sm:pb-6">
+              {/* Versão Mobile: Cards */}
+              <div className="sm:hidden space-y-2 px-3">
+                {searchFilteredAppointments.length > 0 ? (
+                  searchFilteredAppointments.slice(0, 50).map((appointment) => {
+                    const client = clients.find(c => c.id === appointment.client_id);
+                    const isCompleted = appointment.status === 'completed';
+                    return (
+                      <div key={appointment.id} className="p-3 bg-slate-50 dark:bg-slate-700/30 rounded-lg space-y-2 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-slate-900 dark:text-slate-200 truncate">
+                              {client?.name || 'Cliente não encontrado'}
+                            </div>
+                            <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
+                              {client?.phone}
+                            </div>
+                          </div>
+                          <span className={cn(
+                            "font-bold text-sm flex-shrink-0",
+                            isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-cyan-600 dark:text-cyan-400'
+                          )}>
+                            {formatCurrency(appointment.price)}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="font-medium border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-xs">
+                            {appointment.service_type}
+                          </Badge>
+                          
+                          {isCompleted ? (
+                            <Badge className="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 text-xs">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Confirmado
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-300 dark:border-cyan-500/30 text-xs">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Agendado
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-700">
+                          <span>{formatDateTime(appointment.scheduled_date)}</span>
+                          {appointment.payment_method && (
+                            <div className="flex items-center gap-1">
+                              {paymentMethodIcons[appointment.payment_method]}
+                              <span>{paymentMethodLabels[appointment.payment_method]}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
+                    Nenhuma transação encontrada
+                  </div>
+                )}
+              </div>
+
+              {/* Versão Desktop: Tabela */}
+              <div className="hidden sm:block rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                 <Table>
                   <TableHeader className="bg-slate-50 dark:bg-slate-900">
                     <TableRow className="border-slate-200 dark:border-slate-700">
@@ -1265,7 +1391,7 @@ export default function FinancialPage() {
               </div>
               
               {searchFilteredAppointments.length > 50 && (
-                <div className="mt-4 text-center text-sm text-slate-600 dark:text-slate-400">
+                <div className="mt-3 sm:mt-4 text-center text-xs sm:text-sm text-slate-600 dark:text-slate-400 px-3 sm:px-0">
                   Mostrando 50 de {searchFilteredAppointments.length} transações
                 </div>
               )}
@@ -1273,40 +1399,41 @@ export default function FinancialPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        {/* Tab Content: Analytics */}
+        <TabsContent value="analytics" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
             {/* Summary Cards */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-emerald-900 dark:text-white">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  Resumo de Receitas Confirmadas
+            <Card className="border-slate-200 dark:border-slate-700 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <CardTitle className="flex items-center gap-2 text-emerald-900 dark:text-white text-base sm:text-lg">
+                  <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                  <span className="truncate">Resumo de Receitas Confirmadas</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                    <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6 space-y-3 sm:space-y-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="text-center p-3 sm:p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                    <div className="text-2xl sm:text-3xl font-bold text-emerald-700 dark:text-emerald-400 truncate">
                       {formatCurrency(financialData.confirmedRevenue)}
                     </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">Receita Total</div>
+                    <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1">Receita Total</div>
                   </div>
-                  <div className="text-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                    <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">
+                  <div className="text-center p-3 sm:p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                    <div className="text-2xl sm:text-3xl font-bold text-emerald-700 dark:text-emerald-400">
                       {financialData.totalAppointments}
                     </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">Atendimentos</div>
+                    <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1">Atendimentos</div>
                   </div>
                 </div>
                 
-                <div className="p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Ticket Médio</span>
-                    <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                <div className="p-3 sm:p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                    <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">Ticket Médio</span>
+                    <span className="text-xl sm:text-2xl font-bold text-emerald-700 dark:text-emerald-400 truncate">
                       {formatCurrency(financialData.averageTicket)}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400">
+                  <div className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400">
                     Por atendimento realizado
                   </div>
                 </div>
@@ -1314,27 +1441,27 @@ export default function FinancialPage() {
             </Card>
 
             {/* Goal Progress */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <Target className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                  Progresso da Meta Mensal
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                  <Target className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                  <span className="truncate">Progresso da Meta Mensal</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-800/20 rounded-lg">
-                    <div className="text-5xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-800/20 rounded-lg">
+                    <div className="text-4xl sm:text-5xl font-bold text-orange-600 dark:text-orange-400 mb-2">
                       {goalProgress.toFixed(1)}%
                     </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300">
+                    <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">
                       da meta alcançada
                     </div>
                   </div>
                   
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Progresso</span>
+                    <div className="flex justify-between items-center text-xs sm:text-sm">
+                      <span className="font-medium text-slate-700 dark:text-slate-300">Progresso</span>
                       <div className="flex items-center gap-2">
                         {goalProgress >= 100 ? (
                           <span className="font-medium text-emerald-600 dark:text-emerald-400">Meta atingida! 🎉</span>
@@ -1345,23 +1472,24 @@ export default function FinancialPage() {
                         )}
                       </div>
                     </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 sm:h-4 overflow-hidden">
                       <div 
-                        className={`h-4 rounded-full transition-all duration-500 ${
+                        className={cn(
+                          "h-3 sm:h-4 rounded-full transition-all duration-500",
                           goalProgress >= 100 
                             ? "bg-gradient-to-r from-emerald-500 to-emerald-600" 
                             : goalProgress >= 75
                             ? "bg-gradient-to-r from-orange-500 to-red-600"
                             : "bg-gradient-to-r from-cyan-500 to-cyan-600"
-                        }`}
+                        )}
                         style={{ width: `${Math.min(goalProgress, 100)}%` }}
                       />
                     </div>
-                    <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+                    <div className="flex justify-between text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 flex-wrap gap-1">
                       <span>Meta: {formatCurrency(monthlyGoal)}</span>
-                      <span>
+                      <span className="text-right">
                         {goalProgress >= 100 
-                          ? `Superou em: ${formatCurrency(financialData.confirmedRevenue - monthlyGoal)}`
+                          ? `Superou: ${formatCurrency(financialData.confirmedRevenue - monthlyGoal)}`
                           : `Faltam: ${formatCurrency(Math.max(0, monthlyGoal - financialData.confirmedRevenue))}`
                         }
                       </span>
@@ -1372,40 +1500,40 @@ export default function FinancialPage() {
             </Card>
 
             {/* Revenue Projection */}
-            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 md:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
-                  <TrendingUp className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                  Projeção de Receita Total
+            <Card className="border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 md:col-span-2 shadow-sm">
+              <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-white text-base sm:text-lg">
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
+                  <span className="truncate">Projeção de Receita Total</span>
                 </CardTitle>
-                <CardDescription className="text-slate-600 dark:text-slate-400">
+                <CardDescription className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
                   Receita confirmada + receita futura esperada
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg">
-                    <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-3" />
-                    <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mb-1">
+              <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg">
+                    <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-600 dark:text-emerald-400 mx-auto mb-2 sm:mb-3" />
+                    <div className="text-xl sm:text-2xl font-bold text-emerald-700 dark:text-emerald-400 mb-1 truncate">
                       {formatCurrency(financialData.confirmedRevenue)}
                     </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300">Receita Confirmada</div>
+                    <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">Receita Confirmada</div>
                   </div>
                   
-                  <div className="text-center p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/20 rounded-lg">
-                    <Clock className="h-8 w-8 text-cyan-600 dark:text-cyan-400 mx-auto mb-3" />
-                    <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400 mb-1">
+                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/30 dark:to-cyan-800/20 rounded-lg">
+                    <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-600 dark:text-cyan-400 mx-auto mb-2 sm:mb-3" />
+                    <div className="text-xl sm:text-2xl font-bold text-cyan-700 dark:text-cyan-400 mb-1 truncate">
                       {formatCurrency(financialData.expectedRevenue)}
                     </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300">Receita Futura</div>
+                    <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">Receita Futura</div>
                   </div>
                   
-                  <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg">
-                    <DollarSign className="h-8 w-8 text-purple-600 dark:text-purple-400 mx-auto mb-3" />
-                    <div className="text-2xl font-bold text-purple-700 dark:text-purple-400 mb-1">
+                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg">
+                    <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 dark:text-purple-400 mx-auto mb-2 sm:mb-3" />
+                    <div className="text-xl sm:text-2xl font-bold text-purple-700 dark:text-purple-400 mb-1 truncate">
                       {formatCurrency(financialData.confirmedRevenue + financialData.expectedRevenue)}
                     </div>
-                    <div className="text-sm text-slate-700 dark:text-slate-300">Projeção Total</div>
+                    <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">Projeção Total</div>
                   </div>
                 </div>
               </CardContent>
