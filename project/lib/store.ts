@@ -1,5 +1,5 @@
 // @ts-nocheck
-// lib/store.ts - VERSÃO CORRIGIDA COMPLETA
+// lib/store.ts - VERSÃO CORRIGIDA E OTIMIZADA
 'use client';
 
 import { create } from 'zustand';
@@ -230,8 +230,17 @@ export const useAppStore = create<AppStore>()(
       // ============================================
       // FUNÇÕES BÁSICAS
       // ============================================
-      setClients: (clients) => { set({ clients }); get().calculateMetrics(); get().calculateLoyaltyStats?.(); }, 
-      setAppointments: (appointments) => { set({ appointments }); get().calculateMetrics(); },
+      setClients: (clients) => { 
+        console.log('📝 setClients: Atualizando', clients.length, 'clientes');
+        set({ clients }); 
+        get().calculateMetrics(); 
+        get().calculateLoyaltyStats?.(); 
+      }, 
+      setAppointments: (appointments) => { 
+        console.log('📝 setAppointments: Atualizando', appointments.length, 'agendamentos');
+        set({ appointments }); 
+        get().calculateMetrics(); 
+      },
       setServices: (services) => set({ services }),
       setMetrics: (metrics) => set({ metrics }),
       setSelectedDate: (selectedDate) => set({ selectedDate }),
@@ -290,10 +299,10 @@ export const useAppStore = create<AppStore>()(
       },
 
       // ============================================
-      // 🔥 REALTIME PRINCIPAL
+      // 🔥 REALTIME OTIMIZADO
       // ============================================
       setupRealtimeSubscription: () => {
-        console.log('🔴 REALTIME: Iniciando listener completo (TODOS OS PROFISSIONAIS)...');
+        console.log('🔴 REALTIME: Iniciando listener completo...');
 
         const appointmentChannel = supabase
           .channel('appointments-realtime-all')
@@ -305,7 +314,7 @@ export const useAppStore = create<AppStore>()(
               table: 'appointments',
             },
             async (payload) => {
-              console.log('🆕 INSERT DETECTADO (qualquer profissional):', payload.new);
+              console.log('🆕 INSERT DETECTADO:', payload.new);
 
               const newAppointment = payload.new as Appointment;
 
@@ -334,32 +343,34 @@ export const useAppStore = create<AppStore>()(
                 }
               }
 
-              // 🔥 MUDANÇA: ACEITAR AGENDAMENTOS DE TODOS OS PROFISSIONAIS
-              console.log('✅ Adicionando agendamento (profissional:', newAppointment.professional_id, ')');
-
+              // 🔥 CARREGAR DADOS DO CLIENTE
               if (newAppointment.client_id) {
-                const { data: clientData } = await supabase
+                console.log('👤 Buscando dados do cliente:', newAppointment.client_id);
+                
+                const { data: clientData, error: clientError } = await supabase
                   .from('clients')
                   .select('id, name, phone, email')
                   .eq('id', newAppointment.client_id)
                   .maybeSingle();
                 
-                if (clientData) {
+                if (!clientError && clientData) {
                   newAppointment.client = clientData;
-                  console.log('👤 Cliente carregado:', clientData.name);
+                  console.log('✅ Cliente carregado:', clientData.name);
+                } else {
+                  console.error('❌ Erro ao carregar cliente:', clientError);
                 }
               }
+
+              console.log('✅ Adicionando agendamento ao estado local');
 
               set((state) => ({
                 appointments: [newAppointment, ...state.appointments],
                 lastSync: new Date().toISOString(),
               }));
 
-              console.log('✅ AGENDAMENTO ADICIONADO EM TEMPO REAL!');
-
               get().calculateMetrics();
 
-              // Só notifica se for do profissional atual
+              // Notificar apenas se for do profissional atual
               if (newAppointment.professional_id === currentUserId) {
                 const clientName = newAppointment.client?.name || 'Cliente';
                 
@@ -377,8 +388,6 @@ export const useAppStore = create<AppStore>()(
                   description: `${newAppointment.service_type} - ${new Date(newAppointment.scheduled_date).toLocaleString('pt-BR')}`,
                   duration: 5000,
                 });
-
-                console.log('🔔 Notificação criada para:', clientName);
               }
             }
           )
@@ -390,10 +399,11 @@ export const useAppStore = create<AppStore>()(
               table: 'appointments',
             },
             async (payload) => {
-              console.log('🔄 UPDATE DETECTADO (qualquer profissional):', payload.new);
+              console.log('🔄 UPDATE DETECTADO:', payload.new);
 
               const updatedAppointment = payload.new as Appointment;
 
+              // 🔥 CARREGAR DADOS DO CLIENTE
               if (updatedAppointment.client_id) {
                 const { data: clientData } = await supabase
                   .from('clients')
@@ -424,7 +434,7 @@ export const useAppStore = create<AppStore>()(
               table: 'appointments',
             },
             (payload) => {
-              console.log('🗑️ DELETE DETECTADO (qualquer profissional):', payload.old);
+              console.log('🗑️ DELETE DETECTADO:', payload.old);
 
               const deletedId = (payload.old as any).id;
 
@@ -438,7 +448,7 @@ export const useAppStore = create<AppStore>()(
           )
           .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
-              console.log('✅ REALTIME APPOINTMENTS CONECTADO (TODOS OS PROFISSIONAIS)');
+              console.log('✅ REALTIME APPOINTMENTS CONECTADO');
             } else if (status === 'CLOSED') {
               console.warn('⚠️ Realtime desconectado, tentando reconectar...');
             } else {
@@ -458,13 +468,11 @@ export const useAppStore = create<AppStore>()(
       },
 
       // ============================================
-      // 🔥 FETCH APPOINTMENTS - TODOS OS PROFISSIONAIS
+      // 🔥 FETCH APPOINTMENTS OTIMIZADO
       // ============================================
       fetchAppointments: async () => {
         try {
-          console.log('🔄 ========================================');
-          console.log('🔄 Buscando TODOS os agendamentos (todos profissionais)...');
-          console.log('🔄 ========================================');
+          console.log('🔄 fetchAppointments: Iniciando...');
           
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth?.user) {
@@ -475,8 +483,7 @@ export const useAppStore = create<AppStore>()(
           const currentUserId = userAuth.user.id;
           const currentIds = new Set(get().appointments.map(a => a.id));
 
-          // 🔥 MUDANÇA PRINCIPAL: REMOVER O FILTRO .eq('professional_id', currentUserId)
-          // Agora busca TODOS os agendamentos, independente do profissional
+          // 🔥 BUSCAR TODOS OS AGENDAMENTOS COM DADOS DO CLIENTE
           const { data: appointmentsData, error: fetchError } = await supabase
             .from('appointments')
             .select(`
@@ -490,17 +497,20 @@ export const useAppStore = create<AppStore>()(
             `)
             .order('scheduled_date', { ascending: false });
           
-          if (fetchError) throw fetchError;
+          if (fetchError) {
+            console.error('❌ Erro ao buscar agendamentos:', fetchError);
+            throw fetchError;
+          }
 
-          console.log(`✅ ${appointmentsData?.length || 0} agendamentos encontrados (TODOS os profissionais)`);
+          console.log(`✅ ${appointmentsData?.length || 0} agendamentos encontrados`);
 
           const fetchedAppointments = appointmentsData || [];
 
-          // Vincular agendamentos órfãos (sem professional_id) ao usuário atual
+          // Vincular agendamentos órfãos
           const orphanAppointments = fetchedAppointments.filter(apt => !apt.professional_id);
           
           if (orphanAppointments.length > 0) {
-            console.log(`🔧 ${orphanAppointments.length} agendamentos órfãos encontrados. Vinculando ao profissional atual...`);
+            console.log(`🔧 ${orphanAppointments.length} agendamentos órfãos encontrados. Vinculando...`);
             
             const idsToUpdate = orphanAppointments.map(apt => apt.id);
             
@@ -513,13 +523,11 @@ export const useAppStore = create<AppStore>()(
               orphanAppointments.forEach(apt => {
                 apt.professional_id = currentUserId;
               });
-              console.log('✅ Agendamentos órfãos vinculados com sucesso!');
-            } else {
-              console.error('❌ Erro ao vincular agendamentos órfãos:', updateError);
+              console.log('✅ Agendamentos órfãos vinculados!');
             }
           }
 
-          // Detectar novos agendamentos para notificações
+          // Detectar novos agendamentos
           const newAppointments = fetchedAppointments.filter(apt => !currentIds.has(apt.id));
 
           if (newAppointments.length > 0) {
@@ -528,13 +536,12 @@ export const useAppStore = create<AppStore>()(
             for (const apt of newAppointments) {
               const isRecent = new Date(apt.created_at).getTime() > (Date.now() - 10000);
               
-              // Só notifica se for agendamento recente E do profissional atual
-              if (isRecent && apt.professional_id === currentUserId) {
+              if (isRecent && apt.professional_id === currentUserId && apt.created_via !== 'manual') {
                 const clientName = apt.client?.name || 'Cliente';
 
                 get().addNotification({
                   type: 'appointment',
-                  title: apt.created_via === 'manual' ? '✅ Agendamento Criado' : '🌐 Novo Agendamento Online',
+                  title: '🌐 Novo Agendamento Online',
                   message: `${clientName} - ${apt.service_type}`,
                   appointmentId: apt.id,
                   clientName,
@@ -542,12 +549,10 @@ export const useAppStore = create<AppStore>()(
                   scheduledDate: new Date(apt.scheduled_date),
                 });
 
-                if (apt.created_via !== 'manual') {
-                  toast.success(`🌐 Novo agendamento online de ${clientName}!`, {
-                    description: `${apt.service_type} - ${new Date(apt.scheduled_date).toLocaleString('pt-BR')}`,
-                    duration: 5000,
-                  });
-                }
+                toast.success(`🌐 Novo agendamento online de ${clientName}!`, {
+                  description: `${apt.service_type} - ${new Date(apt.scheduled_date).toLocaleString('pt-BR')}`,
+                  duration: 5000,
+                });
               }
             }
           }
@@ -559,9 +564,7 @@ export const useAppStore = create<AppStore>()(
 
           get().calculateMetrics();
           
-          console.log('✅ ========================================');
-          console.log(`✅ fetchAppointments concluído! Total: ${fetchedAppointments.length}`);
-          console.log('✅ ========================================\n');
+          console.log('✅ fetchAppointments concluído!');
         } catch (error) {
           console.error('❌ Erro em fetchAppointments:', error);
         }
@@ -572,7 +575,7 @@ export const useAppStore = create<AppStore>()(
       // ============================================
       syncWithSupabase: async () => {
         try {
-          console.log('🔄 Iniciando sincronização completa...');
+          console.log('🔄 syncWithSupabase: Iniciando sincronização completa...');
           await Promise.all([
             get().fetchClients(),
             get().fetchAppointments(),
@@ -581,7 +584,7 @@ export const useAppStore = create<AppStore>()(
             get().fetchLoyaltySettings?.() || Promise.resolve(), 
             get().fetchLoyaltyClients?.() || Promise.resolve(), 
           ]);
-          console.log('✅ Sincronização completa finalizada');
+          console.log('✅ syncWithSupabase: Sincronização completa finalizada');
         } catch (error) {
           console.error('❌ Erro na sincronização:', error);
         }
@@ -711,6 +714,8 @@ export const useAppStore = create<AppStore>()(
 
           if (error) throw error;
 
+          console.log(`✅ fetchClients: ${data?.length || 0} clientes carregados`);
+
           set({ 
             clients: data || [],
             lastSync: new Date().toISOString() 
@@ -793,34 +798,52 @@ export const useAppStore = create<AppStore>()(
 
       updateAppointment: async (id, appointmentData) => {
         try {
-          set({ isLoading: true});
+          console.log('🔄 updateAppointment: Iniciando atualização para', id);
+          set({ isLoading: true });
 
-          const { id: _, created_at: __, ...updateData } = appointmentData as any;
+          const { id: _, created_at: __, client: ___, ...updateData } = appointmentData as any;
+
+          console.log('📝 Dados para atualização:', updateData);
 
           const { data, error } = await supabase
             .from('appointments')
             .update(updateData)
             .eq('id', id)
-            .select('*');
+            .select(`
+              *,
+              client:clients!client_id (
+                id,
+                name,
+                phone,
+                email
+              )
+            `)
+            .single();
           
-          if (error) throw error;
+          if (error) {
+            console.error('❌ Erro no update:', error);
+            throw error;
+          }
 
-          if (!data || data.length === 0) {
-            console.error('⚠️ Update falhou');
+          if (!data) {
+            console.error('⚠️ Update não retornou dados');
             return false;
           }
 
-          const updatedAppointment = data[0] as Appointment;
+          console.log('✅ Agendamento atualizado:', data);
+
+          const updatedAppointment = data as Appointment;
 
           set(state => ({ 
-            appointments: state.appointments.map(a => a.id === id ? { ...a, ...updatedAppointment } : a),
+            appointments: state.appointments.map(a => a.id === id ? updatedAppointment : a),
             lastSync: new Date().toISOString() 
           }));
           
           get().calculateMetrics();
           return true;
         } catch (error) {
-          console.error('Erro ao atualizar appointment:', error);
+          console.error('❌ Erro ao atualizar appointment:', error);
+          toast.error('Erro ao atualizar agendamento');
           return false;
         } finally {
           set({ isLoading: false });
@@ -855,34 +878,76 @@ export const useAppStore = create<AppStore>()(
 
       completeAppointment: async (id, paymentMethod, finalPrice) => {
         try {
+          console.log('💰 completeAppointment: Iniciando para', id);
+          console.log('💳 Método de pagamento:', paymentMethod);
+          console.log('💵 Preço final:', finalPrice);
+
           const appointment = get().appointments.find(a => a.id === id);
-          if (!appointment) return false;
+          if (!appointment) {
+            console.error('❌ Agendamento não encontrado:', id);
+            toast.error('Agendamento não encontrado');
+            return false;
+          }
+
+          const priceToUse = finalPrice !== undefined && finalPrice !== null && finalPrice > 0 
+            ? finalPrice 
+            : appointment.price;
 
           const updates: Partial<Appointment> = {
             status: 'completed',
             payment_method: paymentMethod?.toLowerCase() || 'dinheiro',
-            price: finalPrice ?? appointment.price,
+            price: priceToUse,
             completed_at: new Date().toISOString(),
           };
 
+          console.log('📝 Atualizações a serem aplicadas:', updates);
+
           const success = await get().updateAppointment(id, updates);
           
-          if (success && appointment.client_id) {
+          if (!success) {
+            console.error('❌ Falha ao atualizar agendamento');
+            toast.error('Erro ao finalizar atendimento');
+            return false;
+          }
+
+          console.log('✅ Agendamento atualizado com sucesso');
+
+          // Atualizar dados do cliente
+          if (appointment.client_id) {
+            console.log('👤 Atualizando dados do cliente:', appointment.client_id);
+            
             const client = get().clients.find(c => c.id === appointment.client_id);
             if (client) {
-              await get().updateClient(appointment.client_id, {
-                total_visits: (client.total_visits || 0) + 1,
-                total_spent: (client.total_spent || 0) + (finalPrice ?? appointment.price),
+              const newTotalVisits = (client.total_visits || 0) + 1;
+              const newTotalSpent = (client.total_spent || 0) + priceToUse;
+
+              const clientUpdated = await get().updateClient(appointment.client_id, {
+                total_visits: newTotalVisits,
+                total_spent: newTotalSpent,
                 last_visit: new Date().toISOString()
               });
 
+              if (clientUpdated) {
+                console.log('✅ Cliente atualizado:', {
+                  totalVisits: newTotalVisits,
+                  totalSpent: newTotalSpent
+                });
+              }
+
+              // Adicionar ponto de fidelidade
               await get().addLoyaltyPoint?.(appointment.client_id, id);
             }
           }
 
-          return success;
+          toast.success('✅ Atendimento finalizado com sucesso!');
+          
+          // Forçar recálculo das métricas
+          get().calculateMetrics();
+          
+          return true;
         } catch (error) {
-          console.error('Erro ao completar appointment:', error);
+          console.error('❌ Erro ao completar appointment:', error);
+          toast.error('Erro ao finalizar atendimento');
           return false;
         }
       },
@@ -905,6 +970,8 @@ export const useAppStore = create<AppStore>()(
               serviceType: appointment.service_type,
               scheduledDate: new Date(appointment.scheduled_date),
             });
+
+            toast.success('Agendamento cancelado');
           }
 
           return success;
@@ -967,6 +1034,7 @@ export const useAppStore = create<AppStore>()(
           scheduledToday: todaysAppointments.filter(a => a.status !== 'completed' && a.status !== 'cancelled').length,
         };
 
+        console.log('📊 Métricas calculadas:', metrics);
         set({ metrics });
       },
 
@@ -1566,7 +1634,7 @@ export const useAppStore = create<AppStore>()(
         loyaltyStats: state.loyaltyStats,
         loyaltyLoading: state.loyaltyLoading,
       }),
-      version: 1.3,
+      version: 1.4,
     }
   )
 );

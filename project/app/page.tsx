@@ -45,26 +45,35 @@ export default function Dashboard() {
 
   useEffect(() => {
     const initializeData = async () => {
-      if (!lastSync || Date.now() - new Date(lastSync).getTime() > 5 * 60 * 1000) {
-        await syncWithSupabase();
-      } else {
-        calculateMetrics();
-      }
+      console.log('🚀 Dashboard: Inicializando dados...');
+      await syncWithSupabase();
     };
 
     initializeData();
 
+    // Sincronização automática a cada 2 minutos (reduzido de 5 para melhor responsividade)
     const interval = setInterval(() => {
+      console.log('🔄 Dashboard: Sincronização automática...');
       syncWithSupabase();
-    }, 5 * 60 * 1000);
+    }, 2 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [syncWithSupabase, calculateMetrics, lastSync]);
+  }, [syncWithSupabase]);
+
+  // Recalcular métricas quando appointments ou clients mudarem
+  useEffect(() => {
+    if (isClient && appointments.length > 0) {
+      console.log('📊 Dashboard: Recalculando métricas...');
+      calculateMetrics();
+    }
+  }, [appointments, clients, isClient, calculateMetrics]);
 
   const handleRefresh = async () => {
+    console.log('🔄 Dashboard: Refresh manual iniciado...');
     setIsRefreshing(true);
     await syncWithSupabase();
     setIsRefreshing(false);
+    console.log('✅ Dashboard: Refresh concluído!');
   };
 
   const todaysAppointments = isClient ? getTodaysAppointments() : [];
@@ -106,6 +115,26 @@ export default function Dashboard() {
       case 'cancelled': return 'Cancelado';
       default: return status;
     }
+  };
+
+  // Função para buscar nome do cliente de forma segura
+  const getClientName = (appointment) => {
+    if (!appointment) return 'Cliente';
+    
+    // Primeiro tenta pegar do relacionamento direto
+    if (appointment.client?.name) {
+      return appointment.client.name;
+    }
+    
+    // Senão, busca no array de clients pelo ID
+    if (appointment.client_id) {
+      const client = clients.find(c => c.id === appointment.client_id);
+      if (client?.name) {
+        return client.name;
+      }
+    }
+    
+    return 'Cliente não encontrado';
   };
 
   if (isLoading && !lastSync) {
@@ -237,7 +266,7 @@ export default function Dashboard() {
                     <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3 space-y-1.5 sm:space-y-2">
                       <CardTitle className="text-sm sm:text-base flex items-start sm:items-center justify-between gap-2">
                         <span className="truncate flex-1 min-w-0">
-                          {clients.find(c => c.id === currentAppointment.client_id)?.name || 'Cliente'}
+                          {getClientName(currentAppointment)}
                         </span>
                         <Badge className={cn(getStatusColor(currentAppointment.status), "text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 flex-shrink-0")}>
                           {getStatusLabel(currentAppointment.status)}
@@ -267,7 +296,7 @@ export default function Dashboard() {
                   <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3 space-y-1.5 sm:space-y-2">
                     <CardTitle className="text-sm sm:text-base flex items-start sm:items-center justify-between gap-2">
                       <span className="truncate flex-1 min-w-0">
-                        {clients.find(c => c.id === nextAppointment.client_id)?.name || 'Cliente'}
+                        {getClientName(nextAppointment)}
                       </span>
                       <Badge className={cn(getStatusColor(nextAppointment.status), "text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 flex-shrink-0")}>
                         {getStatusLabel(nextAppointment.status)}
@@ -323,7 +352,6 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     todaysAppointments.map((appointment) => {
-                      const client = clients.find(c => c.id === appointment.client_id);
                       const service = services.find(s => s.name === appointment.service_type);
                       
                       return (
@@ -334,7 +362,7 @@ export default function Dashboard() {
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                               <span className="font-medium text-xs sm:text-sm truncate">
-                                {client?.name || 'Cliente não encontrado'}
+                                {getClientName(appointment)}
                               </span>
                               <Badge className={cn(getStatusColor(appointment.status), "text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 flex-shrink-0")}>
                                 {getStatusLabel(appointment.status)}
