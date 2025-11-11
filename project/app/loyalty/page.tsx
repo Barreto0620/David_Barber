@@ -72,7 +72,6 @@ export default function LoyaltyPage() {
     const totalFreeHaircuts = stats?.totalFreeHaircuts || 0;
     const clientsNearReward = stats?.clientsNearReward || 0;
     
-    // 🔥 CORREÇÃO DE ESTABILIDADE: Ordena a lista pelo client_id para estabilizar as chaves do React/SVG.
     const weeklyClients = useCallback(clients
         .filter(client => {
             const lastVisit = client.last_visit ? new Date(client.last_visit) : null;
@@ -80,7 +79,7 @@ export default function LoyaltyPage() {
             weekAgo.setDate(weekAgo.getDate() - 7);
             return lastVisit && lastVisit >= weekAgo;
         })
-        .sort((a, b) => a.client_id.localeCompare(b.client_id)), // Ordena pelo ID
+        .sort((a, b) => a.client_id.localeCompare(b.client_id)),
     [clients]);
 
     // ============================================
@@ -103,7 +102,6 @@ export default function LoyaltyPage() {
 
         setSpinning(true);
         
-        // 1. LÓGICA DE SORTEIO ANTI-REPETIÇÃO
         let selectedClient;
         let randomIndex;
         
@@ -119,7 +117,6 @@ export default function LoyaltyPage() {
             randomIndex = 0;
         }
         
-        // 2. Define a ANIMAÇÃO (Calcula a rotação final)
         const segmentAngle = 360 / weeklyClients.length;
         const targetOffset = (randomIndex * segmentAngle) + (segmentAngle / 2);
         const targetStopAngle = 360 - targetOffset; 
@@ -133,7 +130,6 @@ export default function LoyaltyPage() {
         
         setRotation(finalRotation); 
         
-        // 3. Chama a API APÓS a animação (5000ms = 5s)
         setTimeout(async () => {
             const winnerFromStore = await storeSpinWheel(selectedClient.client_id); 
             
@@ -142,7 +138,6 @@ export default function LoyaltyPage() {
                 setWinnerDialogOpen(true);
                 setLastWinnerId(winnerFromStore.client_id); 
             }
-            // A roleta mantém a rotação final porque setRotation foi chamado com finalRotation
             setSpinning(false); 
         }, 5000);
     };
@@ -156,134 +151,141 @@ export default function LoyaltyPage() {
     // ============================================
     
     return (
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6 pb-20 sm:pb-6">
 
-            {/* Título e Botão de Configuração */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
-                        <Gift className="h-6 h-8 sm:h-8 w-8 text-primary" />
-                        Programa de Fidelidade
+            {/* Título e Botão de Configuração - Otimizado */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+                        <Gift className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-primary flex-shrink-0" />
+                        <span className="truncate">Programa de Fidelidade</span>
                     </h1>
-                    <p className="text-sm sm:text-base text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                         Recompense seus clientes fiéis e faça sorteios especiais
                     </p>
                 </div>
                 <Button
                     onClick={() => setSettingsOpen(true)}
                     disabled={loading}
-                    className="w-full sm:w-auto"
+                    className="w-full sm:w-auto h-11 text-base active:scale-95 transition-transform touch-manipulation"
+                    size="lg"
                 >
-                    <Settings className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Configurar Fidelidade</span>
-                    <span className="sm:hidden">Configurar</span>
+                    <Settings className="h-5 w-5 sm:mr-2" />
+                    <span className="hidden xs:inline">Configurar Fidelidade</span>
+                    <span className="xs:hidden">Configurar</span>
                 </Button>
             </div>
 
-            {/* Cards de Métricas (Usando stats reais) */}
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total de Pontos</CardTitle>
-                        <Star className="h-4 w-4 text-yellow-500" />
+            {/* Cards de Métricas - Grid Responsivo */}
+            <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
+                <Card className="shadow-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                        <CardTitle className="text-xs sm:text-sm font-medium truncate pr-2">Total de Pontos</CardTitle>
+                        <Star className="h-4 w-4 text-yellow-500 flex-shrink-0" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{totalPoints}</div>
-                        <p className="text-xs text-muted-foreground">Acumulados pelos clientes</p>
+                    <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                        <div className="text-xl sm:text-2xl font-bold">{totalPoints}</div>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Acumulados</p>
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Cortes Grátis Disponíveis</CardTitle>
-                        <Trophy className="h-4 w-4 text-amber-500" />
+                <Card className="shadow-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                        <CardTitle className="text-xs sm:text-sm font-medium truncate pr-2">Cortes Grátis</CardTitle>
+                        <Trophy className="h-4 w-4 text-amber-500 flex-shrink-0" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{totalFreeHaircuts}</div>
-                        <p className="text-xs text-muted-foreground">Prontos para resgatar</p>
+                    <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                        <div className="text-xl sm:text-2xl font-bold">{totalFreeHaircuts}</div>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Disponíveis</p>
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Perto da Recompensa</CardTitle>
-                        <Target className="h-4 w-4 text-green-500" />
+                <Card className="shadow-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                        <CardTitle className="text-xs sm:text-sm font-medium truncate pr-2">Perto da Recompensa</CardTitle>
+                        <Target className="h-4 w-4 text-green-500 flex-shrink-0" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{clientsNearReward}</div>
-                        <p className="text-xs text-muted-foreground">Faltam 2 cortes ou menos</p>
+                    <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                        <div className="text-xl sm:text-2xl font-bold">{clientsNearReward}</div>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Faltam ≤2</p>
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Configuração Atual</CardTitle>
-                        <Award className="h-4 w-4 text-primary" />
+                <Card className="shadow-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                        <CardTitle className="text-xs sm:text-sm font-medium truncate pr-2">Configuração</CardTitle>
+                        <Award className="h-4 w-4 text-primary flex-shrink-0" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{cutsForFree}</div>
-                        <p className="text-xs text-muted-foreground">Cortes = 1 grátis</p>
+                    <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                        <div className="text-xl sm:text-2xl font-bold">{cutsForFree}</div>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Cortes = 1 grátis</p>
                     </CardContent>
                 </Card>
             </div>
 
-            <Tabs defaultValue="cards" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="cards">
-                        <Star className="h-4 w-4 mr-2" />
-                        Cartões Fidelidade
+            {/* Tabs - Otimizado */}
+            <Tabs defaultValue="cards" className="space-y-3 sm:space-y-4">
+                <TabsList className="grid w-full grid-cols-2 h-auto gap-1 p-1">
+                    <TabsTrigger value="cards" className="text-xs sm:text-sm gap-1 sm:gap-2 py-2.5">
+                        <Star className="h-4 w-4 flex-shrink-0" />
+                        <span className="hidden xs:inline">Cartões Fidelidade</span>
+                        <span className="xs:hidden">Cartões</span>
                     </TabsTrigger>
-                    <TabsTrigger value="wheel">
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Roleta da Sorte
+                    <TabsTrigger value="wheel" className="text-xs sm:text-sm gap-1 sm:gap-2 py-2.5">
+                        <Sparkles className="h-4 w-4 flex-shrink-0" />
+                        <span className="hidden xs:inline">Roleta da Sorte</span>
+                        <span className="xs:hidden">Roleta</span>
                     </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="cards" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {/* Tab: Cartões de Fidelidade */}
+                <TabsContent value="cards" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+                    <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         {clients.map((client) => {
                             const progress = (client.points / cutsForFree) * 100;
                             const isNearReward = client.points >= cutsForFree - 2;
                             
                             return (
                                 <Card key={client.client_id} className={cn(
-                                    "hover:shadow-lg transition-all",
+                                    "hover:shadow-lg transition-all shadow-sm",
                                     isNearReward && "ring-2 ring-green-500"
                                 )}>
-                                    <CardHeader className="pb-3">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <CardTitle className="text-lg flex items-center gap-2">
-                                                    {client.name}
+                                    <CardHeader className="pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <CardTitle className="text-base sm:text-lg flex items-center gap-2 flex-wrap">
+                                                    <span className="truncate">{client.name}</span>
                                                     {client.free_haircuts > 0 && (
-                                                        <Badge className="bg-amber-500">
+                                                        <Badge className="bg-amber-500 text-xs flex-shrink-0">
                                                             <Crown className="w-3 h-3 mr-1" />
                                                             {client.free_haircuts}
                                                         </Badge>
                                                     )}
                                                 </CardTitle>
-                                                <CardDescription className="text-sm">
+                                                <CardDescription className="text-xs sm:text-sm truncate">
                                                     {client.phone}
                                                 </CardDescription>
                                             </div>
                                             {isNearReward && (
-                                                <Badge variant="outline" className="border-green-500 text-green-500">
+                                                <Badge variant="outline" className="border-green-500 text-green-500 text-[10px] sm:text-xs flex-shrink-0">
                                                     <TrendingUp className="w-3 h-3 mr-1" />
-                                                    Quase lá!
+                                                    <span className="hidden xs:inline">Quase lá!</span>
+                                                    <span className="xs:hidden">!</span>
                                                 </Badge>
                                             )}
                                         </div>
                                     </CardHeader>
 
-                                    <CardContent className="space-y-4">
+                                    <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6 pb-3 sm:pb-6">
+                                        {/* Barra de Progresso */}
                                         <div className="space-y-2">
-                                            <div className="flex justify-between text-sm">
+                                            <div className="flex justify-between text-xs sm:text-sm">
                                                 <span className="text-muted-foreground">Progresso:</span>
                                                 <span className="font-bold">
                                                     {client.points} / {cutsForFree}
                                                 </span>
                                             </div>
-                                            <div className="h-3 bg-muted rounded-full overflow-hidden">
+                                            <div className="h-2.5 sm:h-3 bg-muted rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500"
                                                     style={{ width: `${progress}%` }}
@@ -291,57 +293,64 @@ export default function LoyaltyPage() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-5 gap-2">
+                                        {/* Grid de Estrelas */}
+                                        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                                             {Array.from({ length: cutsForFree }).map((_, idx) => (
                                                 <div
                                                     key={idx}
                                                     className={cn(
-                                                        "aspect-square rounded-lg flex items-center justify-center transition-all",
+                                                        "aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all",
                                                         idx < client.points
                                                             ? "bg-primary text-primary-foreground shadow-md"
                                                             : "bg-muted"
                                                     )}
                                                 >
-                                                    {idx < client.points && <Star className="w-4 h-4 fill-current" />}
+                                                    {idx < client.points && <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-current" />}
                                                 </div>
                                             ))}
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-2 pt-2 border-t text-sm">
+                                        {/* Estatísticas */}
+                                        <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs sm:text-sm">
                                             <div>
                                                 <p className="text-muted-foreground">Total de Visitas:</p>
                                                 <p className="font-bold">{client.total_visits || 0}</p>
                                             </div>
                                             <div>
                                                 <p className="text-muted-foreground">Última Visita:</p>
-                                                <p className="font-bold">
+                                                <p className="font-bold truncate">
                                                     {client.last_visit 
-                                                        ? new Date(client.last_visit).toLocaleDateString('pt-BR')
+                                                        ? new Date(client.last_visit).toLocaleDateString('pt-BR', {
+                                                            day: '2-digit',
+                                                            month: '2-digit'
+                                                        })
                                                         : 'N/A'
                                                     }
                                                 </p>
                                             </div>
                                         </div>
 
+                                        {/* Botões de Ação */}
                                         <div className="flex gap-2 pt-2">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="flex-1"
+                                                className="flex-1 text-xs sm:text-sm h-9 sm:h-10"
                                                 disabled={true} 
                                             >
-                                                <Star className="w-4 h-4 mr-1" />
-                                                Pontuação Automática
+                                                <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                                                <span className="hidden xs:inline">Pontuação Automática</span>
+                                                <span className="xs:hidden">Automático</span>
                                             </Button>
                                             {client.free_haircuts > 0 && (
                                                 <Button
                                                     variant="default"
                                                     size="sm"
-                                                    className="flex-1 bg-amber-500 hover:bg-amber-600"
+                                                    className="flex-1 text-xs sm:text-sm h-9 sm:h-10 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-transform touch-manipulation"
                                                     onClick={() => redeemFreeHaircut(client.client_id)} 
                                                     disabled={loading}
                                                 >
-                                                    <Gift className="w-4 h-4 mr-1" />
+                                                    <Gift className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                                     Resgatar
                                                 </Button>
                                             )}
@@ -353,40 +362,43 @@ export default function LoyaltyPage() {
                     </div>
                 </TabsContent>
 
-                <TabsContent value="wheel" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Sparkles className="h-5 w-5 text-primary" />
-                                Roleta da Sorte Semanal
+                {/* Tab: Roleta da Sorte */}
+                <TabsContent value="wheel" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
+                    <Card className="shadow-sm">
+                        <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-3 sm:pb-4">
+                            <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+                                <Sparkles className="h-5 w-5 text-primary flex-shrink-0" />
+                                <span className="truncate">Roleta da Sorte Semanal</span>
                             </CardTitle>
-                            <CardDescription>
+                            <CardDescription className="text-xs sm:text-sm">
                                 Sorteie um cliente que visitou a barbearia esta semana e ganhe 1 corte grátis!
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="flex flex-col items-center space-y-6">
+                        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+                            <div className="flex flex-col items-center space-y-4 sm:space-y-6">
+                                {/* Card Info Clientes Elegíveis */}
                                 <Card className="w-full bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-                                    <CardContent className="p-4 flex items-center gap-3">
-                                        <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                        <div className="flex-1">
-                                            <p className="font-medium text-blue-900 dark:text-blue-100">
+                                    <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+                                        <Users className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-blue-900 dark:text-blue-100 text-sm sm:text-base">
                                                 {weeklyClients.length} clientes elegíveis esta semana
                                             </p>
-                                            <p className="text-sm text-blue-700 dark:text-blue-300">
-                                                Clientes que visitaram nos últimos 7 dias
+                                            <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 truncate">
+                                                Visitaram nos últimos 7 dias
                                             </p>
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <div className="relative w-[450px] h-[450px] flex items-center justify-center" style={{ marginTop: '50px' }}>
+                                {/* Roleta - Responsiva */}
+                                <div className="relative w-full max-w-[280px] xs:max-w-[320px] sm:max-w-[400px] md:max-w-[450px] aspect-square flex items-center justify-center my-4 sm:my-8">
                                     {weeklyClients.length > 0 ? (
                                         <>
-                                            <div className="absolute w-[420px] h-[420px] rounded-full border-4 border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.5)] animate-pulse" />
+                                            <div className="absolute w-[95%] h-[95%] rounded-full border-2 sm:border-4 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.5)] sm:shadow-[0_0_30px_rgba(251,191,36,0.5)] animate-pulse" />
                                             
                                             <svg 
-                                                className="w-[400px] h-[400px] absolute" 
+                                                className="w-[90%] h-[90%] absolute" 
                                                 viewBox="0 0 400 400"
                                                 style={{
                                                     transform: `rotate(${rotation}deg)`,
@@ -450,7 +462,7 @@ export default function LoyaltyPage() {
                                                                 x={textX}
                                                                 y={textY}
                                                                 fill="white"
-                                                                fontSize="13"
+                                                                fontSize={weeklyClients.length > 6 ? "11" : "13"}
                                                                 fontWeight="bold"
                                                                 textAnchor="middle"
                                                                 dominantBaseline="middle"
@@ -472,32 +484,33 @@ export default function LoyaltyPage() {
                                             </svg>
                                             
                                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20">
-                                                <Sparkles className="w-12 h-12 text-white drop-shadow-lg" />
+                                                <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white drop-shadow-lg" />
                                             </div>
                                             
-                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-6 z-30">
+                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 sm:-translate-y-6 z-30">
                                                 <div className="relative">
-                                                    <div className="w-0 h-0 border-l-[30px] border-l-transparent border-r-[30px] border-r-transparent border-t-[60px] border-t-red-600 drop-shadow-2xl" />
-                                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[48px] border-t-red-500" />
+                                                    <div className="w-0 h-0 border-l-[20px] sm:border-l-[30px] border-l-transparent border-r-[20px] sm:border-r-[30px] border-r-transparent border-t-[40px] sm:border-t-[60px] border-t-red-600 drop-shadow-2xl" />
+                                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[16px] sm:border-l-[24px] border-l-transparent border-r-[16px] sm:border-r-[24px] border-r-transparent border-t-[32px] sm:border-t-[48px] border-t-red-500" />
                                                 </div>
                                             </div>
                                             
                                             {spinning && (
-                                                <div className="absolute w-[450px] h-[450px] rounded-full bg-gradient-radial from-amber-500/20 to-transparent animate-ping pointer-events-none" />
+                                                <div className="absolute w-full h-full rounded-full bg-gradient-radial from-amber-500/20 to-transparent animate-ping pointer-events-none" />
                                             )}
                                         </>
                                     ) : (
-                                        <div className="w-[400px] h-[400px] rounded-full border-8 border-muted bg-muted/20 flex items-center justify-center">
-                                            <p className="text-muted-foreground text-center text-lg">
+                                        <div className="w-full h-full rounded-full border-4 sm:border-8 border-muted bg-muted/20 flex items-center justify-center">
+                                            <p className="text-muted-foreground text-center text-sm sm:text-base md:text-lg px-4">
                                                 Nenhum cliente<br />elegível
                                             </p>
                                         </div>
                                     )}
                                 </div>
 
+                                {/* Botão Girar */}
                                 <Button
                                     size="lg"
-                                    className="w-full max-w-md h-14 text-lg font-bold"
+                                    className="w-full h-12 sm:h-14 text-base sm:text-lg font-bold active:scale-95 transition-transform touch-manipulation"
                                     onClick={spinWheel} 
                                     disabled={spinning || weeklyClients.length === 0 || loading}
                                 >
@@ -514,13 +527,14 @@ export default function LoyaltyPage() {
                                     )}
                                 </Button>
 
-                                <Card className="w-full">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">Clientes Elegíveis</CardTitle>
+                                {/* Lista de Clientes Elegíveis */}
+                                <Card className="w-full shadow-sm">
+                                    <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
+                                        <CardTitle className="text-base sm:text-lg">Clientes Elegíveis</CardTitle>
                                     </CardHeader>
-                                    <CardContent>
+                                    <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                                         {weeklyClients.length === 0 ? (
-                                            <p className="text-center text-muted-foreground py-4">
+                                            <p className="text-center text-muted-foreground py-4 text-sm">
                                                 Nenhum cliente visitou esta semana
                                             </p>
                                         ) : (
@@ -528,14 +542,17 @@ export default function LoyaltyPage() {
                                                 {weeklyClients.map((client) => (
                                                     <div
                                                         key={client.client_id}
-                                                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                                                        className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-lg gap-2"
                                                     >
-                                                        <div>
-                                                            <p className="font-medium">{client.name}</p>
-                                                            <p className="text-sm text-muted-foreground">{client.phone}</p>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-sm sm:text-base truncate">{client.name}</p>
+                                                            <p className="text-xs sm:text-sm text-muted-foreground truncate">{client.phone}</p>
                                                         </div>
-                                                        <Badge variant="outline">
-                                                            {new Date(client.last_visit).toLocaleDateString('pt-BR')}
+                                                        <Badge variant="outline" className="text-[10px] sm:text-xs flex-shrink-0">
+                                                            {new Date(client.last_visit).toLocaleDateString('pt-BR', {
+                                                                day: '2-digit',
+                                                                month: '2-digit'
+                                                            })}
                                                         </Badge>
                                                     </div>
                                                 ))}
@@ -549,34 +566,35 @@ export default function LoyaltyPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* Configurações de Fidelidade Dialog */}
+            {/* Dialog: Configurações de Fidelidade */}
             <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-                <DialogContent>
+                <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md mx-auto rounded-lg">
                     <DialogHeader>
-                        <DialogTitle>Configurações de Fidelidade</DialogTitle>
-                        <DialogDescription>
+                        <DialogTitle className="text-lg sm:text-xl">Configurações de Fidelidade</DialogTitle>
+                        <DialogDescription className="text-xs sm:text-sm">
                             Defina quantos cortes são necessários para ganhar 1 grátis
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label>Cortes para ganhar 1 grátis</Label>
+                            <Label className="text-sm font-medium">Cortes para ganhar 1 grátis</Label>
                             <Input
                                 type="number"
                                 min="5"
                                 max="20"
                                 value={tempCutsForFree}
                                 onChange={(e) => setTempCutsForFree(parseInt(e.target.value) || 10)}
+                                className="h-11 text-base"
                             />
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs sm:text-sm text-muted-foreground">
                                 Recomendado: entre 8 e 12 cortes
                             </p>
                         </div>
 
                         <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-                            <CardContent className="p-4">
-                                <p className="text-sm text-blue-900 dark:text-blue-100">
+                            <CardContent className="p-3 sm:p-4">
+                                <p className="text-xs sm:text-sm text-blue-900 dark:text-blue-100">
                                     <strong>Exemplo:</strong> Se configurar para {tempCutsForFree} cortes, o cliente
                                     precisará fazer {tempCutsForFree} cortes para ganhar 1 grátis.
                                 </p>
@@ -584,20 +602,29 @@ export default function LoyaltyPage() {
                         </Card>
                     </div>
 
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setSettingsOpen(false)} disabled={loading}>
+                    <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setSettingsOpen(false)} 
+                            disabled={loading}
+                            className="w-full sm:w-auto h-11 active:scale-95 transition-transform touch-manipulation"
+                        >
                             Cancelar
                         </Button>
-                        <Button onClick={handleSaveSettings} disabled={loading}>
+                        <Button 
+                            onClick={handleSaveSettings} 
+                            disabled={loading}
+                            className="w-full sm:w-auto h-11 active:scale-95 transition-transform touch-manipulation"
+                        >
                             Salvar Configurações
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Vencedor da Roleta Dialog */}
+            {/* Dialog: Vencedor da Roleta - Otimizado */}
             <Dialog open={winnerDialogOpen} onOpenChange={setWinnerDialogOpen}>
-                <DialogContent className="max-w-md border-0 bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 p-0 overflow-hidden">
+                <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md mx-auto border-0 bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 p-0 overflow-hidden rounded-lg">
                     <div className="absolute inset-0 overflow-hidden pointer-events-none">
                         {Array.from({ length: 15 }).map((_, i) => (
                             <div
@@ -617,49 +644,49 @@ export default function LoyaltyPage() {
                     <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl" />
                     <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
                     
-                    <div className="relative z-10 p-6">
-                        <DialogHeader className="space-y-4">
+                    <div className="relative z-10 p-4 sm:p-6">
+                        <DialogHeader className="space-y-3 sm:space-y-4">
                             <div className="flex justify-center">
                                 <div className="relative">
                                     <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-xl opacity-40" />
-                                    <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl animate-bounce">
-                                        <Trophy className="w-10 h-10 text-white drop-shadow-lg" />
+                                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl animate-bounce">
+                                        <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow-lg" />
                                     </div>
                                 </div>
                             </div>
 
                             <div className="text-center space-y-1">
-                                <DialogTitle className="text-3xl font-bold">
+                                <DialogTitle className="text-2xl sm:text-3xl font-bold">
                                     <span>🎉</span>
                                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-purple-200 to-blue-200"> Parabéns! </span>
                                     <span>🎉</span>
                                 </DialogTitle>
-                                <DialogDescription className="text-base text-indigo-200">
+                                <DialogDescription className="text-sm sm:text-base text-indigo-200">
                                     Temos um grande vencedor!
                                 </DialogDescription>
                             </div>
                         </DialogHeader>
 
                         {winner && (
-                            <div className="py-6 space-y-4">
+                            <div className="py-4 sm:py-6 space-y-3 sm:space-y-4">
                                 <div className="relative">
                                     <Card className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 border-2 border-blue-400/30 shadow-xl overflow-hidden">
-                                        <CardContent className="relative p-6 text-center text-white space-y-4">
+                                        <CardContent className="relative p-4 sm:p-6 text-center text-white space-y-3 sm:space-y-4">
                                             <div className="flex justify-center">
-                                                <Crown className="w-12 h-12 drop-shadow-lg text-yellow-300" />
+                                                <Crown className="w-10 h-10 sm:w-12 sm:h-12 drop-shadow-lg text-yellow-300" />
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <h3 className="text-3xl font-bold drop-shadow-lg">
+                                            <div className="space-y-1 sm:space-y-2">
+                                                <h3 className="text-2xl sm:text-3xl font-bold drop-shadow-lg break-words">
                                                     {winner.name}
                                                 </h3>
-                                                <p className="text-sm text-blue-100">{winner.phone}</p>
+                                                <p className="text-xs sm:text-sm text-blue-100">{winner.phone}</p>
                                             </div>
 
-                                            <div className="relative p-4 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30">
+                                            <div className="relative p-3 sm:p-4 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <Gift className="w-6 h-6" />
-                                                    <p className="text-2xl font-bold">1 CORTE GRÁTIS!</p>
+                                                    <Gift className="w-5 h-5 sm:w-6 sm:h-6" />
+                                                    <p className="text-xl sm:text-2xl font-bold">1 CORTE GRÁTIS!</p>
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -667,7 +694,7 @@ export default function LoyaltyPage() {
                                 </div>
 
                                 <div className="text-center">
-                                    <p className="text-sm text-indigo-200 font-medium">
+                                    <p className="text-xs sm:text-sm text-indigo-200 font-medium">
                                         ✨ Sorteio realizado com sucesso! ✨
                                     </p>
                                 </div>
@@ -677,7 +704,7 @@ export default function LoyaltyPage() {
                         <DialogFooter>
                             <Button
                                 onClick={() => setWinnerDialogOpen(false)}
-                                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg text-white"
+                                className="w-full h-11 sm:h-12 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg text-white active:scale-95 transition-transform touch-manipulation"
                             >
                                 <Sparkles className="w-4 h-4 mr-2" />
                                 Concluído!
