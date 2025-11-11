@@ -63,7 +63,7 @@ export default function AppointmentsPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
-  const [viewMode, setViewMode] = useState('all'); // 🔥 MUDADO DE 'daily' PARA 'all'
+  const [viewMode, setViewMode] = useState('all');
   
   // Estados para busca e filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,15 +72,13 @@ export default function AppointmentsPage() {
   const [sortBy, setSortBy] = useState('date-desc');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // 🔥 CORREÇÃO PRINCIPAL: Lógica de exibição de agendamentos
+  // Lógica de exibição de agendamentos
   const displayAppointments = useMemo(() => {
-    // Se viewMode for 'all', retorna TODOS os agendamentos do banco
     if (viewMode === 'all') {
       console.log('📊 Modo "Todos": Mostrando todos os', appointments.length, 'agendamentos');
       return appointments;
     }
     
-    // Se viewMode for 'daily', filtra apenas pelo dia selecionado
     const dailyAppointments = getAppointmentsByDate(appointments, selectedDate);
     console.log('📅 Modo "Diária":', dailyAppointments.length, 'agendamentos para', selectedDate.toLocaleDateString());
     return dailyAppointments;
@@ -147,7 +145,7 @@ export default function AppointmentsPage() {
     return Array.from(services).sort();
   }, [appointments]);
 
-  // 🔥 CORREÇÃO: Função de filtro de data agora considera TODOS os agendamentos
+  // Função de filtro de data
   const filterByDateRange = (apt) => {
     if (filterDateRange === 'all') return true;
     
@@ -157,7 +155,6 @@ export default function AppointmentsPage() {
     
     switch (filterDateRange) {
       case 'recent': {
-        // Agendamentos futuros (a partir de agora)
         const now = new Date();
         return aptDate >= now;
       }
@@ -180,7 +177,7 @@ export default function AppointmentsPage() {
         return aptDate >= today && aptDate <= monthFromNow;
       }
       
-      case 'past': { // 🔥 NOVO: Filtro para agendamentos passados
+      case 'past': {
         return aptDate < today;
       }
       
@@ -189,7 +186,7 @@ export default function AppointmentsPage() {
     }
   };
 
-  // 🔥 CORREÇÃO: Aplicar filtros sobre displayAppointments (já filtrado por viewMode)
+  // Aplicar filtros
   const filteredAppointments = useMemo(() => {
     let filtered = activeTab === 'all' 
       ? displayAppointments 
@@ -364,38 +361,45 @@ export default function AppointmentsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Agendamentos</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+    <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6 pb-20 sm:pb-6">
+      {/* Header - Otimizado para Mobile */}
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
+            Agendamentos
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Gerencie todos os agendamentos da barbearia
           </p>
         </div>
-        <Button onClick={() => setNewAppointmentModalOpen(true)} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4 mr-2" />
+        <Button 
+          onClick={() => setNewAppointmentModalOpen(true)} 
+          className="w-full sm:w-auto sm:self-end h-11 text-base font-medium shadow-sm active:scale-95 transition-transform"
+          size="lg"
+        >
+          <Plus className="h-5 w-5 mr-2" />
           Novo Agendamento
         </Button>
       </div>
 
-      {/* Barra de Busca e Filtros */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-3">
+      {/* Barra de Busca e Filtros - Otimizado para Mobile */}
+      <Card className="shadow-sm">
+        <CardContent className="p-3 sm:p-4 md:pt-6">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             {/* Barra de Busca */}
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
-                placeholder="Buscar por cliente ou serviço..."
+                placeholder="Buscar cliente ou serviço..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9"
+                className="pl-9 pr-9 h-11 text-base"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground active:scale-90 transition-all touch-manipulation p-1"
+                  aria-label="Limpar busca"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -405,26 +409,34 @@ export default function AppointmentsPage() {
             {/* Botão de Filtros */}
             <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto relative">
+                <Button 
+                  variant="outline" 
+                  className="w-full sm:w-auto h-11 relative active:scale-95 transition-transform touch-manipulation"
+                  size="lg"
+                >
                   <Filter className="h-4 w-4 mr-2" />
-                  Filtros
+                  <span className="font-medium">Filtros</span>
                   {hasActiveFilters && (
-                    <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center" variant="destructive">
+                    <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center animate-pulse" variant="destructive">
                       !
                     </Badge>
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
+              <PopoverContent 
+                className="w-[calc(100vw-2rem)] sm:w-80 max-w-sm" 
+                align="end"
+                sideOffset={8}
+              >
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">Filtros Avançados</h4>
+                    <h4 className="font-semibold text-base">Filtros Avançados</h4>
                     {hasActiveFilters && (
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={clearAllFilters}
-                        className="h-8 px-2 text-xs"
+                        className="h-8 px-2 text-xs hover:bg-muted active:scale-95 transition-transform"
                       >
                         Limpar tudo
                       </Button>
@@ -435,7 +447,7 @@ export default function AppointmentsPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Serviço</label>
                     <Select value={filterService} onValueChange={setFilterService}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue placeholder="Todos os serviços" />
                       </SelectTrigger>
                       <SelectContent>
@@ -453,7 +465,7 @@ export default function AppointmentsPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Período</label>
                     <Select value={filterDateRange} onValueChange={setFilterDateRange}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue placeholder="Selecione o período" />
                       </SelectTrigger>
                       <SelectContent>
@@ -471,20 +483,20 @@ export default function AppointmentsPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Ordenar por</label>
                     <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10">
                         <SelectValue placeholder="Selecione a ordenação" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="date-desc">📅 Data: Mais recente</SelectItem>
                         <SelectItem value="date-asc">📅 Data: Mais antiga</SelectItem>
-                        <SelectItem value="nearest">🎯 Agendamento: Mais próximo</SelectItem>
-                        <SelectItem value="farthest">📆 Agendamento: Mais distante</SelectItem>
+                        <SelectItem value="nearest">🎯 Mais próximo</SelectItem>
+                        <SelectItem value="farthest">📆 Mais distante</SelectItem>
                         <SelectItem value="client-asc">👤 Cliente: A → Z</SelectItem>
                         <SelectItem value="client-desc">👤 Cliente: Z → A</SelectItem>
                         <SelectItem value="service-asc">✂️ Serviço: A → Z</SelectItem>
                         <SelectItem value="service-desc">✂️ Serviço: Z → A</SelectItem>
-                        <SelectItem value="price-asc">💰 Preço: Menor → Maior</SelectItem>
-                        <SelectItem value="price-desc">💰 Preço: Maior → Menor</SelectItem>
+                        <SelectItem value="price-asc">💰 Preço: Menor</SelectItem>
+                        <SelectItem value="price-desc">💰 Preço: Maior</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -493,57 +505,61 @@ export default function AppointmentsPage() {
             </Popover>
           </div>
 
-          {/* Indicadores de Filtros Ativos */}
+          {/* Indicadores de Filtros Ativos - Otimizado para Mobile */}
           {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 mt-3">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-3">
               {searchQuery && (
-                <Badge variant="secondary" className="gap-1 pr-1">
-                  Busca: &quot;{searchQuery}&quot;
-                  <span 
+                <Badge variant="secondary" className="gap-1 pr-1 text-xs h-7">
+                  <span className="truncate max-w-[120px]">Busca: &quot;{searchQuery}&quot;</span>
+                  <button 
                     onClick={() => setSearchQuery('')} 
-                    className="ml-1 hover:text-destructive cursor-pointer inline-flex items-center justify-center w-4 h-4"
+                    className="ml-1 hover:text-destructive active:scale-90 transition-all inline-flex items-center justify-center w-4 h-4 touch-manipulation"
+                    aria-label="Remover filtro de busca"
                   >
                     <X className="h-3 w-3" />
-                  </span>
+                  </button>
                 </Badge>
               )}
               {filterService !== 'all' && (
-                <Badge variant="secondary" className="gap-1 pr-1">
-                  Serviço: {filterService}
-                  <span 
+                <Badge variant="secondary" className="gap-1 pr-1 text-xs h-7">
+                  <span className="truncate max-w-[100px]">Serviço: {filterService}</span>
+                  <button 
                     onClick={() => setFilterService('all')} 
-                    className="ml-1 hover:text-destructive cursor-pointer inline-flex items-center justify-center w-4 h-4"
+                    className="ml-1 hover:text-destructive active:scale-90 transition-all inline-flex items-center justify-center w-4 h-4 touch-manipulation"
+                    aria-label="Remover filtro de serviço"
                   >
                     <X className="h-3 w-3" />
-                  </span>
+                  </button>
                 </Badge>
               )}
               {filterDateRange !== 'all' && (
-                <Badge variant="secondary" className="gap-1 pr-1">
-                  Período: {
+                <Badge variant="secondary" className="gap-1 pr-1 text-xs h-7">
+                  <span>Período: {
                     filterDateRange === 'recent' ? 'Próximos' :
                     filterDateRange === 'today' ? 'Hoje' :
-                    filterDateRange === 'week' ? 'Próximos 7 dias' :
-                    filterDateRange === 'month' ? 'Próximos 30 dias' :
+                    filterDateRange === 'week' ? '7 dias' :
+                    filterDateRange === 'month' ? '30 dias' :
                     filterDateRange === 'past' ? 'Passados' : ''
-                  }
-                  <span 
+                  }</span>
+                  <button 
                     onClick={() => setFilterDateRange('all')} 
-                    className="ml-1 hover:text-destructive cursor-pointer inline-flex items-center justify-center w-4 h-4"
+                    className="ml-1 hover:text-destructive active:scale-90 transition-all inline-flex items-center justify-center w-4 h-4 touch-manipulation"
+                    aria-label="Remover filtro de período"
                   >
                     <X className="h-3 w-3" />
-                  </span>
+                  </button>
                 </Badge>
               )}
               {sortBy !== 'date-desc' && (
-                <Badge variant="secondary" className="gap-1 pr-1">
+                <Badge variant="secondary" className="gap-1 pr-1 text-xs h-7">
                   Ordem personalizada
-                  <span 
+                  <button 
                     onClick={() => setSortBy('date-desc')} 
-                    className="ml-1 hover:text-destructive cursor-pointer inline-flex items-center justify-center w-4 h-4"
+                    className="ml-1 hover:text-destructive active:scale-90 transition-all inline-flex items-center justify-center w-4 h-4 touch-manipulation"
+                    aria-label="Remover ordenação personalizada"
                   >
                     <X className="h-3 w-3" />
-                  </span>
+                  </button>
                 </Badge>
               )}
             </div>
@@ -551,28 +567,28 @@ export default function AppointmentsPage() {
         </CardContent>
       </Card>
 
-      {/* Date and View Mode Selection */}
-      <Card className="border-2">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
-                <CalendarDays className="h-6 w-6 text-primary" />
+      {/* Date and View Mode Selection - Otimizado para Mobile */}
+      <Card className="border-2 shadow-sm">
+        <CardHeader className="pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+                <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
-              <div>
-                <CardTitle className="text-xl sm:text-2xl font-bold">
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-lg sm:text-xl md:text-2xl font-bold truncate">
                   {viewMode === 'daily' ? 'Agendamentos do Dia' : 'Todos os Agendamentos'}
                 </CardTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-sm font-medium text-muted-foreground">
+                <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">
                     {viewMode === 'daily' 
                       ? formatDate(selectedDate)
-                      : `${appointments.length} agendamento${appointments.length !== 1 ? 's' : ''} no total`
+                      : `${appointments.length} no total`
                     }
                   </p>
                   {viewMode === 'daily' && (
-                    <Badge variant="outline" className="text-xs">
-                      {displayAppointments.length} agendamento{displayAppointments.length !== 1 ? 's' : ''}
+                    <Badge variant="outline" className="text-xs flex-shrink-0">
+                      {displayAppointments.length}
                     </Badge>
                   )}
                 </div>
@@ -583,24 +599,24 @@ export default function AppointmentsPage() {
                 variant={viewMode === 'daily' ? 'default' : 'outline'}
                 onClick={() => setViewMode('daily')}
                 size="sm"
-                className="flex-1 sm:flex-none"
+                className="flex-1 h-10 active:scale-95 transition-transform touch-manipulation"
               >
                 <Calendar className="h-4 w-4 mr-2" />
-                Diária
+                <span className="font-medium">Diária</span>
               </Button>
               <Button
                 variant={viewMode === 'all' ? 'default' : 'outline'}
                 onClick={() => setViewMode('all')}
                 size="sm"
-                className="flex-1 sm:flex-none"
+                className="flex-1 h-10 active:scale-95 transition-transform touch-manipulation"
               >
-                Ver Todos
+                <span className="font-medium">Ver Todos</span>
               </Button>
             </div>
           </div>
         </CardHeader>
         {viewMode === 'daily' && (
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 px-3 sm:px-6 pb-3 sm:pb-6">
             <div className="flex items-center justify-center gap-2">
               <Button
                 variant="outline"
@@ -610,23 +626,30 @@ export default function AppointmentsPage() {
                   setSelectedDate(yesterday);
                 }}
                 size="icon"
-                className="h-9 w-9"
+                className="h-10 w-10 flex-shrink-0 active:scale-90 transition-transform touch-manipulation"
+                aria-label="Dia anterior"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-5 w-5" />
               </Button>
               
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="min-w-[140px] font-medium justify-center"
+                    className="flex-1 max-w-[200px] h-10 font-medium justify-center active:scale-95 transition-transform touch-manipulation"
                     size="sm"
                   >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {selectedDate.toDateString() === new Date().toDateString() 
-                      ? 'HOJE' 
-                      : selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '')
-                    }
+                    <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="truncate">
+                      {selectedDate.toDateString() === new Date().toDateString() 
+                        ? 'HOJE' 
+                        : selectedDate.toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: 'short', 
+                            year: 'numeric' 
+                          }).replace('.', '').toUpperCase()
+                      }
+                    </span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="center">
@@ -649,65 +672,89 @@ export default function AppointmentsPage() {
                   setSelectedDate(tomorrow);
                 }}
                 size="icon"
-                className="h-9 w-9"
+                className="h-10 w-10 flex-shrink-0 active:scale-90 transition-transform touch-manipulation"
+                aria-label="Próximo dia"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
           </CardContent>
         )}
       </Card>
 
-      {/* Status Tabs */}
+      {/* Status Tabs - Otimizado para Mobile */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value)}>
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto">
-          <TabsTrigger value="all" className="text-xs sm:text-sm gap-1">
-            📋
+        <TabsList className="grid w-full grid-cols-5 h-auto gap-1 p-1 bg-muted/50">
+          <TabsTrigger 
+            value="all" 
+            className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
+          >
+            <span className="text-base xs:text-lg sm:hidden">📋</span>
+            <span className="hidden xs:inline">📋</span>
             <span className="hidden sm:inline">Todos</span>
             <span className="sm:hidden">Todos</span>
-            <Badge variant="secondary" className="ml-1 text-xs">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
               {displayAppointments.length}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="scheduled" className="text-xs sm:text-sm gap-1">
-            🗓️
+          <TabsTrigger 
+            value="scheduled" 
+            className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
+          >
+            <span className="text-base xs:text-lg sm:hidden">🗓️</span>
+            <span className="hidden xs:inline">🗓️</span>
             <span className="hidden sm:inline">Agendados</span>
             <span className="sm:hidden">Agend.</span>
-            <Badge variant="secondary" className="ml-1 text-xs">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
               {getStatusCount('scheduled')}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="in_progress" className="text-xs sm:text-sm gap-1">
-            ✂️
-            <span className="hidden sm:inline">Em Andamento</span>
+          <TabsTrigger 
+            value="in_progress" 
+            className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
+          >
+            <span className="text-base xs:text-lg sm:hidden">✂️</span>
+            <span className="hidden xs:inline">✂️</span>
+            <span className="hidden sm:inline">Andamento</span>
             <span className="sm:hidden">Ativo</span>
-            <Badge variant="secondary" className="ml-1 text-xs">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
               {getStatusCount('in_progress')}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="completed" className="text-xs sm:text-sm gap-1">
-            ✅
+          <TabsTrigger 
+            value="completed" 
+            className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
+          >
+            <span className="text-base xs:text-lg sm:hidden">✅</span>
+            <span className="hidden xs:inline">✅</span>
             <span className="hidden sm:inline">Concluídos</span>
             <span className="sm:hidden">Concl.</span>
-            <Badge variant="secondary" className="ml-1 text-xs">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
               {getStatusCount('completed')}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="cancelled" className="text-xs sm:text-sm gap-1">
-            ❌
+          <TabsTrigger 
+            value="cancelled" 
+            className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
+          >
+            <span className="text-base xs:text-lg sm:hidden">❌</span>
+            <span className="hidden xs:inline">❌</span>
             <span className="hidden sm:inline">Cancelados</span>
             <span className="sm:hidden">Canc.</span>
-            <Badge variant="secondary" className="ml-1 text-xs">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
               {getStatusCount('cancelled')}
             </Badge>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="space-y-4">
+        <TabsContent value={activeTab} className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           {filteredAppointments.length === 0 ? (
-            <Card>
+            <Card className="shadow-sm">
               <CardContent className="p-6 sm:p-8">
-                <div className="text-center space-y-2">
+                <div className="text-center space-y-3">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+                    <Calendar className="h-8 w-8 text-muted-foreground" />
+                  </div>
                   <p className="text-sm sm:text-base text-muted-foreground">
                     {hasActiveFilters 
                       ? 'Nenhum agendamento encontrado com os filtros aplicados.'
@@ -715,7 +762,12 @@ export default function AppointmentsPage() {
                     }
                   </p>
                   {hasActiveFilters && (
-                    <Button variant="link" onClick={clearAllFilters} size="sm">
+                    <Button 
+                      variant="link" 
+                      onClick={clearAllFilters} 
+                      size="sm"
+                      className="active:scale-95 transition-transform"
+                    >
                       Limpar filtros
                     </Button>
                   )}
@@ -725,11 +777,11 @@ export default function AppointmentsPage() {
           ) : (
             <>
               <div className="flex items-center justify-between px-1">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground font-medium">
                   {filteredAppointments.length} agendamento{filteredAppointments.length !== 1 ? 's' : ''} encontrado{filteredAppointments.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {filteredAppointments.map((appointment) => (
                   <AppointmentCard
                     key={appointment.id}
@@ -744,55 +796,55 @@ export default function AppointmentsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Cancel Confirmation Dialog */}
+      {/* Cancel Confirmation Dialog - Otimizado para Mobile */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <AlertDialogContent className="max-w-md mx-4 sm:mx-auto">
+        <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto rounded-lg">
           <AlertDialogHeader>
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-3 sm:mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
               <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-500" />
             </div>
-            <AlertDialogTitle className="text-center text-xl sm:text-2xl">
+            <AlertDialogTitle className="text-center text-lg sm:text-xl md:text-2xl">
               Cancelar Agendamento?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center space-y-3 pt-2">
-              <div className="flex items-center justify-center gap-2 text-base font-medium text-foreground">
-                <Scissors className="w-4 h-4" />
+              <div className="flex items-center justify-center gap-2 text-sm sm:text-base font-medium text-foreground">
+                <Scissors className="w-4 h-4 flex-shrink-0" />
                 <span>Confirme o cancelamento</span>
               </div>
               {getCancelAppointmentDetails() && (
-                <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cliente:</span>
-                    <span className="font-medium text-foreground">
+                <div className="bg-muted/50 rounded-lg p-3 sm:p-4 space-y-2 text-xs sm:text-sm">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Cliente:</span>
+                    <span className="font-medium text-foreground text-right truncate">
                       {getCancelAppointmentDetails()?.clientName}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Serviço:</span>
-                    <span className="font-medium text-foreground">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Serviço:</span>
+                    <span className="font-medium text-foreground text-right truncate">
                       {getCancelAppointmentDetails()?.serviceName}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Data/Hora:</span>
-                    <span className="font-medium text-foreground">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground flex-shrink-0">Data/Hora:</span>
+                    <span className="font-medium text-foreground text-right">
                       {getCancelAppointmentDetails()?.dateTime}
                     </span>
                   </div>
                 </div>
               )}
-              <p className="text-sm text-muted-foreground pt-2">
+              <p className="text-xs sm:text-sm text-muted-foreground pt-2">
                 Esta ação não poderá ser desfeita. O agendamento será marcado como cancelado.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-            <AlertDialogCancel className="w-full sm:w-auto mt-0">
+            <AlertDialogCancel className="w-full sm:w-auto mt-0 h-11 active:scale-95 transition-transform touch-manipulation">
               Manter Agendamento
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmCancelAppointment}
-              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
+              className="w-full sm:w-auto h-11 bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 active:scale-95 transition-transform touch-manipulation"
             >
               Sim, Cancelar
             </AlertDialogAction>
