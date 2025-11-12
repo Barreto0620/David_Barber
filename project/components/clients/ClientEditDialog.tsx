@@ -12,11 +12,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
+import { Trash2 } from 'lucide-react';
 import type { Client } from '@/types/database';
 
 interface ClientEditDialogProps {
@@ -26,7 +37,7 @@ interface ClientEditDialogProps {
 }
 
 export function ClientEditDialog({ client, open, onOpenChange }: ClientEditDialogProps) {
-  const { updateClient } = useAppStore();
+  const { updateClient, deleteClient } = useAppStore();
   const { toast } = useToast();
   
   const [formData, setFormData] = useState({
@@ -37,6 +48,8 @@ export function ClientEditDialog({ client, open, onOpenChange }: ClientEditDialo
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Reset form when client changes or dialog opens
@@ -96,14 +109,17 @@ export function ClientEditDialog({ client, open, onOpenChange }: ClientEditDialo
         notes: formData.notes.trim() || undefined
       };
 
-      updateClient(client.id, updatedData);
+      const success = await updateClient(client.id, updatedData);
 
-      toast({
-        title: "Cliente atualizado",
-        description: "As informações do cliente foram salvas com sucesso.",
-      });
-
-      onOpenChange(false);
+      if (success) {
+        toast({
+          title: "Cliente atualizado",
+          description: "As informações do cliente foram salvas com sucesso.",
+        });
+        onOpenChange(false);
+      } else {
+        throw new Error('Falha ao atualizar cliente');
+      }
     } catch (error) {
       console.error('Error updating client:', error);
       toast({
@@ -113,6 +129,36 @@ export function ClientEditDialog({ client, open, onOpenChange }: ClientEditDialo
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!client) return;
+
+    setIsDeleting(true);
+
+    try {
+      const success = await deleteClient(client.id);
+
+      if (success) {
+        toast({
+          title: "Cliente excluído",
+          description: "O cliente foi removido com sucesso.",
+        });
+        setShowDeleteAlert(false);
+        onOpenChange(false);
+      } else {
+        throw new Error('Falha ao excluir cliente');
+      }
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir o cliente. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -175,93 +221,134 @@ export function ClientEditDialog({ client, open, onOpenChange }: ClientEditDialo
   if (!client) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Editar Cliente</DialogTitle>
-          <DialogDescription>
-            Altere as informações do cliente. Clique em salvar quando terminar.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome completo *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={handleInputChange('name')}
-              placeholder="Digite o nome completo"
-              className={errors.name ? 'border-red-500' : ''}
-              disabled={isLoading}
-            />
-            {errors.name && (
-              <p className="text-sm text-red-500">{errors.name}</p>
-            )}
-          </div>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Cliente</DialogTitle>
+            <DialogDescription>
+              Altere as informações do cliente. Clique em salvar quando terminar.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit} className="space-y-5 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome completo *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={handleInputChange('name')}
+                placeholder="Digite o nome completo"
+                className={errors.name ? 'border-red-500' : ''}
+                disabled={isLoading}
+              />
+              {errors.name && (
+                <p className="text-sm text-red-500">{errors.name}</p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Telefone *</Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={handlePhoneChange}
-              placeholder="(11) 99999-9999"
-              className={errors.phone ? 'border-red-500' : ''}
-              disabled={isLoading}
-            />
-            {errors.phone && (
-              <p className="text-sm text-red-500">{errors.phone}</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone *</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={handlePhoneChange}
+                placeholder="(11) 99999-9999"
+                className={errors.phone ? 'border-red-500' : ''}
+                disabled={isLoading}
+              />
+              {errors.phone && (
+                <p className="text-sm text-red-500">{errors.phone}</p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange('email')}
-              placeholder="cliente@email.com"
-              className={errors.email ? 'border-red-500' : ''}
-              disabled={isLoading}
-            />
-            {errors.email && (
-              <p className="text-sm text-red-500">{errors.email}</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange('email')}
+                placeholder="cliente@email.com"
+                className={errors.email ? 'border-red-500' : ''}
+                disabled={isLoading}
+              />
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email}</p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Observações</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={handleInputChange('notes')}
-              placeholder="Preferências, anotações importantes..."
-              className="min-h-[80px]"
-              disabled={isLoading}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={handleInputChange('notes')}
+                placeholder="Preferências, anotações importantes..."
+                className="min-h-[100px] resize-none"
+                disabled={isLoading}
+              />
+            </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button
+                type="submit"
+                disabled={isLoading || isDeleting || !formData.name.trim() || !formData.phone.trim()}
+                className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+              >
+                {isLoading ? 'Salvando...' : 'Salvar Informações'}
+              </Button>
+              
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setShowDeleteAlert(true)}
+                disabled={isLoading || isDeleting}
+                className="w-full sm:w-auto"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir Cliente
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isLoading || isDeleting}
+                className="w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{client.name}</strong>?
+              <br />
+              <br />
+              Esta ação não pode ser desfeita. Todos os agendamentos e histórico deste cliente também serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
               Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isLoading || !formData.name.trim() || !formData.phone.trim()}
-              className="bg-primary hover:bg-primary/90"
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
             >
-              {isLoading ? 'Salvando...' : 'Salvar alterações'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              {isDeleting ? 'Excluindo...' : 'Sim, excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
