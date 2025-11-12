@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Calendar, Plus, Filter, Scissors, AlertTriangle, Search, X, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Plus, Filter, Scissors, AlertTriangle, Search, X, CalendarDays, ChevronLeft, ChevronRight, Crown } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { getAppointmentsByDate, getAppointmentsByStatus } from '@/lib/utils/appointments';
 import type { Appointment, PaymentMethod, AppointmentStatus } from '@/types/database';
@@ -44,15 +44,16 @@ export default function AppointmentsPage() {
   const { 
     appointments, 
     clients,
+    monthlyClients,
     selectedDate: selectedDateFromStore, 
     setSelectedDate,
     completeAppointment,
     cancelAppointment,
     getClientById,
+    getMonthlyClientByClientId,
     addNotification,
   } = useAppStore();
 
-  // Garantir que selectedDate seja sempre um objeto Date
   const selectedDate = selectedDateFromStore instanceof Date 
     ? selectedDateFromStore 
     : new Date(selectedDateFromStore);
@@ -65,14 +66,13 @@ export default function AppointmentsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState('all');
   
-  // Estados para busca e filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [filterService, setFilterService] = useState('all');
   const [filterDateRange, setFilterDateRange] = useState('all');
+  const [filterMonthlyPlan, setFilterMonthlyPlan] = useState('all'); 
   const [sortBy, setSortBy] = useState('date-desc');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Lógica de exibição de agendamentos
   const displayAppointments = useMemo(() => {
     if (viewMode === 'all') {
       console.log('📊 Modo "Todos": Mostrando todos os', appointments.length, 'agendamentos');
@@ -84,7 +84,6 @@ export default function AppointmentsPage() {
     return dailyAppointments;
   }, [appointments, viewMode, selectedDate]);
 
-  // Log para debug
   useEffect(() => {
     console.log('🔍 DEBUG:');
     console.log('  - Total no banco:', appointments.length);
@@ -93,7 +92,6 @@ export default function AppointmentsPage() {
     console.log('  - Tab ativa:', activeTab);
   }, [appointments, viewMode, displayAppointments, activeTab]);
 
-  // ===== SISTEMA DE LEMBRETES AUTOMÁTICOS =====
   useEffect(() => {
     const checkUpcomingAppointments = () => {
       const now = new Date();
@@ -139,13 +137,11 @@ export default function AppointmentsPage() {
     return () => clearInterval(interval);
   }, [appointments, addNotification, getClientById]);
 
-  // Obter lista única de serviços para o filtro
   const uniqueServices = useMemo(() => {
     const services = new Set(appointments.map(apt => apt.service_type));
     return Array.from(services).sort();
   }, [appointments]);
 
-  // Função de filtro de data
   const filterByDateRange = (apt) => {
     if (filterDateRange === 'all') return true;
     
@@ -186,7 +182,6 @@ export default function AppointmentsPage() {
     }
   };
 
-  // Aplicar filtros
   const filteredAppointments = useMemo(() => {
     let filtered = activeTab === 'all' 
       ? displayAppointments 
@@ -195,7 +190,6 @@ export default function AppointmentsPage() {
     console.log('🔧 Filtros aplicados:');
     console.log('  - Antes dos filtros:', filtered.length);
     
-    // Filtro de busca
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(apt => {
@@ -207,17 +201,39 @@ export default function AppointmentsPage() {
       console.log('  - Após busca:', filtered.length);
     }
     
-    // Filtro por serviço
     if (filterService !== 'all') {
       filtered = filtered.filter(apt => apt.service_type === filterService);
       console.log('  - Após filtro de serviço:', filtered.length);
     }
     
-    // Filtro por range de data
     filtered = filtered.filter(filterByDateRange);
     console.log('  - Após filtro de data:', filtered.length);
+
+    if (filterMonthlyPlan !== 'all') {
+        filtered = filtered.filter(apt => {
+            if (!apt.client_id) return false;
+            
+            const monthlyClient = getMonthlyClientByClientId(apt.client_id); 
+            
+            if (!monthlyClient) return false;
+            
+            if (filterMonthlyPlan === 'premium_vip' && (monthlyClient.plan_type === 'premium' || monthlyClient.plan_type === 'vip')) {
+                return true;
+            }
+            if (filterMonthlyPlan === 'vip' && monthlyClient.plan_type === 'vip') {
+                return true;
+            }
+            if (filterMonthlyPlan === 'premium' && monthlyClient.plan_type === 'premium') {
+                return true;
+            }
+            if (filterMonthlyPlan === 'monthly' && (monthlyClient.plan_type === 'basic' || monthlyClient.plan_type === 'premium' || monthlyClient.plan_type === 'vip')) {
+                return true;
+            }
+            return false;
+        });
+        console.log('  - Após filtro de plano mensal:', filtered.length);
+    }
     
-    // Ordenação
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'date-desc':
@@ -275,7 +291,7 @@ export default function AppointmentsPage() {
     
     console.log('  - Final após ordenação:', sorted.length);
     return sorted;
-  }, [displayAppointments, activeTab, searchQuery, filterService, filterDateRange, sortBy, getClientById]);
+  }, [displayAppointments, activeTab, searchQuery, filterService, filterDateRange, filterMonthlyPlan, sortBy, getClientById, getMonthlyClientByClientId]);
 
   const getStatusCount = (status) => {
     return getAppointmentsByStatus(displayAppointments, status).length;
@@ -285,10 +301,11 @@ export default function AppointmentsPage() {
     setSearchQuery('');
     setFilterService('all');
     setFilterDateRange('all');
+    setFilterMonthlyPlan('all'); 
     setSortBy('date-desc');
   };
   
-  const hasActiveFilters = searchQuery || filterService !== 'all' || filterDateRange !== 'all' || sortBy !== 'date-desc';
+  const hasActiveFilters = searchQuery || filterService !== 'all' || filterDateRange !== 'all' || filterMonthlyPlan !== 'all' || sortBy !== 'date-desc';
 
   const handleCompleteAppointment = (id) => {
     const appointment = appointments.find(apt => apt.id === id);
@@ -362,7 +379,7 @@ export default function AppointmentsPage() {
 
   return (
     <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6 pb-20 sm:pb-6">
-      {/* Header - Otimizado para Mobile */}
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:gap-4">
         <div className="space-y-1">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
@@ -382,11 +399,10 @@ export default function AppointmentsPage() {
         </Button>
       </div>
 
-      {/* Barra de Busca e Filtros - Otimizado para Mobile */}
+      {/* Barra de Busca e Filtros */}
       <Card className="shadow-sm">
         <CardContent className="p-3 sm:p-4 md:pt-6">
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            {/* Barra de Busca */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
@@ -406,7 +422,6 @@ export default function AppointmentsPage() {
               )}
             </div>
 
-            {/* Botão de Filtros */}
             <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
               <PopoverTrigger asChild>
                 <Button 
@@ -443,7 +458,6 @@ export default function AppointmentsPage() {
                     )}
                   </div>
 
-                  {/* Filtro por Serviço */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Serviço</label>
                     <Select value={filterService} onValueChange={setFilterService}>
@@ -460,8 +474,23 @@ export default function AppointmentsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Clientes Mensalistas</label>
+                    <Select value={filterMonthlyPlan} onValueChange={setFilterMonthlyPlan}>
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Todos os clientes" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os Agendamentos</SelectItem>
+                        <SelectItem value="monthly">Todos Mensalistas (Basic, Premium, VIP)</SelectItem>
+                        <SelectItem value="premium_vip">👑 Premium & VIP</SelectItem>
+                        <SelectItem value="premium">✨ Somente Premium</SelectItem>
+                        <SelectItem value="vip">💎 Somente VIP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                  {/* Filtro por Data */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Período</label>
                     <Select value={filterDateRange} onValueChange={setFilterDateRange}>
@@ -479,7 +508,6 @@ export default function AppointmentsPage() {
                     </Select>
                   </div>
 
-                  {/* Ordenação */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Ordenar por</label>
                     <Select value={sortBy} onValueChange={setSortBy}>
@@ -505,7 +533,6 @@ export default function AppointmentsPage() {
             </Popover>
           </div>
 
-          {/* Indicadores de Filtros Ativos - Otimizado para Mobile */}
           {hasActiveFilters && (
             <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-3">
               {searchQuery && (
@@ -532,6 +559,25 @@ export default function AppointmentsPage() {
                   </button>
                 </Badge>
               )}
+
+              {filterMonthlyPlan !== 'all' && (
+                <Badge variant="secondary" className="gap-1 pr-1 text-xs h-7">
+                  <span>Plano: {
+                        filterMonthlyPlan === 'monthly' ? 'Mensalistas' :
+                        filterMonthlyPlan === 'premium_vip' ? 'Premium/VIP' :
+                        filterMonthlyPlan === 'premium' ? 'Premium' :
+                        filterMonthlyPlan === 'vip' ? 'VIP' : ''
+                    }</span>
+                  <button 
+                    onClick={() => setFilterMonthlyPlan('all')} 
+                    className="ml-1 hover:text-destructive active:scale-90 transition-all inline-flex items-center justify-center w-4 h-4 touch-manipulation"
+                    aria-label="Remover filtro de plano mensal"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+                
               {filterDateRange !== 'all' && (
                 <Badge variant="secondary" className="gap-1 pr-1 text-xs h-7">
                   <span>Período: {
@@ -567,7 +613,7 @@ export default function AppointmentsPage() {
         </CardContent>
       </Card>
 
-      {/* Date and View Mode Selection - Otimizado para Mobile */}
+      {/* Date and View Mode Selection */}
       <Card className="border-2 shadow-sm">
         <CardHeader className="pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6">
           <div className="flex flex-col gap-3 sm:gap-4">
@@ -682,70 +728,94 @@ export default function AppointmentsPage() {
         )}
       </Card>
 
-      {/* Status Tabs - Otimizado para Mobile */}
+      {/* Status Tabs - CORRIGIDO */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value)}>
         <TabsList className="grid w-full grid-cols-5 h-auto gap-1 p-1 bg-muted/50">
           <TabsTrigger 
             value="all" 
             className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
           >
-            <span className="text-base xs:text-lg sm:hidden">📋</span>
-            <span className="hidden xs:inline">📋</span>
-            <span className="hidden sm:inline">Todos</span>
-            <span className="sm:hidden">Todos</span>
-            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
-              {displayAppointments.length}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <span className="text-base xs:text-lg sm:hidden">📋</span>
+              <span className="hidden xs:inline">📋</span>
+              <span className="hidden sm:inline">Todos</span>
+              <span className="sm:hidden">Todos</span>
+            </div>
           </TabsTrigger>
           <TabsTrigger 
             value="scheduled" 
             className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
           >
-            <span className="text-base xs:text-lg sm:hidden">🗓️</span>
-            <span className="hidden xs:inline">🗓️</span>
-            <span className="hidden sm:inline">Agendados</span>
-            <span className="sm:hidden">Agend.</span>
-            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
-              {getStatusCount('scheduled')}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <span className="text-base xs:text-lg sm:hidden">🗓️</span>
+              <span className="hidden xs:inline">🗓️</span>
+              <span className="hidden sm:inline">Agendados</span>
+              <span className="sm:hidden">Agend.</span>
+            </div>
           </TabsTrigger>
           <TabsTrigger 
             value="in_progress" 
             className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
           >
-            <span className="text-base xs:text-lg sm:hidden">✂️</span>
-            <span className="hidden xs:inline">✂️</span>
-            <span className="hidden sm:inline">Andamento</span>
-            <span className="sm:hidden">Ativo</span>
-            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
-              {getStatusCount('in_progress')}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <span className="text-base xs:text-lg sm:hidden">✂️</span>
+              <span className="hidden xs:inline">✂️</span>
+              <span className="hidden sm:inline">Andamento</span>
+              <span className="sm:hidden">Ativo</span>
+            </div>
           </TabsTrigger>
           <TabsTrigger 
             value="completed" 
             className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
           >
-            <span className="text-base xs:text-lg sm:hidden">✅</span>
-            <span className="hidden xs:inline">✅</span>
-            <span className="hidden sm:inline">Concluídos</span>
-            <span className="sm:hidden">Concl.</span>
-            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
-              {getStatusCount('completed')}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <span className="text-base xs:text-lg sm:hidden">✅</span>
+              <span className="hidden xs:inline">✅</span>
+              <span className="hidden sm:inline">Concluídos</span>
+              <span className="sm:hidden">Concl.</span>
+            </div>
           </TabsTrigger>
           <TabsTrigger 
             value="cancelled" 
             className="text-[10px] xs:text-xs sm:text-sm gap-0.5 sm:gap-1 flex-col xs:flex-row h-auto py-2 px-1 data-[state=active]:shadow-sm"
           >
-            <span className="text-base xs:text-lg sm:hidden">❌</span>
-            <span className="hidden xs:inline">❌</span>
-            <span className="hidden sm:inline">Cancelados</span>
-            <span className="sm:hidden">Canc.</span>
-            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center">
-              {getStatusCount('cancelled')}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <span className="text-base xs:text-lg sm:hidden">❌</span>
+              <span className="hidden xs:inline">❌</span>
+              <span className="hidden sm:inline">Cancelados</span>
+              <span className="sm:hidden">Canc.</span>
+            </div>
           </TabsTrigger>
         </TabsList>
+
+        {/* Contadores abaixo das tabs */}
+        <div className="grid grid-cols-5 gap-1 mt-1 px-1">
+          <div className="text-center">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center w-full">
+              {displayAppointments.length}
+            </Badge>
+          </div>
+          <div className="text-center">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center w-full">
+              {getStatusCount('scheduled')}
+            </Badge>
+          </div>
+          <div className="text-center">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center w-full">
+              {getStatusCount('in_progress')}
+            </Badge>
+          </div>
+          <div className="text-center">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center w-full">
+              {getStatusCount('completed')}
+            </Badge>
+          </div>
+          <div className="text-center">
+            <Badge variant="secondary" className="text-[9px] xs:text-[10px] h-4 px-1 min-w-[18px] justify-center w-full">
+              {getStatusCount('cancelled')}
+            </Badge>
+          </div>
+        </div>
 
         <TabsContent value={activeTab} className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           {filteredAppointments.length === 0 ? (
@@ -796,7 +866,7 @@ export default function AppointmentsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Cancel Confirmation Dialog - Otimizado para Mobile */}
+      {/* Cancel Confirmation Dialog */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto rounded-lg">
           <AlertDialogHeader>
