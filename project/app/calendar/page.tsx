@@ -27,11 +27,30 @@ import {
   type Client,
   type Service,
 } from '@/lib/supabase';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, isToday, parseISO, addWeeks, subWeeks, startOfDay } from 'date-fns';
+import { 
+  format, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfWeek, 
+  endOfWeek, 
+  addDays, 
+  isSameMonth, 
+  isSameDay, 
+  isToday, 
+  parseISO, 
+  addWeeks, 
+  subWeeks, 
+  startOfDay 
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import AppointmentModal from '@/components/calendar/AppointmentModal';
 
 type ViewMode = 'month' | 'week' | 'day';
+
+// Timezone de Brasília - Offset em minutos (UTC-3)
+const BRAZIL_OFFSET = -180; // -3 horas em minutos
 
 const STATUS_COLORS = {
   scheduled: 'bg-blue-500/20 border-blue-500 text-blue-700 dark:text-blue-300',
@@ -47,8 +66,36 @@ const STATUS_LABELS = {
   cancelled: 'Cancelado',
 };
 
+// Função auxiliar para obter a data atual no timezone de Brasília
+const getBrazilNow = (): Date => {
+  const now = new Date();
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+  return new Date(utcTime + (BRAZIL_OFFSET * 60000));
+};
+
+// Função auxiliar para converter string ISO para data no timezone de Brasília
+const parseISOBrazil = (dateString: string): Date => {
+  const date = parseISO(dateString);
+  return date;
+};
+
+// Função auxiliar para comparar datas no timezone de Brasília
+const isSameDayBrazil = (date1: Date, date2: Date): boolean => {
+  return isSameDay(date1, date2);
+};
+
+// Função auxiliar para verificar se é hoje no timezone de Brasília
+const isTodayBrazil = (date: Date): boolean => {
+  return isSameDayBrazil(date, getBrazilNow());
+};
+
+// Função auxiliar para formatar data no timezone de Brasília
+const formatBrazil = (date: Date, formatStr: string): string => {
+  return format(date, formatStr, { locale: ptBR });
+};
+
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(getBrazilNow());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -131,13 +178,23 @@ export default function CalendarPage() {
   };
 
   const handleToday = () => {
-    setCurrentDate(new Date());
+    setCurrentDate(getBrazilNow());
   };
 
   const handleDateClick = (date: Date) => {
+    console.log('===== handleDateClick no page.tsx =====');
+    console.log('Data recebida:', date);
+    console.log('Tipo:', typeof date);
+    console.log('instanceof Date:', date instanceof Date);
+    console.log('ISO String:', date.toISOString());
+    console.log('Local String:', date.toString());
+    
+    // Garante que a data está no timezone de Brasília
     setSelectedDate(date);
     setSelectedAppointment(null);
     setIsModalOpen(true);
+    
+    console.log('selectedDate SETADA');
   };
 
   const handleAppointmentClick = (appointment: Appointment) => {
@@ -178,8 +235,8 @@ export default function CalendarPage() {
 
   const getAppointmentsForDate = (date: Date) => {
     return appointments.filter((apt) => {
-      const aptDate = parseISO(apt.scheduled_date);
-      return isSameDay(aptDate, date);
+      const aptDate = parseISOBrazil(apt.scheduled_date);
+      return isSameDayBrazil(aptDate, date);
     });
   };
 
@@ -188,7 +245,7 @@ export default function CalendarPage() {
     const monthEnd = endOfMonth(currentDate);
     const startDate = startOfWeek(monthStart, { locale: ptBR });
     const endDate = endOfWeek(monthEnd, { locale: ptBR });
-    const today = startOfDay(new Date());
+    const today = startOfDay(getBrazilNow());
 
     const rows = [];
     let days = [];
@@ -216,7 +273,7 @@ export default function CalendarPage() {
         const cloneDay = day;
         const dayAppointments = getAppointmentsForDate(day);
         const isCurrentMonth = isSameMonth(day, monthStart);
-        const isDayToday = isToday(day);
+        const isDayToday = isTodayBrazil(day);
         const isPastDate = cloneDay < today;
 
         days.push(
@@ -254,7 +311,7 @@ export default function CalendarPage() {
                   }}
                 >
                   <div className="font-semibold truncate">
-                    {format(parseISO(apt.scheduled_date), 'HH:mm')}
+                    {format(parseISOBrazil(apt.scheduled_date), 'HH:mm')}
                   </div>
                   <div className="truncate leading-tight">{apt.service_type}</div>
                 </div>
@@ -304,7 +361,8 @@ export default function CalendarPage() {
     const weekStart = startOfWeek(currentDate, { locale: ptBR });
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-    const today = startOfDay(new Date());
+    const today = startOfDay(getBrazilNow());
+    const now = getBrazilNow();
 
     return (
       <div className="border rounded-lg overflow-hidden">
@@ -317,7 +375,7 @@ export default function CalendarPage() {
               <div
                 key={day.toString()}
                 className={`p-1 sm:p-2 text-center border-r last:border-r-0 ${
-                  isToday(day) ? 'bg-primary/10' : ''
+                  isTodayBrazil(day) ? 'bg-primary/10' : ''
                 } ${
                   isPastDate ? 'opacity-50 bg-muted/50' : ''
                 }`}
@@ -327,7 +385,7 @@ export default function CalendarPage() {
                 </div>
                 <div
                   className={`text-sm xs:text-base sm:text-xl md:text-2xl font-bold ${
-                    isToday(day)
+                    isTodayBrazil(day)
                       ? 'bg-primary text-primary-foreground rounded-full w-6 h-6 xs:w-7 xs:h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center mx-auto text-xs sm:text-base'
                       : ''
                   }`}
@@ -370,12 +428,12 @@ export default function CalendarPage() {
               </div>
               {days.map((day) => {
                 const isPastDate = day < today;
-                const isPastHour = isSameDay(day, today) && hour < new Date().getHours();
+                const isPastHour = isSameDayBrazil(day, now) && hour < now.getHours();
                 const isDisabled = isPastDate || isPastHour;
                 
                 const dayAppointments = getAppointmentsForDate(day).filter((apt) => {
-                  const aptHour = parseISO(apt.scheduled_date).getHours();
-                  return aptHour === hour;
+                  const aptDate = parseISOBrazil(apt.scheduled_date);
+                  return aptDate.getHours() === hour;
                 });
 
                 return (
@@ -405,7 +463,7 @@ export default function CalendarPage() {
                         }}
                       >
                         <div className="font-semibold truncate">
-                          {format(parseISO(apt.scheduled_date), 'HH:mm')}
+                          {format(parseISOBrazil(apt.scheduled_date), 'HH:mm')}
                         </div>
                         <div className="truncate leading-tight hidden sm:block">{apt.service_type}</div>
                       </div>
@@ -423,7 +481,8 @@ export default function CalendarPage() {
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const dayAppointments = getAppointmentsForDate(currentDate);
-    const today = startOfDay(new Date());
+    const today = startOfDay(getBrazilNow());
+    const now = getBrazilNow();
     const isPastDate = currentDate < today;
 
     return (
@@ -436,7 +495,7 @@ export default function CalendarPage() {
             </div>
             <div
               className={`text-2xl sm:text-3xl font-bold ${
-                isToday(currentDate)
+                isTodayBrazil(currentDate)
                   ? 'bg-primary text-primary-foreground rounded-full w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center mx-auto'
                   : ''
               }`}
@@ -479,12 +538,12 @@ export default function CalendarPage() {
             }
           `}</style>
           {hours.map((hour) => {
-            const isPastHour = isToday(currentDate) && hour < new Date().getHours();
+            const isPastHour = isTodayBrazil(currentDate) && hour < now.getHours();
             const isDisabled = isPastDate || isPastHour;
             
             const hourAppointments = dayAppointments.filter((apt) => {
-              const aptHour = parseISO(apt.scheduled_date).getHours();
-              return aptHour === hour;
+              const aptDate = parseISOBrazil(apt.scheduled_date);
+              return aptDate.getHours() === hour;
             });
 
             return (
@@ -518,7 +577,7 @@ export default function CalendarPage() {
                     >
                       <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-1 xs:gap-2 mb-1">
                         <div className="font-semibold text-xs sm:text-sm">
-                          {format(parseISO(apt.scheduled_date), 'HH:mm')}
+                          {format(parseISOBrazil(apt.scheduled_date), 'HH:mm')}
                         </div>
                         <Badge variant="outline" className="text-[10px] sm:text-xs w-fit">
                           {STATUS_LABELS[apt.status]}
@@ -558,7 +617,7 @@ export default function CalendarPage() {
           <div className="space-y-1">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Calendário</h1>
             <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
-              Visualize e gerencie seus agendamentos
+              Visualize e gerencie seus agendamentos (Horário de Brasília)
             </p>
           </div>
 
@@ -651,7 +710,7 @@ export default function CalendarPage() {
                 </div>
 
                 <Button 
-                  onClick={() => handleDateClick(new Date())} 
+                  onClick={() => handleDateClick(getBrazilNow())} 
                   size="sm" 
                   className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0"
                 >
@@ -663,13 +722,6 @@ export default function CalendarPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Calendar Views */}
-        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-          {viewMode === 'month' && renderMonthView()}
-          {viewMode === 'week' && renderWeekView()}
-          {viewMode === 'day' && renderDayView()}
-        </div>
 
         {/* Legend */}
         <Card>
@@ -695,7 +747,21 @@ export default function CalendarPage() {
           </CardContent>
         </Card>
 
+        {/* Calendar Views */}
+        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+          {viewMode === 'month' && renderMonthView()}
+          {viewMode === 'week' && renderWeekView()}
+          {viewMode === 'day' && renderDayView()}
+        </div>
+
         {/* Modal */}
+        {(() => {
+          console.log('===== Renderizando AppointmentModal =====');
+          console.log('isModalOpen:', isModalOpen);
+          console.log('selectedDate sendo passada:', selectedDate);
+          console.log('selectedAppointment:', selectedAppointment);
+          return null;
+        })()}
         <AppointmentModal
           open={isModalOpen}
           onOpenChange={setIsModalOpen}

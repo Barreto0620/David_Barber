@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,35 @@ interface AppointmentModalProps {
   onDelete: (id: string) => Promise<void>;
 }
 
+// Timezone de Brasília - Offset em minutos (UTC-3)
+const BRAZIL_OFFSET = -180; // -3 horas em minutos
+
+// Função auxiliar para obter a data atual no timezone de Brasília
+const getBrazilNow = (): Date => {
+  const now = new Date();
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+  return new Date(utcTime + (BRAZIL_OFFSET * 60000));
+};
+
+// Função auxiliar para formatar data garantindo timezone de Brasília
+const formatBrazilDate = (date: Date, formatStr: string): string => {
+  // IMPORTANTE: Precisamos trabalhar com UTC offset para evitar conversão do navegador
+  // Obter os componentes da data no timezone local (que já vem correto do calendário)
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  if (formatStr === 'yyyy-MM-dd') {
+    return `${year}-${month}-${day}`;
+  } else if (formatStr === 'HH:mm') {
+    return `${hours}:${minutes}`;
+  }
+  
+  return format(date, formatStr);
+};
+
 export default function AppointmentModal({
   open,
   onOpenChange,
@@ -58,14 +87,18 @@ export default function AppointmentModal({
     payment_method: 'none' as 'none' | 'dinheiro' | 'cartao' | 'pix' | 'transferencia',
     notes: '',
   });
+  
+  // Ref para controlar se já inicializamos
+  const initialized = useRef(false);
+  const prevOpen = useRef(open);
 
   // Configurações de horário de funcionamento
   const HORARIO_ABERTURA = '08:00';
   const HORARIO_FECHAMENTO = '20:00';
   const INTERVALO_MINUTOS = 30; // Intervalos de 30 minutos
 
-  // Data mínima (hoje)
-  const minDate = format(new Date(), 'yyyy-MM-dd');
+  // Data mínima (hoje) - usando timezone de Brasília
+  const minDate = formatBrazilDate(getBrazilNow(), 'yyyy-MM-dd');
 
   // Gerar horários disponíveis
   const generateAvailableHours = () => {
@@ -88,13 +121,39 @@ export default function AppointmentModal({
 
   const availableHours = generateAvailableHours();
 
+  // Resetar flag quando o modal fechar
   useEffect(() => {
+    if (prevOpen.current && !open) {
+      console.log('Modal fechou, resetando flag...');
+      initialized.current = false;
+    }
+    prevOpen.current = open;
+  }, [open]);
+
+  // Inicializar dados apenas uma vez quando o modal abrir
+  useEffect(() => {
+    // Só executar quando o modal abrir E ainda não foi inicializado
+    if (!open || initialized.current) return;
+    
+    console.log('=== Inicializando formData (PRIMEIRA VEZ) ===');
+    console.log('appointment:', appointment);
+    console.log('selectedDate:', selectedDate);
+    
     if (appointment) {
+      // Editando um agendamento existente
       const aptDate = parseISO(appointment.scheduled_date);
+      console.log('Editando appointment, aptDate:', aptDate);
+      
+      const formattedDate = formatBrazilDate(aptDate, 'yyyy-MM-dd');
+      const formattedTime = formatBrazilDate(aptDate, 'HH:mm');
+      
+      console.log('Data formatada (edit):', formattedDate);
+      console.log('Hora formatada (edit):', formattedTime);
+      
       setFormData({
         client_id: appointment.client_id || 'none',
-        scheduled_date: format(aptDate, 'yyyy-MM-dd'),
-        scheduled_time: format(aptDate, 'HH:mm'),
+        scheduled_date: formattedDate,
+        scheduled_time: formattedTime,
         service_type: appointment.service_type,
         status: appointment.status,
         price: appointment.price.toString(),
@@ -102,20 +161,39 @@ export default function AppointmentModal({
         notes: appointment.notes || '',
       });
     } else if (selectedDate) {
-      setFormData({
+      // Criando novo agendamento a partir de uma data selecionada
+      console.log('=== Criando NOVO agendamento ===');
+      console.log('Selected Date recebida:', selectedDate);
+      console.log('Tipo de selectedDate:', typeof selectedDate);
+      console.log('selectedDate instanceof Date:', selectedDate instanceof Date);
+      
+      const formattedDate = formatBrazilDate(selectedDate, 'yyyy-MM-dd');
+      const formattedTime = formatBrazilDate(selectedDate, 'HH:mm');
+      
+      console.log('Data formatada (novo):', formattedDate);
+      console.log('Hora formatada (novo):', formattedTime);
+      
+      const newFormData = {
         client_id: 'none',
-        scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
-        scheduled_time: format(selectedDate, 'HH:mm'),
+        scheduled_date: formattedDate,
+        scheduled_time: formattedTime,
         service_type: '',
-        status: 'scheduled',
+        status: 'scheduled' as const,
         price: '',
-        payment_method: 'none',
+        payment_method: 'none' as const,
         notes: '',
-      });
+      };
+      
+      console.log('newFormData completo:', newFormData);
+      setFormData(newFormData);
     } else {
+      // Criando novo agendamento sem data pré-selecionada
+      const now = getBrazilNow();
+      console.log('Sem data selecionada, usando now:', now);
+      
       setFormData({
         client_id: 'none',
-        scheduled_date: format(new Date(), 'yyyy-MM-dd'),
+        scheduled_date: formatBrazilDate(now, 'yyyy-MM-dd'),
         scheduled_time: '09:00',
         service_type: '',
         status: 'scheduled',
@@ -124,6 +202,10 @@ export default function AppointmentModal({
         notes: '',
       });
     }
+    
+    // Marcar como inicializado
+    initialized.current = true;
+    console.log('=== Inicialização completa ===');
   }, [appointment, selectedDate, open]);
 
   const handleServiceChange = (serviceType: string) => {
@@ -141,10 +223,10 @@ export default function AppointmentModal({
 
     try {
       // Validar data não pode ser no passado
-      const selectedDate = new Date(`${formData.scheduled_date}T${formData.scheduled_time}`);
-      const now = new Date();
+      const selectedDateTime = new Date(`${formData.scheduled_date}T${formData.scheduled_time}:00`);
+      const now = getBrazilNow();
       
-      if (selectedDate < now && !appointment) {
+      if (selectedDateTime < now && !appointment) {
         toast.error('Não é possível agendar em datas/horários passados');
         setLoading(false);
         return;
@@ -165,6 +247,7 @@ export default function AppointmentModal({
         return;
       }
 
+      // Criar a data/hora no formato ISO com timezone de Brasília
       const scheduled_date = `${formData.scheduled_date}T${formData.scheduled_time}:00`;
       
       const data: any = {
@@ -234,14 +317,19 @@ export default function AppointmentModal({
               <Label htmlFor="scheduled_date">
                 Data <span className="text-red-500">*</span>
               </Label>
+              {(() => {
+                console.log('Renderizando input date com valor:', formData.scheduled_date);
+                return null;
+              })()}
               <Input
                 id="scheduled_date"
                 type="date"
                 value={formData.scheduled_date}
                 min={minDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, scheduled_date: e.target.value })
-                }
+                onChange={(e) => {
+                  console.log('Input date onChange:', e.target.value);
+                  setFormData({ ...formData, scheduled_date: e.target.value });
+                }}
                 required
               />
               <p className="text-xs text-muted-foreground">
@@ -300,7 +388,9 @@ export default function AppointmentModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="service_type">Serviço *</Label>
+            <Label htmlFor="service_type">
+              Serviço <span className="text-red-500">*</span>
+            </Label>
             <Select
               value={formData.service_type}
               onValueChange={handleServiceChange}
@@ -344,7 +434,9 @@ export default function AppointmentModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="price">Preço (R$) *</Label>
+              <Label htmlFor="price">
+                Preço (R$) <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="price"
                 type="number"

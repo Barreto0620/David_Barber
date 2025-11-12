@@ -1627,7 +1627,6 @@ export const useAppStore = create<AppStore>()(
         notifications: state.notifications,
         unreadCount: state.unreadCount,
         monthlyClients: state.monthlyClients,
-        
         loyaltySettings: state.loyaltySettings,
         loyaltyClients: state.loyaltyClients,
         loyaltyHistory: state.loyaltyHistory,
