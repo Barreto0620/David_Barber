@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -66,21 +66,43 @@ export default function LoyaltyPage() {
     }, [cutsForFree]);
 
     // ============================================
-    // 3. VARIÁVEIS COMPUTADAS (Clientes elegíveis e ESTÁVEIS)
+    // 3. VARIÁVEIS COMPUTADAS - CORRIGIDO COM useMemo
     // ============================================
     const totalPoints = stats?.totalPoints || 0;
     const totalFreeHaircuts = stats?.totalFreeHaircuts || 0;
     const clientsNearReward = stats?.clientsNearReward || 0;
     
-    const weeklyClients = useCallback(clients
-        .filter(client => {
-            const lastVisit = client.last_visit ? new Date(client.last_visit) : null;
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            return lastVisit && lastVisit >= weekAgo;
-        })
-        .sort((a, b) => a.client_id.localeCompare(b.client_id)),
-    [clients]);
+    // 🔥 CORREÇÃO: Usar useMemo ao invés de useCallback
+    const weeklyClients = useMemo(() => {
+        console.log('🔍 Calculando weeklyClients. Total de clientes:', clients?.length || 0);
+        
+        if (!clients || clients.length === 0) {
+            console.log('⚠️ Nenhum cliente disponível');
+            return [];
+        }
+
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        weekAgo.setHours(0, 0, 0, 0);
+        
+        const filtered = clients.filter(client => {
+            if (!client.last_visit) {
+                return false;
+            }
+            
+            const lastVisit = new Date(client.last_visit);
+            const isEligible = lastVisit >= weekAgo;
+            
+            if (isEligible) {
+                console.log('✅ Cliente elegível:', client.name, '- Última visita:', lastVisit.toLocaleDateString('pt-BR'));
+            }
+            
+            return isEligible;
+        }).sort((a, b) => a.client_id.localeCompare(b.client_id));
+        
+        console.log('📊 Total de clientes elegíveis:', filtered.length);
+        return filtered;
+    }, [clients]); // Recalcula quando 'clients' mudar
 
     // ============================================
     // 4. FUNÇÕES DE AÇÃO
@@ -223,6 +245,17 @@ export default function LoyaltyPage() {
                 </Card>
             </div>
 
+            {/* Debug Info - Temporário */}
+            {process.env.NODE_ENV === 'development' && (
+                <Card className="bg-yellow-50 border-yellow-200">
+                    <CardContent className="p-4">
+                        <p className="text-sm font-mono">
+                            🐛 Debug: {clients?.length || 0} clientes total | {weeklyClients.length} elegíveis esta semana
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Tabs - Otimizado */}
             <Tabs defaultValue="cards" className="space-y-3 sm:space-y-4">
                 <TabsList className="grid w-full grid-cols-2 h-auto gap-1 p-1">
@@ -240,126 +273,135 @@ export default function LoyaltyPage() {
 
                 {/* Tab: Cartões de Fidelidade */}
                 <TabsContent value="cards" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-                    <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                        {clients.map((client) => {
-                            const progress = (client.points / cutsForFree) * 100;
-                            const isNearReward = client.points >= cutsForFree - 2;
-                            
-                            return (
-                                <Card key={client.client_id} className={cn(
-                                    "hover:shadow-lg transition-all shadow-sm",
-                                    isNearReward && "ring-2 ring-green-500"
-                                )}>
-                                    <CardHeader className="pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="flex-1 min-w-0">
-                                                <CardTitle className="text-base sm:text-lg flex items-center gap-2 flex-wrap">
-                                                    <span className="truncate">{client.name}</span>
-                                                    {client.free_haircuts > 0 && (
-                                                        <Badge className="bg-amber-500 text-xs flex-shrink-0">
-                                                            <Crown className="w-3 h-3 mr-1" />
-                                                            {client.free_haircuts}
-                                                        </Badge>
-                                                    )}
-                                                </CardTitle>
-                                                <CardDescription className="text-xs sm:text-sm truncate">
-                                                    {client.phone}
-                                                </CardDescription>
-                                            </div>
-                                            {isNearReward && (
-                                                <Badge variant="outline" className="border-green-500 text-green-500 text-[10px] sm:text-xs flex-shrink-0">
-                                                    <TrendingUp className="w-3 h-3 mr-1" />
-                                                    <span className="hidden xs:inline">Quase lá!</span>
-                                                    <span className="xs:hidden">!</span>
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </CardHeader>
-
-                                    <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6 pb-3 sm:pb-6">
-                                        {/* Barra de Progresso */}
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between text-xs sm:text-sm">
-                                                <span className="text-muted-foreground">Progresso:</span>
-                                                <span className="font-bold">
-                                                    {client.points} / {cutsForFree}
-                                                </span>
-                                            </div>
-                                            <div className="h-2.5 sm:h-3 bg-muted rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500"
-                                                    style={{ width: `${progress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Grid de Estrelas */}
-                                        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-                                            {Array.from({ length: cutsForFree }).map((_, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className={cn(
-                                                        "aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all",
-                                                        idx < client.points
-                                                            ? "bg-primary text-primary-foreground shadow-md"
-                                                            : "bg-muted"
-                                                    )}
-                                                >
-                                                    {idx < client.points && <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-current" />}
+                    {clients.length === 0 ? (
+                        <Card>
+                            <CardContent className="p-8 text-center">
+                                <p className="text-muted-foreground">Nenhum cliente com programa de fidelidade ainda.</p>
+                                <p className="text-sm text-muted-foreground mt-2">Os clientes receberão pontos automaticamente ao finalizar atendimentos.</p>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                            {clients.map((client) => {
+                                const progress = (client.points / cutsForFree) * 100;
+                                const isNearReward = client.points >= cutsForFree - 2;
+                                
+                                return (
+                                    <Card key={client.client_id} className={cn(
+                                        "hover:shadow-lg transition-all shadow-sm",
+                                        isNearReward && "ring-2 ring-green-500"
+                                    )}>
+                                        <CardHeader className="pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <CardTitle className="text-base sm:text-lg flex items-center gap-2 flex-wrap">
+                                                        <span className="truncate">{client.name}</span>
+                                                        {client.free_haircuts > 0 && (
+                                                            <Badge className="bg-amber-500 text-xs flex-shrink-0">
+                                                                <Crown className="w-3 h-3 mr-1" />
+                                                                {client.free_haircuts}
+                                                            </Badge>
+                                                        )}
+                                                    </CardTitle>
+                                                    <CardDescription className="text-xs sm:text-sm truncate">
+                                                        {client.phone}
+                                                    </CardDescription>
                                                 </div>
-                                            ))}
-                                        </div>
-
-                                        {/* Estatísticas */}
-                                        <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs sm:text-sm">
-                                            <div>
-                                                <p className="text-muted-foreground">Total de Visitas:</p>
-                                                <p className="font-bold">{client.total_visits || 0}</p>
+                                                {isNearReward && (
+                                                    <Badge variant="outline" className="border-green-500 text-green-500 text-[10px] sm:text-xs flex-shrink-0">
+                                                        <TrendingUp className="w-3 h-3 mr-1" />
+                                                        <span className="hidden xs:inline">Quase lá!</span>
+                                                        <span className="xs:hidden">!</span>
+                                                    </Badge>
+                                                )}
                                             </div>
-                                            <div>
-                                                <p className="text-muted-foreground">Última Visita:</p>
-                                                <p className="font-bold truncate">
-                                                    {client.last_visit 
-                                                        ? new Date(client.last_visit).toLocaleDateString('pt-BR', {
-                                                            day: '2-digit',
-                                                            month: '2-digit'
-                                                        })
-                                                        : 'N/A'
-                                                    }
-                                                </p>
-                                            </div>
-                                        </div>
+                                        </CardHeader>
 
-                                        {/* Botões de Ação */}
-                                        <div className="flex gap-2 pt-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="flex-1 text-xs sm:text-sm h-9 sm:h-10"
-                                                disabled={true} 
-                                            >
-                                                <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                                                <span className="hidden xs:inline">Pontuação Automática</span>
-                                                <span className="xs:hidden">Automático</span>
-                                            </Button>
-                                            {client.free_haircuts > 0 && (
+                                        <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6 pb-3 sm:pb-6">
+                                            {/* Barra de Progresso */}
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between text-xs sm:text-sm">
+                                                    <span className="text-muted-foreground">Progresso:</span>
+                                                    <span className="font-bold">
+                                                        {client.points} / {cutsForFree}
+                                                    </span>
+                                                </div>
+                                                <div className="h-2.5 sm:h-3 bg-muted rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500"
+                                                        style={{ width: `${progress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Grid de Estrelas */}
+                                            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                                                {Array.from({ length: cutsForFree }).map((_, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className={cn(
+                                                            "aspect-square rounded-md sm:rounded-lg flex items-center justify-center transition-all",
+                                                            idx < client.points
+                                                                ? "bg-primary text-primary-foreground shadow-md"
+                                                                : "bg-muted"
+                                                        )}
+                                                    >
+                                                        {idx < client.points && <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-current" />}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Estatísticas */}
+                                            <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs sm:text-sm">
+                                                <div>
+                                                    <p className="text-muted-foreground">Total de Visitas:</p>
+                                                    <p className="font-bold">{client.total_visits || 0}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-muted-foreground">Última Visita:</p>
+                                                    <p className="font-bold truncate">
+                                                        {client.last_visit 
+                                                            ? new Date(client.last_visit).toLocaleDateString('pt-BR', {
+                                                                day: '2-digit',
+                                                                month: '2-digit'
+                                                            })
+                                                            : 'N/A'
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Botões de Ação */}
+                                            <div className="flex gap-2 pt-2">
                                                 <Button
-                                                    variant="default"
+                                                    variant="outline"
                                                     size="sm"
-                                                    className="flex-1 text-xs sm:text-sm h-9 sm:h-10 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-transform touch-manipulation"
-                                                    onClick={() => redeemFreeHaircut(client.client_id)} 
-                                                    disabled={loading}
+                                                    className="flex-1 text-xs sm:text-sm h-9 sm:h-10"
+                                                    disabled={true} 
                                                 >
-                                                    <Gift className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                                                    Resgatar
+                                                    <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                                                    <span className="hidden xs:inline">Pontuação Automática</span>
+                                                    <span className="xs:hidden">Automático</span>
                                                 </Button>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
-                    </div>
+                                                {client.free_haircuts > 0 && (
+                                                    <Button
+                                                        variant="default"
+                                                        size="sm"
+                                                        className="flex-1 text-xs sm:text-sm h-9 sm:h-10 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-transform touch-manipulation"
+                                                        onClick={() => redeemFreeHaircut(client.client_id)} 
+                                                        disabled={loading}
+                                                    >
+                                                        <Gift className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                                                        Resgatar
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
                 </TabsContent>
 
                 {/* Tab: Roleta da Sorte */}
