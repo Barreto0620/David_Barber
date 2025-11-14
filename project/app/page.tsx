@@ -149,42 +149,37 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex-1 w-full">
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
+    <div className="flex-1 w-full relative">
+      {/* ============================================= */}
+      {/* BACKGROUND IMAGE COM OVERLAY ELEGANTE         */}
+      {/* ============================================= */}
+      
+      {/* Camada do Background - Logo */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{
+          backgroundImage: 'url(/logo_grafite.png)',
+          backgroundSize: '40%',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+          opacity: 0.15,
+        }}
+      />
+      
+      {/* Camada de Overlay para Legibilidade */}
+      <div 
+        className="fixed inset-0 pointer-events-none -z-10 dark:opacity-90"
+        style={{
+          backgroundColor: 'hsl(var(--background) / 0.85)',
+        }}
+      />
 
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-          border-radius: 10px;
-        }
+      {/* ============================================= */}
+      {/* CONTEÚDO DO DASHBOARD                         */}
+      {/* ============================================= */}
 
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: hsl(var(--muted-foreground) / 0.3);
-          border-radius: 10px;
-          transition: background 0.2s ease;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: hsl(var(--muted-foreground) / 0.5);
-        }
-
-        .custom-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
-        }
-
-        @media (max-width: 640px) {
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-            height: 4px;
-          }
-        }
-      `}</style>
-
-      <div className="space-y-4 sm:space-y-5 md:space-y-6 p-3 sm:p-4 md:p-6 max-w-[2000px] mx-auto">
+      <div className="space-y-4 sm:space-y-5 md:space-y-6 p-3 sm:p-4 md:p-6 max-w-[2000px] mx-auto relative z-10">
         {/* Header Section */}
         <div className="flex flex-col gap-3 sm:gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">

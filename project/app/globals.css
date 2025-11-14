@@ -85,7 +85,7 @@
 /* ESTILIZAÇÃO DA SCROLLBAR COM SUPORTE A DARK MODE  */
 /* ================================================= */
 
-/* 1. WEBKIT (Chrome, Safari, Edge) */
+/* 1. WEBKIT (Chrome, Safari, Edge) - Scrollbar Padrão */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -115,17 +115,101 @@
   scrollbar-color: hsl(var(--scrollbar-thumb)) hsl(var(--scrollbar-track));
 }
 
+/* ================================================= */
+/* CUSTOM SCROLLBAR (Para containers específicos)    */
+/* ================================================= */
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+@media (max-width: 640px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
+    position: relative;
+  }
+
+  /* Background image aplicado via pseudo-elemento */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('/logo_grafite.png');
+    background-size: 40%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Overlay para melhorar legibilidade */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: hsl(var(--background) / 0.85);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* Ajuste no dark mode */
+  .dark body::before {
+    background-color: hsl(var(--background) / 0.90);
+  }
+
+  .dark body::after {
+    opacity: 0.08;
+  }
+
+  /* Garantir que o conteúdo fique acima */
+  body > * {
+    position: relative;
+    z-index: 1;
   }
 }
 
 /* ================================================= */
-/* UTILIT ÁRIOS RESPONSIVOS                          */
+/* UTILITÁRIOS RESPONSIVOS                          */
 /* ================================================= */
 
 /* Scroll horizontal em tabelas para mobile */
@@ -181,5 +265,23 @@
 
   .text-responsive-3xl {
     @apply text-2xl sm:text-3xl;
+  }
+}
+
+/* ================================================= */
+/* RESPONSIVIDADE DO BACKGROUND                     */
+/* ================================================= */
+
+@media (max-width: 768px) {
+  body::after {
+    background-size: 60%;
+    opacity: 0.12;
+  }
+}
+
+@media (max-width: 480px) {
+  body::after {
+    background-size: 80%;
+    opacity: 0.10;
   }
 }
