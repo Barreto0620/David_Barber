@@ -57,27 +57,15 @@ export function Header() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Estados de notificação do Zustand
+  // 🔥 CORRIGIDO: Removido setNotifications inexistente
   const {
     notifications,
     unreadCount,
     markAsRead,
     markAllAsRead,
     removeNotification,
-    setNotifications
+    clearAllNotifications  // ✅ Usar a função do store
   } = useAppStore();
-
-  // Função para limpar todas as notificações
-  const clearAllNotifications = () => {
-    if (setNotifications) {
-      setNotifications([]);
-    } else {
-      // Fallback: remover uma por uma se setNotifications não existir
-      notifications.forEach(notification => {
-        removeNotification(notification.id);
-      });
-    }
-  };
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -136,7 +124,7 @@ export function Header() {
                       </div>
                       <div>
                         <h2 className="text-lg font-semibold">David Barber</h2>
-                        <p className="text-xs text-muted-foreground"> de Gestão</p>
+                        <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
                       </div>
                     </div>
                   </div>
@@ -198,14 +186,14 @@ export function Header() {
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Sino de Notificações com Popover */}
+              {/* 🔥 Sino de Notificações - OTIMIZADO */}
               <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="icon" className="relative">
                     <Bell className="h-4 w-4" />
                     {unreadCount > 0 && (
                       <Badge
-                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs animate-pulse"
                         variant="destructive"
                       >
                         {unreadCount > 9 ? '9+' : unreadCount}
@@ -271,7 +259,7 @@ export function Header() {
                             onClick={() => handleNotificationClick(notification.id)}
                           >
                             {!notification.read && (
-                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full" />
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full animate-pulse" />
                             )}
 
                             <div className="flex gap-3 pl-4">

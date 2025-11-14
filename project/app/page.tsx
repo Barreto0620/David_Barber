@@ -33,6 +33,7 @@ export default function Dashboard() {
     getRecentClients,
     syncWithSupabase,
     calculateMetrics,
+    setupRealtimeSubscription, // 🔥 ADICIONADO
     lastSync
   } = useAppStore();
 
@@ -42,6 +43,17 @@ export default function Dashboard() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // 🔥 NOVO: Ativar Realtime quando o componente montar
+  useEffect(() => {
+    console.log('🔴 ATIVANDO REALTIME SUBSCRIPTION...');
+    const unsubscribe = setupRealtimeSubscription();
+
+    return () => {
+      console.log('🔴 DESATIVANDO REALTIME SUBSCRIPTION...');
+      unsubscribe();
+    };
+  }, [setupRealtimeSubscription]);
 
   useEffect(() => {
     const initializeData = async () => {
