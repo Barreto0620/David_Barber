@@ -16,7 +16,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatTime } from '@/lib/utils/currency';
@@ -33,28 +34,31 @@ export default function Dashboard() {
     getRecentClients,
     syncWithSupabase,
     calculateMetrics,
-    setupRealtimeSubscription, // 🔥 ADICIONADO
+    setupRealtimeSubscription,
     lastSync
   } = useAppStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [newAppointmentAlert, setNewAppointmentAlert] = useState(false);
+  const [previousAppointmentsCount, setPreviousAppointmentsCount] = useState(0);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // 🔥 NOVO: Ativar Realtime quando o componente montar
+  // 🔥 REALTIME: Ativar subscriptions em tempo real
   useEffect(() => {
     console.log('🔴 ATIVANDO REALTIME SUBSCRIPTION...');
     const unsubscribe = setupRealtimeSubscription();
 
     return () => {
       console.log('🔴 DESATIVANDO REALTIME SUBSCRIPTION...');
-      unsubscribe();
+      if (unsubscribe) unsubscribe();
     };
   }, [setupRealtimeSubscription]);
 
+  // Inicialização e sync de backup (caso o realtime falhe)
   useEffect(() => {
     const initializeData = async () => {
       console.log('🚀 Dashboard: Inicializando dados...');
@@ -63,14 +67,37 @@ export default function Dashboard() {
 
     initializeData();
 
-    // Sincronização automática a cada 2 minutos (reduzido de 5 para melhor responsividade)
+    // Sincronização de backup a cada 5 minutos (o realtime deve ser instantâneo)
     const interval = setInterval(() => {
-      console.log('🔄 Dashboard: Sincronização automática...');
+      console.log('🔄 Dashboard: Sincronização de backup...');
       syncWithSupabase();
-    }, 2 * 60 * 1000);
+    }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [syncWithSupabase]);
+
+  // 🔔 Detectar novos agendamentos e mostrar alerta
+  useEffect(() => {
+    if (isClient && appointments.length > 0) {
+      if (previousAppointmentsCount > 0 && appointments.length > previousAppointmentsCount) {
+        console.log('🔔 NOVO AGENDAMENTO DETECTADO!');
+        setNewAppointmentAlert(true);
+        
+        // Tocar um som de notificação (opcional)
+        if (typeof Audio !== 'undefined') {
+          try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzbJ7/bRgS0FKHXO8Naathe4');
+            audio.volume = 0.3;
+            audio.play().catch(() => {});
+          } catch (e) {}
+        }
+        
+        // Remover alerta após 5 segundos
+        setTimeout(() => setNewAppointmentAlert(false), 5000);
+      }
+      setPreviousAppointmentsCount(appointments.length);
+    }
+  }, [appointments.length, isClient, previousAppointmentsCount]);
 
   // Recalcular métricas quando appointments ou clients mudarem
   useEffect(() => {
@@ -194,7 +221,47 @@ export default function Dashboard() {
             height: 4px;
           }
         }
+
+        @keyframes slideInDown {
+          from {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideOutUp {
+          from {
+            transform: translateY(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+        }
+
+        .alert-enter {
+          animation: slideInDown 0.3s ease-out;
+        }
+
+        .alert-exit {
+          animation: slideOutUp 0.3s ease-in;
+        }
       `}</style>
+
+      {/* 🔔 Alerta de Novo Agendamento */}
+      {newAppointmentAlert && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 alert-enter">
+          <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse">
+            <Bell className="h-5 w-5" />
+            <span className="font-semibold">Novo agendamento recebido!</span>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4 sm:space-y-5 md:space-y-6 p-3 sm:p-4 md:p-6 max-w-[2000px] mx-auto">
         {/* Header Section */}
@@ -219,8 +286,15 @@ export default function Dashboard() {
           </div>
 
           {lastSync && (
-            <div className="text-[10px] sm:text-xs text-muted-foreground">
-              Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}
+            <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-2">
+              <span>Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}</span>
+              <span className="flex items-center gap-1 text-green-600">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                Realtime ativo
+              </span>
             </div>
           )}
         </div>
