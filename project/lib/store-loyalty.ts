@@ -1,5 +1,5 @@
 // @ts-nocheck
-// lib/store-loyalty.ts - VERSÃO CORRIGIDA
+// lib/store-loyalty.ts - VERSÃO CORRIGIDA COM NOTIFICAÇÃO NO HEADER
 'use client';
 
 import { supabase } from '@/lib/supabase';
@@ -63,7 +63,6 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
                   if (!data) {
                         console.log('📝 Criando configurações padrão de fidelidade...');
 
-                        // Criar configuração padrão
                         const defaultSettings = {
                               professional_id: userAuth.user.id,
                               cuts_for_free: 10,
@@ -147,7 +146,7 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
                   const { data: clientsData, error: clientsError } = await supabase
                         .from('clients')
                         .select('*')
-                        .gt('total_visits', 0)  // Apenas clientes que já fizeram pelo menos 1 visita
+                        .gt('total_visits', 0)
                         .order('last_visit', { ascending: false });
 
                   if (clientsError) {
@@ -355,7 +354,7 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
                         .from('loyalty_points')
                         .update({
                               free_haircuts: loyalty.free_haircuts - 1,
-                              points: 0, // 🔥 ZERAR PONTOS AO RESGATAR
+                              points: 0,
                               total_redeemed_haircuts: (loyalty.total_redeemed_haircuts || 0) + 1,
                               updated_at: new Date().toISOString()
                         })
@@ -437,17 +436,31 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
       },
 
       // ============================================
-      // SPIN WHEEL
+      // SPIN WHEEL - CORRIGIDO COM NOTIFICAÇÃO NO HEADER
       // ============================================
       spinWheel: async (clientId: string) => {
             try {
                   set({ loyaltyLoading: true });
-                  console.log('🎰 spinWheel:', clientId);
+                  console.log('🎰 spinWheel: Iniciando sorteio para:', clientId);
 
                   const { data: userAuth } = await supabase.auth.getUser();
                   if (!userAuth?.user) throw new Error('Não autenticado');
 
-                  // 🔥 CORREÇÃO 1: Usar 'loyalty_points'
+                  // 🔥 BUSCAR DADOS DO CLIENTE ANTES DE ATUALIZAR
+                  const { data: clientData, error: clientError } = await supabase
+                        .from('clients')
+                        .select('name, phone')
+                        .eq('id', clientId)
+                        .single();
+
+                  if (clientError) {
+                        console.error('❌ Erro ao buscar dados do cliente:', clientError);
+                        throw clientError;
+                  }
+
+                  console.log('✅ Cliente encontrado:', clientData.name);
+
+                  // 🔥 BUSCAR DADOS DE FIDELIDADE
                   const { data: existingLoyalty, error: fetchError } = await supabase
                         .from('loyalty_points')
                         .select('*')
@@ -455,14 +468,18 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
                         .eq('professional_id', userAuth.user.id)
                         .maybeSingle();
 
-                  if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+                  if (fetchError && fetchError.code !== 'PGRST116') {
+                        console.error('❌ Erro ao buscar fidelidade:', fetchError);
+                        throw fetchError;
+                  }
 
                   let newFreeHaircuts = 0;
 
                   if (existingLoyalty) {
                         newFreeHaircuts = (existingLoyalty.free_haircuts || 0) + 1;
 
-                        // 🔥 CORREÇÃO 2: Usar 'loyalty_points'
+                        console.log(`🎁 Atualizando fidelidade: ${existingLoyalty.free_haircuts} → ${newFreeHaircuts}`);
+
                         const { error: updateError } = await supabase
                               .from('loyalty_points')
                               .update({
@@ -472,12 +489,16 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
                               .eq('client_id', clientId)
                               .eq('professional_id', userAuth.user.id);
 
-                        if (updateError) throw updateError;
+                        if (updateError) {
+                              console.error('❌ Erro ao atualizar fidelidade:', updateError);
+                              throw updateError;
+                        }
 
                   } else {
                         newFreeHaircuts = 1;
 
-                        // 🔥 CORREÇÃO 3: Usar 'loyalty_points'
+                        console.log('📝 Criando novo registro de fidelidade');
+
                         const { error: insertError } = await supabase
                               .from('loyalty_points')
                               .insert([{
@@ -485,48 +506,92 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
                                     professional_id: userAuth.user.id,
                                     points: 0,
                                     free_haircuts: newFreeHaircuts,
-                                    total_earned_points: 0, // Adicionado para consistência com o schema
-                                    total_redeemed_haircuts: 0 // Adicionado para consistência com o schema
+                                    total_earned_points: 0,
+                                    total_redeemed_haircuts: 0
                               }]);
 
-                        if (insertError) throw insertError;
+                        if (insertError) {
+                              console.error('❌ Erro ao criar fidelidade:', insertError);
+                              throw insertError;
+                        }
                   }
 
-                  // ... (O restante do código abaixo deve ser ajustado para o esquema de loyalty_history)
-                  // Ajuste o insert no loyalty_history para usar os campos corretos
-
-                  // Registrar no histórico
-                  // 🔥 CORREÇÃO 4: O esquema loyalty_history exige loyalty_points_id.
-                  // Como não pegamos o ID na inserção/atualização, vamos simplificar o insert history
-                  // e usar action_type: 'wheel_won' (conforme seu esquema SQL).
-                  // NOTA: Para ser 100% correto, você teria que pegar o 'id' do loyalty_points na inserção/atualização.
-                  // Assumindo que o trigger/RLS cuida do loyalty_points_id (ou ignorando temporariamente):
-                  await supabase
+                  // 🔥 REGISTRAR NO HISTÓRICO
+                  const { error: historyError } = await supabase
                         .from('loyalty_history')
                         .insert([{
                               client_id: clientId,
                               professional_id: userAuth.user.id,
-                              action_type: 'wheel_won', // Conforme seu schema (era 'wheel_win')
+                              action_type: 'wheel_won',
                               points_change: 0,
-                              free_haircuts_change: 1, // Ganhou 1 corte grátis
-                              notes: 'Ganhou 1 corte grátis na roleta da sorte' // Conforme seu schema (era 'description')
+                              free_haircuts_change: 1,
+                              notes: `🎰 Ganhou 1 corte grátis na roleta da sorte!`
                         }]);
 
-                  // Recarregar dados
+                  if (historyError) {
+                        console.error('⚠️ Erro ao registrar histórico:', historyError);
+                  }
+
+                  console.log('✅ Sorteio concluído com sucesso!');
+
+                  // 🔥 ADICIONAR NOTIFICAÇÃO NO HEADER (SINO)
+                  const addNotification = get().addNotification;
+                  if (addNotification) {
+                        addNotification({
+                              type: 'loyalty',
+                              title: '🎉 Ganhador da Roleta da Sorte!',
+                              message: `Parabéns! ${clientData.name} foi o sortudo(a) e ganhou 1 corte grátis na roleta!`,
+                              clientName: clientData.name,
+                              read: false,
+                        });
+                        console.log('✅ Notificação adicionada no header!');
+                  }
+
+                  // 🔥 TOAST RÁPIDO (OPCIONAL)
+                  toast.success('🎰 Sorteio realizado!', {
+                        description: `${clientData.name} ganhou!`,
+                        duration: 3000,
+                  });
+
+                  // 🔥 RECARREGAR DADOS DOS CLIENTES
+                  console.log('🔄 Recarregando lista de clientes...');
                   await get().fetchLoyaltyClients?.();
 
-                  // Retornar cliente vencedor
-                  const winner = get().loyaltyClients.find((c: LoyaltyClient) => c.client_id === clientId);
+                  // 🔥 RETORNAR CLIENTE ATUALIZADO
+                  const updatedClient = get().loyaltyClients.find((c: LoyaltyClient) => c.client_id === clientId);
 
-                  return winner || null;
+                  if (updatedClient) {
+                        console.log('✅ Cliente atualizado retornado:', updatedClient);
+                        return updatedClient;
+                  } else {
+                        console.warn('⚠️ Cliente não encontrado na lista atualizada');
+                        return {
+                              client_id: clientId,
+                              name: clientData.name,
+                              phone: clientData.phone,
+                              email: null,
+                              points: 0,
+                              free_haircuts: newFreeHaircuts,
+                              total_visits: 0,
+                              total_spent: 0,
+                              last_visit: null,
+                              created_at: new Date().toISOString(),
+                              updated_at: new Date().toISOString()
+                        } as LoyaltyClient;
+                  }
+
             } catch (error) {
-                  console.error('❌ Erro no sorteio:', error);
-                  toast.error('Erro ao realizar sorteio');
+                  console.error('❌ Erro no sorteio da roleta:', error);
+                  toast.error('Erro ao realizar sorteio', {
+                        description: 'Não foi possível processar o sorteio. Tente novamente.',
+                        duration: 4000
+                  });
                   return null;
             } finally {
                   set({ loyaltyLoading: false });
             }
       },
+
       // ============================================
       // SETUP REALTIME
       // ============================================
@@ -535,9 +600,9 @@ const loyaltyStoreFunctions = (set: any, get: any) => ({
                   .channel('loyalty-realtime')
                   .on(
                         'postgres_changes',
-                        { event: '*', schema: 'public', table: 'loyalty_clients' },
+                        { event: '*', schema: 'public', table: 'loyalty_points' },
                         async () => {
-                              console.log('🔄 Atualização em loyalty_clients detectada');
+                              console.log('🔄 Atualização em loyalty_points detectada');
                               await get().fetchLoyaltyClients?.();
                         }
                   )
