@@ -16,7 +16,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatTime } from '@/lib/utils/currency';
@@ -33,16 +34,31 @@ export default function Dashboard() {
     getRecentClients,
     syncWithSupabase,
     calculateMetrics,
+    setupRealtimeSubscription,
     lastSync
   } = useAppStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [newAppointmentAlert, setNewAppointmentAlert] = useState(false);
+  const [previousAppointmentsCount, setPreviousAppointmentsCount] = useState(0);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
+  // 🔥 REALTIME: Ativar subscriptions em tempo real
+  useEffect(() => {
+    console.log('🔴 ATIVANDO REALTIME SUBSCRIPTION...');
+    const unsubscribe = setupRealtimeSubscription();
+
+    return () => {
+      console.log('🔴 DESATIVANDO REALTIME SUBSCRIPTION...');
+      if (unsubscribe) unsubscribe();
+    };
+  }, [setupRealtimeSubscription]);
+
+  // Inicialização e sync de backup (caso o realtime falhe)
   useEffect(() => {
     const initializeData = async () => {
       console.log('🚀 Dashboard: Inicializando dados...');
@@ -51,14 +67,37 @@ export default function Dashboard() {
 
     initializeData();
 
-    // Sincronização automática a cada 2 minutos (reduzido de 5 para melhor responsividade)
+    // Sincronização de backup a cada 5 minutos (o realtime deve ser instantâneo)
     const interval = setInterval(() => {
-      console.log('🔄 Dashboard: Sincronização automática...');
+      console.log('🔄 Dashboard: Sincronização de backup...');
       syncWithSupabase();
-    }, 2 * 60 * 1000);
+    }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [syncWithSupabase]);
+
+  // 🔔 Detectar novos agendamentos e mostrar alerta
+  useEffect(() => {
+    if (isClient && appointments.length > 0) {
+      if (previousAppointmentsCount > 0 && appointments.length > previousAppointmentsCount) {
+        console.log('🔔 NOVO AGENDAMENTO DETECTADO!');
+        setNewAppointmentAlert(true);
+        
+        // Tocar um som de notificação (opcional)
+        if (typeof Audio !== 'undefined') {
+          try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzbJ7/bRgS0FKHXO8Naathe4');
+            audio.volume = 0.3;
+            audio.play().catch(() => {});
+          } catch (e) {}
+        }
+        
+        // Remover alerta após 5 segundos
+        setTimeout(() => setNewAppointmentAlert(false), 5000);
+      }
+      setPreviousAppointmentsCount(appointments.length);
+    }
+  }, [appointments.length, isClient, previousAppointmentsCount]);
 
   // Recalcular métricas quando appointments ou clients mudarem
   useEffect(() => {
@@ -149,35 +188,80 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex-1 w-full relative">
-      {/* ============================================= */}
-      {/* BACKGROUND IMAGE COM OVERLAY ELEGANTE         */}
-      {/* ============================================= */}
-      
-      {/* Camada do Background - Logo */}
-      <div 
-        className="fixed inset-0 pointer-events-none z-0"
-        style={{
-          backgroundImage: 'url(/logo_grafite.png)',
-          backgroundSize: '40%',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-          opacity: 0.15,
-        }}
-      />
-      
-      {/* Camada de Overlay para Legibilidade */}
-      <div 
-        className="fixed inset-0 pointer-events-none -z-10 dark:opacity-90"
-        style={{
-          backgroundColor: 'hsl(var(--background) / 0.85)',
-        }}
-      />
+    <div className="flex-1 w-full">
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
 
-      {/* ============================================= */}
-      {/* CONTEÚDO DO DASHBOARD                         */}
-      {/* ============================================= */}
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+          border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: hsl(var(--muted-foreground) / 0.3);
+          border-radius: 10px;
+          transition: background 0.2s ease;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: hsl(var(--muted-foreground) / 0.5);
+        }
+
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+        }
+
+        @media (max-width: 640px) {
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+          }
+        }
+
+        @keyframes slideInDown {
+          from {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideOutUp {
+          from {
+            transform: translateY(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+        }
+
+        .alert-enter {
+          animation: slideInDown 0.3s ease-out;
+        }
+
+        .alert-exit {
+          animation: slideOutUp 0.3s ease-in;
+        }
+      `}</style>
+
+      {/* 🔔 Alerta de Novo Agendamento */}
+      {newAppointmentAlert && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 alert-enter">
+          <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse">
+            <Bell className="h-5 w-5" />
+            <span className="font-semibold">Novo agendamento recebido!</span>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4 sm:space-y-5 md:space-y-6 p-3 sm:p-4 md:p-6 max-w-[2000px] mx-auto relative z-10">
         {/* Header Section */}
@@ -200,12 +284,6 @@ export default function Dashboard() {
               <span className="text-xs sm:text-sm">Atualizar</span>
             </Button>
           </div>
-
-          {lastSync && (
-            <div className="text-[10px] sm:text-xs text-muted-foreground">
-              Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}
-            </div>
-          )}
         </div>
 
         {/* Metrics Grid */}
