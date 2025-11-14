@@ -1,9 +1,9 @@
 // @ts-nocheck
 'use client';
 
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useTransition } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// 🚀 OTIMIZAÇÃO: Array estático fora do componente (não recria a cada render)
+// 🚀 OTIMIZAÇÃO: Array estático fora do componente
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Calendário', href: '/calendar', icon: CalendarDays },
@@ -41,7 +41,7 @@ interface SidebarProps {
   setMobileOpen?: (open: boolean) => void;
 }
 
-// 🚀 OTIMIZAÇÃO: Componente de item individual memorizado
+// 🚀 OTIMIZAÇÃO: Item com navegação instantânea via router.push
 const NavItem = memo(({ 
   item, 
   isActive, 
@@ -51,32 +51,57 @@ const NavItem = memo(({
   isActive: boolean; 
   onClick?: () => void;
 }) => {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  
   const Icon = item.icon;
   
+  // 🔥 NAVEGAÇÃO INSTANTÂNEA: usar router.push para controle total
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault(); // Previne comportamento padrão do Link
+    
+    // Fecha menu mobile imediatamente (se aplicável)
+    onClick?.();
+    
+    // Navega instantaneamente sem transição
+    router.push(item.href);
+  }, [router, item.href, onClick]);
+
   return (
-    <Link href={item.href} className="block" prefetch={true}>
-      <Button
-        variant={isActive ? "default" : "ghost"}
-        className={cn(
-          "w-full justify-start",
-          isActive && "bg-primary text-primary-foreground shadow-lg"
-        )}
-        onClick={onClick}
-      >
-        <Icon className="h-4 w-4 mr-2" />
-        {item.name}
-      </Button>
-    </Link>
+    <button
+      className={cn(
+        "w-full text-left",
+        "rounded-md px-3 py-2",
+        "flex items-center gap-2",
+        "font-medium text-sm",
+        "transition-colors duration-75", // Transição super rápida
+        isActive 
+          ? "bg-primary text-primary-foreground shadow-lg" 
+          : "hover:bg-accent hover:text-accent-foreground",
+        isPending && "opacity-70"
+      )}
+      onClick={handleClick}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span>{item.name}</span>
+    </button>
   );
 });
 
 NavItem.displayName = 'NavItem';
 
-// 🚀 OTIMIZAÇÃO: Componente de conteúdo memorizado
+// 🚀 OTIMIZAÇÃO: Conteúdo memorizado
 const NavContent = memo(({ isMobile = false, onItemClick }: { isMobile?: boolean; onItemClick?: () => void }) => {
   const pathname = usePathname();
+  const router = useRouter();
   
-  // 🚀 OTIMIZAÇÃO: Memoizar items renderizados
+  // 🔥 PRÉ-CARREGAR todas as rotas ao montar o componente
+  useMemo(() => {
+    navigation.forEach(item => {
+      router.prefetch(item.href);
+    });
+  }, [router]);
+  
   const navItems = useMemo(() => 
     navigation.map((item) => (
       <NavItem
@@ -108,7 +133,7 @@ const NavContent = memo(({ isMobile = false, onItemClick }: { isMobile?: boolean
       </div>
       
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-4 space-y-2">
+      <nav className="flex-1 px-4 py-4 space-y-1">
         {navItems}
       </nav>
 
@@ -129,9 +154,8 @@ const NavContent = memo(({ isMobile = false, onItemClick }: { isMobile?: boolean
 
 NavContent.displayName = 'NavContent';
 
-// 🚀 OTIMIZAÇÃO: Componente principal com callbacks otimizados
+// 🚀 OTIMIZAÇÃO: Componente principal
 export function Sidebar({ className, mobileOpen, setMobileOpen }: SidebarProps) {
-  // 🚀 OTIMIZAÇÃO: useCallback para evitar recriação da função
   const handleMobileClose = useCallback(() => {
     setMobileOpen?.(false);
   }, [setMobileOpen]);
@@ -155,7 +179,7 @@ export function Sidebar({ className, mobileOpen, setMobileOpen }: SidebarProps) 
   );
 }
 
-// 🚀 OTIMIZAÇÃO: Botão mobile memorizado
+// 🚀 OTIMIZAÇÃO: Botão mobile
 export const MobileMenuButton = memo(({ 
   open, 
   setOpen 
@@ -163,7 +187,6 @@ export const MobileMenuButton = memo(({
   open: boolean; 
   setOpen: (open: boolean) => void;
 }) => {
-  // 🚀 OTIMIZAÇÃO: useCallback para toggle
   const handleToggle = useCallback(() => {
     setOpen(!open);
   }, [open, setOpen]);
