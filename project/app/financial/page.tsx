@@ -232,8 +232,10 @@ export default function FinancialPage() {
     transferencia: CHART_COLORS.quaternary
   };
 
+  // MODIFICAÇÃO: Ordenação decrescente por data (mais recente primeiro)
   const searchFilteredAppointments = useMemo(() => {
-    return [...financialData.completedAppointments, ...financialData.futureAppointments];
+    return [...financialData.completedAppointments, ...financialData.futureAppointments]
+      .sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
   }, [financialData.completedAppointments, financialData.futureAppointments]);
 
   const handleSaveGoal = () => {
@@ -265,7 +267,7 @@ export default function FinancialPage() {
       ['Total de Atendimentos:', financialData.totalAppointments.toString()],
       ['Ticket Médio:', formatCurrency(financialData.averageTicket)],
       [''],
-      ['TRANSAÇÕES DETALHADAS'],
+      ['TRANSAÇÕES DETALHADAS - ORDEM DECRESCENTE (MAIS RECENTE PRIMEIRO)'],
       ['Data', 'Cliente', 'Telefone', 'Serviço', 'Valor', 'Pagamento', 'Status'],
       ...searchFilteredAppointments.map(apt => {
         const client = clients.find(c => c.id === apt.client_id);
@@ -317,6 +319,9 @@ export default function FinancialPage() {
           .summary-card h3 { font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 8px; }
           .summary-card p { font-size: 24px; font-weight: bold; color: #059669; }
           .summary-card.blue p { color: #0891b2; }
+          .section-title { margin: 30px 0 15px 0; padding: 10px 0; border-bottom: 2px solid #059669; }
+          .section-title h2 { font-size: 18px; color: #059669; }
+          .section-title .subtitle { font-size: 12px; color: #666; margin-top: 4px; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th { background: #059669; color: white; padding: 12px; text-align: left; font-weight: 600; }
           td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
@@ -331,7 +336,7 @@ export default function FinancialPage() {
       <body>
         <div class="header">
           <h1>DAVID BARBER</h1>
-          <p>Relatório Financeiro</p>
+          <p>Relatório Financeiro Profissional</p>
         </div>
         
         <div class="info">
@@ -358,7 +363,10 @@ export default function FinancialPage() {
           </div>
         </div>
         
-        <h2 style="margin-bottom: 15px;">Transações Detalhadas</h2>
+        <div class="section-title">
+          <h2>Transações Detalhadas</h2>
+          <div class="subtitle">Ordenadas por data (mais recente primeiro) • ${searchFilteredAppointments.length} transações</div>
+        </div>
         <table>
           <thead>
             <tr>
@@ -1234,7 +1242,7 @@ export default function FinancialPage() {
                     <span className="truncate">Histórico de Transações</span>
                   </CardTitle>
                   <CardDescription className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
-                    {searchFilteredAppointments.length} transações encontradas
+                    {searchFilteredAppointments.length} transações • Ordenadas por data (mais recente primeiro)
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/30 text-xs self-start xs:self-auto">
