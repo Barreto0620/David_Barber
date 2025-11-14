@@ -17,25 +17,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Clock, CheckCircle2, ChevronLeft, ChevronRight, Trash2, Info } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, ChevronLeft, ChevronRight, Trash2, Info, DollarSign, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ScheduleLimitDialog } from '@/components/monthly-clients/ScheduleLimitDialog';
+import { formatCurrency } from '@/lib/utils/currency';
 
 const DAYS_OF_WEEK = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-const SERVICE_TYPES = [
-  'Corte Simples',
-  'Corte + Barba',
-  'Corte Premium',
-  'Corte Premium + Barba',
-  'Barba',
-  'Sobrancelha',
-  'Luzes',
-  'Hidratação',
-];
 
 const generateTimeSlots = () => {
   const slots = [];
@@ -56,6 +46,8 @@ interface DailySchedule {
   date: string;
   time: string;
   serviceType: string;
+  serviceId?: string;
+  servicePrice?: number;
 }
 
 interface MonthlySchedulePickerProps {
@@ -71,14 +63,35 @@ export function MonthlySchedulePicker({
   onSchedulesChange,
   currentClientId,
 }: MonthlySchedulePickerProps) {
-  const { monthlyClients, appointments } = useAppStore();
+  const { monthlyClients, appointments, services } = useAppStore();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isTimeDialogOpen, setIsTimeDialogOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState('09:00');
-  const [selectedService, setSelectedService] = useState(SERVICE_TYPES[0]);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [showLimitDialog, setShowLimitDialog] = useState(false);
+
+  // 🔥 BUSCA SERVIÇOS DO BANCO DE DADOS
+  const availableServices = useMemo(() => {
+    // Filtra apenas serviços ativos
+    const activeServices = services.filter(service => service.active !== false);
+    
+    // Ordena por nome para melhor UX
+    return activeServices.sort((a, b) => a.name.localeCompare(b.name));
+  }, [services]);
+
+  // 🔥 SERVIÇO PADRÃO (primeiro da lista)
+  const defaultService = useMemo(() => {
+    return availableServices.length > 0 ? availableServices[0] : null;
+  }, [availableServices]);
+
+  // Inicializa o serviço selecionado quando o dialog abre
+  useMemo(() => {
+    if (defaultService && !selectedServiceId) {
+      setSelectedServiceId(defaultService.id);
+    }
+  }, [defaultService, selectedServiceId]);
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
@@ -157,12 +170,17 @@ export function MonthlySchedulePicker({
       setSelectedTime(TIME_SLOTS[0]);
     }
 
+    // Define o serviço padrão ao abrir o dialog
+    if (defaultService) {
+      setSelectedServiceId(defaultService.id);
+    }
+
     setSelectedDate(date);
     setIsTimeDialogOpen(true);
   };
 
   const handleAddSchedule = () => {
-    if (!selectedDate) return;
+    if (!selectedDate || !selectedServiceId) return;
 
     if (selectedSchedules.length >= maxSchedules) {
       setShowLimitDialog(true);
@@ -184,12 +202,22 @@ export function MonthlySchedulePicker({
       return;
     }
 
+    // 🔥 BUSCA INFORMAÇÕES COMPLETAS DO SERVIÇO
+    const selectedService = availableServices.find(s => s.id === selectedServiceId);
+    
+    if (!selectedService) {
+      alert('Serviço não encontrado. Por favor, tente novamente.');
+      return;
+    }
+
     onSchedulesChange([
       ...selectedSchedules,
       { 
         date: dateStr, 
         time: selectedTime, 
-        serviceType: selectedService 
+        serviceType: selectedService.name,
+        serviceId: selectedService.id,
+        servicePrice: selectedService.price
       }
     ]);
 
@@ -222,12 +250,41 @@ export function MonthlySchedulePicker({
     }
   };
 
+  // 🔥 CALCULA VALOR TOTAL DOS AGENDAMENTOS
+  const totalValue = useMemo(() => {
+    return selectedSchedules.reduce((sum, schedule) => {
+      return sum + (schedule.servicePrice || 0);
+    }, 0);
+  }, [selectedSchedules]);
+
   const planInfo = getPlanInfo();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   return (
     <div className="space-y-6">
+      {/* 🚨 ALERTA: SEM SERVIÇOS CADASTRADOS */}
+      {availableServices.length === 0 && (
+        <Card className="border-2 border-red-500 bg-red-50 dark:bg-red-950/20">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400 flex-shrink-0" />
+              <div>
+                <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-2">
+                  Nenhum Serviço Disponível
+                </h3>
+                <p className="text-red-700 dark:text-red-300 text-sm mb-3">
+                  Não há serviços cadastrados no sistema. É necessário cadastrar pelo menos um serviço antes de criar agendamentos mensais.
+                </p>
+                <p className="text-red-600 dark:text-red-400 text-xs font-medium">
+                  💡 Vá para a seção "Serviços" e cadastre os serviços da sua barbearia.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className={cn("border-2 bg-gradient-to-br", planInfo.gradient, "text-white")}>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
@@ -248,6 +305,12 @@ export function MonthlySchedulePicker({
                 {selectedSchedules.length}/{maxSchedules}
               </div>
               <p className="text-sm text-white/80">agendamentos</p>
+              {totalValue > 0 && (
+                <div className="mt-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                  <p className="text-xs text-white/70">Valor Total</p>
+                  <p className="text-lg font-bold">{formatCurrency(totalValue)}</p>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -304,15 +367,16 @@ export function MonthlySchedulePicker({
                 <button
                   key={idx}
                   onClick={() => handleDateClick(day)}
-                  disabled={!isCurrentMonth || isPast}
+                  disabled={!isCurrentMonth || isPast || availableServices.length === 0}
                   className={cn(
                     "relative aspect-square rounded-lg p-2 text-sm font-medium transition-all hover:shadow-md",
                     !isCurrentMonth && "text-muted-foreground/30 cursor-not-allowed",
                     isPast && isCurrentMonth && "text-muted-foreground/50 cursor-not-allowed",
-                    isCurrentMonth && !isPast && "hover:bg-primary/10 cursor-pointer",
+                    isCurrentMonth && !isPast && availableServices.length > 0 && "hover:bg-primary/10 cursor-pointer",
                     isToday && "ring-2 ring-primary",
                     hasSchedules && "bg-green-500 text-white hover:bg-green-600",
-                    !hasSchedules && isCurrentMonth && !isPast && "bg-muted/50"
+                    !hasSchedules && isCurrentMonth && !isPast && "bg-muted/50",
+                    availableServices.length === 0 && "cursor-not-allowed opacity-50"
                   )}
                 >
                   <div className="text-center">{format(day, 'd')}</div>
@@ -364,12 +428,20 @@ export function MonthlySchedulePicker({
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>📅 Seus Agendamentos ({selectedSchedules.length})</span>
-              {selectedSchedules.length === maxSchedules && (
-                <Badge className="bg-green-500">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Completo
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {totalValue > 0 && (
+                  <Badge variant="outline" className="text-base px-3 py-1">
+                    <DollarSign className="w-4 h-4 mr-1" />
+                    {formatCurrency(totalValue)}
+                  </Badge>
+                )}
+                {selectedSchedules.length === maxSchedules && (
+                  <Badge className="bg-green-500">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Completo
+                  </Badge>
+                )}
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -389,7 +461,7 @@ export function MonthlySchedulePicker({
                         {idx + 1}
                       </div>
 
-                      <div className="flex-1 grid grid-cols-3 gap-4">
+                      <div className="flex-1 grid grid-cols-4 gap-4">
                         <div>
                           <div className="text-xs text-muted-foreground mb-1">Data</div>
                           <div className="font-semibold">
@@ -411,6 +483,13 @@ export function MonthlySchedulePicker({
                             {schedule.serviceType}
                           </div>
                         </div>
+
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">Valor</div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {schedule.servicePrice ? formatCurrency(schedule.servicePrice) : 'N/A'}
+                          </div>
+                        </div>
                       </div>
 
                       <Button
@@ -425,6 +504,26 @@ export function MonthlySchedulePicker({
                   );
                 })}
             </div>
+
+            {/* RESUMO FINANCEIRO */}
+            {totalValue > 0 && (
+              <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/20 dark:to-green-950/20 rounded-xl border-2 border-emerald-200 dark:border-emerald-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Valor Total do Plano</p>
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(totalValue)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground mb-1">Valor Médio</p>
+                    <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(totalValue / selectedSchedules.length)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -434,7 +533,7 @@ export function MonthlySchedulePicker({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5" />
-              Escolha o Horário
+              Escolha o Horário e Serviço
             </DialogTitle>
             <DialogDescription>
               {selectedDate && format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
@@ -512,20 +611,79 @@ export function MonthlySchedulePicker({
               </Select>
             </div>
 
+            {/* 🔥 SELETOR DE SERVIÇOS DO BANCO DE DADOS */}
             <div className="space-y-2">
               <label className="text-sm font-semibold">Serviço</label>
-              <Select value={selectedService} onValueChange={setSelectedService}>
-                <SelectTrigger className="h-12">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SERVICE_TYPES.map((service) => (
-                    <SelectItem key={service} value={service}>
-                      {service}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {availableServices.length > 0 ? (
+                <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Selecione um serviço" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableServices.map((service) => (
+                      <SelectItem key={service.id} value={service.id}>
+                        <div className="flex items-center justify-between w-full gap-3">
+                          <span className="font-medium">{service.name}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="font-mono">
+                              {formatCurrency(service.price)}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {service.duration}min
+                            </span>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    Nenhum serviço disponível. Cadastre serviços antes de continuar.
+                  </p>
+                </div>
+              )}
+
+              {/* PREVIEW DO SERVIÇO SELECIONADO */}
+              {selectedServiceId && availableServices.length > 0 && (
+                <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                  <CardContent className="p-3">
+                    {(() => {
+                      const service = availableServices.find(s => s.id === selectedServiceId);
+                      if (!service) return null;
+                      
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                              {service.name}
+                            </span>
+                            <Badge className="bg-blue-600">
+                              {formatCurrency(service.price)}
+                            </Badge>
+                          </div>
+                          {service.description && (
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                              {service.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-3 text-xs text-blue-600 dark:text-blue-400">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {service.duration} minutos
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              {formatCurrency(service.price)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             <Button
@@ -533,6 +691,8 @@ export function MonthlySchedulePicker({
               className="w-full h-12"
               disabled={
                 !selectedDate ||
+                !selectedServiceId ||
+                availableServices.length === 0 ||
                 (selectedDate && isSlotOccupied(selectedDate, selectedTime))
               }
             >
@@ -543,7 +703,7 @@ export function MonthlySchedulePicker({
         </DialogContent>
       </Dialog>
 
-      {selectedSchedules.length === 0 && (
+      {selectedSchedules.length === 0 && availableServices.length > 0 && (
         <Card className="border-2 border-dashed">
           <CardContent className="pt-12 pb-12">
             <div className="text-center text-muted-foreground max-w-md mx-auto">
@@ -562,6 +722,7 @@ export function MonthlySchedulePicker({
                   <li>✅ Dias com 🟠 pontinho laranja têm agendamentos existentes</li>
                   <li>✅ Horários ocupados ficam bloqueados automaticamente</li>
                   <li>✅ Você pode agendar até {maxSchedules} vezes no mês</li>
+                  <li>✅ O valor total é calculado automaticamente</li>
                 </ul>
               </div>
             </div>
@@ -569,7 +730,7 @@ export function MonthlySchedulePicker({
         </Card>
       )}
 
-      {/* 🔥 NOVO POPUP DE LIMITE */}
+      {/* 🔥 POPUP DE LIMITE */}
       <ScheduleLimitDialog
         open={showLimitDialog}
         onOpenChange={setShowLimitDialog}
