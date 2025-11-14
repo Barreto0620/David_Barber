@@ -244,18 +244,6 @@ export default function LoyaltyPage() {
                     </CardContent>
                 </Card>
             </div>
-
-            {/* Debug Info - Temporário */}
-            {process.env.NODE_ENV === 'development' && (
-                <Card className="bg-yellow-50 border-yellow-200">
-                    <CardContent className="p-4">
-                        <p className="text-sm font-mono">
-                            🐛 Debug: {clients?.length || 0} clientes total | {weeklyClients.length} elegíveis esta semana
-                        </p>
-                    </CardContent>
-                </Card>
-            )}
-
             {/* Tabs - Otimizado */}
             <Tabs defaultValue="cards" className="space-y-3 sm:space-y-4">
                 <TabsList className="grid w-full grid-cols-2 h-auto gap-1 p-1">
