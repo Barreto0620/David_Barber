@@ -284,19 +284,6 @@ export default function Dashboard() {
               <span className="text-xs sm:text-sm">Atualizar</span>
             </Button>
           </div>
-
-          {lastSync && (
-            <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-2">
-              <span>Última sincronização: {new Date(lastSync).toLocaleString('pt-BR')}</span>
-              <span className="flex items-center gap-1 text-green-600">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-                Realtime ativo
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Metrics Grid */}
