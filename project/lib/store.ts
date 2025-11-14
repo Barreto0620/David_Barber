@@ -1,5 +1,5 @@
 // @ts-nocheck
-// lib/store.ts - VERSÃO CORRIGIDA E OTIMIZADA
+// lib/store.ts - VERSÃO CORRIGIDA - SEM NOTIFICAÇÕES DUPLICADAS
 'use client';
 
 import { create } from 'zustand';
@@ -31,8 +31,7 @@ const generateMonthlyAppointments = (
   clientId: string,
   startDate: string,
   monthlyPrice: number
-): Array<Omit<Appointment, 'id' |
-  'created_at' | 'professional_id'>> => {
+): Array<Omit<Appointment, 'id' | 'created_at' | 'professional_id'>> => {
   const appointments: Array<Omit<Appointment, 'id' | 'created_at' | 'professional_id'>> = [];
   const start = new Date(startDate);
   const currentMonth = start.getMonth();
@@ -54,7 +53,6 @@ const generateMonthlyAppointments = (
 
       if (scheduledDate >= start) {
         appointments.push({
-
           client_id: clientId,
           scheduled_date: scheduledDate.toISOString(),
           service_type: schedule.serviceType,
@@ -66,7 +64,6 @@ const generateMonthlyAppointments = (
         });
       }
 
-
       date.setDate(date.getDate() + 7);
     }
   });
@@ -74,6 +71,7 @@ const generateMonthlyAppointments = (
     new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime()
   );
 };
+
 const getWeeklyRevenue = (appointments: Appointment[]): number => {
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -109,12 +107,14 @@ interface AppStore extends LoyaltyStore {
   unreadCount: number;
   monthlyClients: MonthlyClientWithDetails[];
   monthlyClientsLoading: boolean;
+  
   setClients: (clients: Client[]) => void;
   setAppointments: (appointments: Appointment[]) => void;
   setServices: (services: Service[]) => void;
   setMetrics: (metrics: DashboardMetrics) => void;
   setSelectedDate: (date: Date) => void;
   setLoading: (loading: boolean) => void;
+  
   addClient: (client: Omit<Client, 'id' | 'created_at' | 'professional_id'>) => Promise<Client | null>;
   updateClient: (id: string, client: Partial<Client>) => Promise<boolean>;
   deleteClient: (id: string) => Promise<boolean>;
@@ -124,6 +124,7 @@ interface AppStore extends LoyaltyStore {
   deleteAppointment: (id: string) => Promise<boolean>;
   completeAppointment: (id: string, paymentMethod: string, finalPrice?: number) => Promise<boolean>;
   cancelAppointment: (id: string) => Promise<boolean>;
+  
   addNotification: (notification: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
@@ -153,8 +154,7 @@ interface AppStore extends LoyaltyStore {
       serviceType: string;
     }>;
     notes?: string;
-  }) => Promise<MonthlyClient |
-    null>;
+  }) => Promise<MonthlyClient | null>;
   updateMonthlyClient: (id: string, data: Partial<MonthlyClient>) => Promise<boolean>;
   updateMonthlySchedules: (monthlyClientId: string, schedules: Array<{
     dayOfWeek: number;
@@ -176,8 +176,7 @@ interface AppStore extends LoyaltyStore {
       serviceType: string;
     }>;
     notes?: string;
-  }) => Promise<MonthlyClient |
-    null>;
+  }) => Promise<MonthlyClient | null>;
   convertToNormalClient: (monthlyClientId: string) => Promise<boolean>;
   getMonthlyClientByClientId: (clientId: string) => MonthlyClientWithDetails | undefined;
   isClientMonthly: (clientId: string) => boolean;
@@ -198,7 +197,6 @@ export const useAppStore = create<AppStore>()(
       services: [
         { id: '1', name: 'Corte Simples', price: 25, duration_minutes: 30, active: true, description: null, created_at: new Date().toISOString() },
         { id: '2', name: 'Corte + Barba', price: 35, duration_minutes: 45, active: true, description: null, created_at: new Date().toISOString() },
-
         { id: '3', name: 'Barba', price: 15, duration_minutes: 20, active: true, description: null, created_at: new Date().toISOString() },
         { id: '4', name: 'Corte Especial', price: 40, duration_minutes: 60, active: true, description: null, created_at: new Date().toISOString() },
       ],
@@ -207,7 +205,6 @@ export const useAppStore = create<AppStore>()(
         todayAppointments: 0,
         weeklyRevenue: 0,
         monthlyRevenue: 0,
-
         completedToday: 0,
         scheduledToday: 0,
       },
@@ -222,10 +219,12 @@ export const useAppStore = create<AppStore>()(
       // 🔥 ESTADO DE FIDELIDADE
       loyaltySettings: null,
       loyaltyClients: [],
-
       loyaltyHistory: [],
       loyaltyStats: null,
       loyaltyLoading: false,
+
+      // 🔥 CONTROLE DE NOTIFICAÇÕES DUPLICADAS
+      _notifiedAppointments: new Set<string>(),
 
       // ============================================
       // FUNÇÕES BÁSICAS
@@ -236,11 +235,13 @@ export const useAppStore = create<AppStore>()(
         get().calculateMetrics();
         get().calculateLoyaltyStats?.();
       },
+      
       setAppointments: (appointments) => {
         console.log('📝 setAppointments: Atualizando', appointments.length, 'agendamentos');
         set({ appointments });
         get().calculateMetrics();
       },
+      
       setServices: (services) => set({ services }),
       setMetrics: (metrics) => set({ metrics }),
       setSelectedDate: (selectedDate) => set({ selectedDate }),
@@ -250,13 +251,27 @@ export const useAppStore = create<AppStore>()(
       // NOTIFICAÇÕES
       // ============================================
       addNotification: (notification) => {
-        const newNotification: Notification = {
+        // 🔥 EVITAR DUPLICATAS: Verificar se já notificamos este agendamento
+        if (notification.appointmentId) {
+          const state = get();
+          if (state._notifiedAppointments.has(notification.appointmentId)) {
+            console.log('⚠️ Notificação já foi enviada para:', notification.appointmentId);
+            return;
+          }
+          
+          // Adicionar aos notificados
+          state._notifiedAppointments.add(notification.appointmentId);
+        }
 
+        const newNotification: Notification = {
           ...notification,
           id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           read: false,
           createdAt: new Date(),
         };
+        
+        console.log('✅ Notificação adicionada:', newNotification.title);
+        
         set((state) => ({
           notifications: [newNotification, ...state.notifications],
           unreadCount: state.unreadCount + 1,
@@ -270,7 +285,6 @@ export const useAppStore = create<AppStore>()(
 
           return {
             notifications: state.notifications.map((n) =>
-
               n.id === id ? { ...n, read: true } : n
             ),
             unreadCount: Math.max(0, state.unreadCount - 1),
@@ -292,7 +306,6 @@ export const useAppStore = create<AppStore>()(
             notifications: state.notifications.filter((n) => n.id !== id),
             unreadCount: notif && !notif.read ? state.unreadCount - 1 : state.unreadCount,
           };
-
         });
       },
 
@@ -326,12 +339,10 @@ export const useAppStore = create<AppStore>()(
               }
 
               const currentUserId = userAuth.user.id;
-              let wasFromLandingPage = false;
 
               // Se não tem professional_id, vincular ao usuário atual
               if (!newAppointment.professional_id) {
                 console.log('🌐 AGENDAMENTO DA LANDING PAGE DETECTADO!');
-                wasFromLandingPage = true;
 
                 const { error: updateError } = await supabase
                   .from('appointments')
@@ -370,11 +381,11 @@ export const useAppStore = create<AppStore>()(
               }));
               get().calculateMetrics();
 
-              // 🔥 DISPARA NOTIFICAÇÃO SEMPRE (landing page ou manual)
+              // 🔥 DISPARA NOTIFICAÇÃO APENAS NO SINO (sem toast na tela)
               const clientName = newAppointment.client?.name || 'Cliente';
               const isManual = newAppointment.created_via === 'manual';
 
-              console.log('🔔 Disparando notificação:', {
+              console.log('🔔 Disparando notificação via REALTIME:', {
                 isManual,
                 clientName
               });
@@ -388,14 +399,6 @@ export const useAppStore = create<AppStore>()(
                 serviceType: newAppointment.service_type,
                 scheduledDate: new Date(newAppointment.scheduled_date),
               });
-
-              // Toast apenas para agendamentos online
-              if (!isManual) {
-                toast.success(`🌐 Novo agendamento online de ${clientName}!`, {
-                  description: `${newAppointment.service_type} - ${new Date(newAppointment.scheduled_date).toLocaleString('pt-BR')}`,
-                  duration: 5000,
-                });
-              }
             }
           )
           .on(
@@ -403,7 +406,6 @@ export const useAppStore = create<AppStore>()(
             {
               event: 'UPDATE',
               schema: 'public',
-
               table: 'appointments',
             },
             async (payload) => {
@@ -413,13 +415,11 @@ export const useAppStore = create<AppStore>()(
 
               // 🔥 CARREGAR DADOS DO CLIENTE
               if (updatedAppointment.client_id) {
-
                 const { data: clientData } = await supabase
                   .from('clients')
                   .select('id, name, phone, email')
                   .eq('id', updatedAppointment.client_id)
                   .maybeSingle();
-
 
                 if (clientData) {
                   updatedAppointment.client = clientData;
@@ -427,10 +427,8 @@ export const useAppStore = create<AppStore>()(
               }
 
               set((state) => ({
-
                 appointments: state.appointments.map((apt) =>
-                  apt.id === updatedAppointment.id ?
-                    updatedAppointment : apt
+                  apt.id === updatedAppointment.id ? updatedAppointment : apt
                 ),
                 lastSync: new Date().toISOString(),
               }));
@@ -443,7 +441,6 @@ export const useAppStore = create<AppStore>()(
               event: 'DELETE',
               schema: 'public',
               table: 'appointments',
-
             },
             (payload) => {
               console.log('🗑️ DELETE DETECTADO:', payload.old);
@@ -452,7 +449,6 @@ export const useAppStore = create<AppStore>()(
 
               set((state) => ({
                 appointments: state.appointments.filter((apt) => apt.id !== deletedId),
-
                 lastSync: new Date().toISOString(),
               }));
 
@@ -461,7 +457,6 @@ export const useAppStore = create<AppStore>()(
           )
           .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
-              // CORREÇÃO DE SINTAXE (de uma etapa anterior)
               console.log('✅ REALTIME APPOINTMENTS CONECTADO');
             } else if (status === 'CLOSED') {
               console.warn('⚠️ Realtime desconectado, tentando reconectar...');
@@ -469,8 +464,10 @@ export const useAppStore = create<AppStore>()(
               console.log('📡 Status Realtime:', status);
             }
           });
+
         const monthlyChannelUnsub = get().setupMonthlyClientsRealtime();
         const loyaltyChannelUnsub = get().setupLoyaltyRealtime?.() || (() => { });
+
         return () => {
           console.log('🔴 REALTIME: Desconectando...');
           supabase.removeChannel(appointmentChannel);
@@ -480,98 +477,100 @@ export const useAppStore = create<AppStore>()(
       },
 
       // ============================================
-      // 🔥 FETCH APPOINTMENTS OTIMIZADO
+      // 🔥 FETCH APPOINTMENTS - CORRIGIDO SEM NOTIFICAÇÕES DUPLICADAS
       // ============================================
-      // 🔥 FETCH APPOINTMENTS - VERSÃO FINAL CORRIGIDA
-fetchAppointments: async () => {
-  try {
-    console.log('🔄 fetchAppointments: Iniciando...');
-    const { data: userAuth } = await supabase.auth.getUser();
-    if (!userAuth?.user) {
-      console.warn('⚠️ fetchAppointments: Usuário não autenticado');
-      return;
-    }
+      fetchAppointments: async () => {
+        try {
+          console.log('🔄 fetchAppointments: Iniciando...');
+          const { data: userAuth } = await supabase.auth.getUser();
+          if (!userAuth?.user) {
+            console.warn('⚠️ fetchAppointments: Usuário não autenticado');
+            return;
+          }
 
-    const currentUserId = userAuth.user.id;
-    const currentIds = new Set(get().appointments.map(a => a.id));
+          const currentUserId = userAuth.user.id;
+          const currentIds = new Set(get().appointments.map(a => a.id));
 
-    const { data: appointmentsData, error: fetchError } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        client:clients!client_id (
-          id,
-          name,
-          phone,
-          email
-        )
-      `)
-      .order('scheduled_date', { ascending: false });
-      
-    if (fetchError) {
-      console.error('❌ Erro ao buscar agendamentos:', fetchError);
-      throw fetchError;
-    }
+          const { data: appointmentsData, error: fetchError } = await supabase
+            .from('appointments')
+            .select(`
+              *,
+              client:clients!client_id (
+                id,
+                name,
+                phone,
+                email
+              )
+            `)
+            .order('scheduled_date', { ascending: false });
+            
+          if (fetchError) {
+            console.error('❌ Erro ao buscar agendamentos:', fetchError);
+            throw fetchError;
+          }
 
-    console.log(`✅ ${appointmentsData?.length || 0} agendamentos encontrados`);
-    const fetchedAppointments = appointmentsData || [];
+          console.log(`✅ ${appointmentsData?.length || 0} agendamentos encontrados`);
+          const fetchedAppointments = appointmentsData || [];
 
-    const orphanAppointments = fetchedAppointments.filter(apt => !apt.professional_id);
-    if (orphanAppointments.length > 0) {
-      console.log(`🔧 ${orphanAppointments.length} agendamentos órfãos encontrados. Vinculando...`);
-      const idsToUpdate = orphanAppointments.map(apt => apt.id);
+          // Vincular agendamentos órfãos
+          const orphanAppointments = fetchedAppointments.filter(apt => !apt.professional_id);
+          if (orphanAppointments.length > 0) {
+            console.log(`🔧 ${orphanAppointments.length} agendamentos órfãos encontrados. Vinculando...`);
+            const idsToUpdate = orphanAppointments.map(apt => apt.id);
 
-      const { error: updateError } = await supabase
-        .from('appointments')
-        .update({ professional_id: currentUserId })
-        .in('id', idsToUpdate);
-        
-      if (!updateError) {
-        orphanAppointments.forEach(apt => {
-          apt.professional_id = currentUserId;
-        });
-        console.log('✅ Agendamentos órfãos vinculados!');
-      }
-    }
+            const { error: updateError } = await supabase
+              .from('appointments')
+              .update({ professional_id: currentUserId })
+              .in('id', idsToUpdate);
+              
+            if (!updateError) {
+              orphanAppointments.forEach(apt => {
+                apt.professional_id = currentUserId;
+              });
+              console.log('✅ Agendamentos órfãos vinculados!');
+            }
+          }
 
-    const newAppointments = fetchedAppointments.filter(apt => !currentIds.has(apt.id));
-    
-    if (newAppointments.length > 0) {
-      console.log(`🆕 ${newAppointments.length} novos agendamentos detectados`);
-      
-      for (const apt of newAppointments) {
-        const clientName = apt.client?.name || 'Cliente';
-        
-        console.log('🔔 Novo agendamento:', clientName, 'via:', apt.created_via);
+          // 🔥 NOTIFICAR NOVOS AGENDAMENTOS DETECTADOS NO FETCH
+          const newAppointments = fetchedAppointments.filter(apt => !currentIds.has(apt.id));
+          
+          if (newAppointments.length > 0) {
+            console.log(`🆕 ${newAppointments.length} novos agendamentos detectados no fetch`);
+            
+            // Disparar notificação para cada novo agendamento
+            for (const apt of newAppointments) {
+              const clientName = apt.client?.name || 'Cliente';
+              const isManual = apt.created_via === 'manual';
+              
+              console.log('🔔 Disparando notificação via FETCH:', {
+                isManual,
+                clientName,
+                id: apt.id
+              });
 
-        get().addNotification({
-          type: 'appointment',
-          title: '🌐 Novo Agendamento',
-          message: `${clientName} - ${apt.service_type}`,
-          appointmentId: apt.id,
-          clientName,
-          serviceType: apt.service_type,
-          scheduledDate: new Date(apt.scheduled_date),
-        });
+              get().addNotification({
+                type: 'appointment',
+                title: isManual ? '✅ Agendamento Criado' : '🌐 Novo Agendamento Online',
+                message: `${clientName} - ${apt.service_type}`,
+                appointmentId: apt.id,
+                clientName,
+                serviceType: apt.service_type,
+                scheduledDate: new Date(apt.scheduled_date),
+              });
+            }
+          }
 
-        toast.success(`🌐 Novo agendamento de ${clientName}!`, {
-          description: `${apt.service_type} - ${new Date(apt.scheduled_date).toLocaleString('pt-BR')}`,
-          duration: 5000,
-        });
-      }
-    }
+          set({
+            appointments: fetchedAppointments,
+            lastSync: new Date().toISOString()
+          });
+          get().calculateMetrics();
 
-    set({
-      appointments: fetchedAppointments,
-      lastSync: new Date().toISOString()
-    });
-    get().calculateMetrics();
-
-    console.log('✅ fetchAppointments concluído!');
-  } catch (error) {
-    console.error('❌ Erro em fetchAppointments:', error);
-  }
-},
+          console.log('✅ fetchAppointments concluído!');
+        } catch (error) {
+          console.error('❌ Erro em fetchAppointments:', error);
+        }
+      },
 
       // ============================================
       // SYNC PRINCIPAL
@@ -596,7 +595,6 @@ fetchAppointments: async () => {
       // ============================================
       // CLIENTS
       // ============================================
-
       addClient: async (clientData) => {
         try {
           set({ isLoading: true });
@@ -605,27 +603,25 @@ fetchAppointments: async () => {
 
           const cleanEmail = clientData.email?.trim();
           const finalEmail = cleanEmail && cleanEmail.length > 0 ? cleanEmail : null;
+          
           const payload = {
             name: clientData.name?.trim(),
             phone: clientData.phone?.trim(),
             email: finalEmail,
-            notes: clientData.notes?.trim() ||
-              null,
-            total_visits: clientData.total_visits ??
-              0,
-            total_spent: clientData.total_spent ??
-              0,
-            preferences: clientData.preferences ??
-              null,
-            last_visit: clientData.last_visit ??
-              null,
+            notes: clientData.notes?.trim() || null,
+            total_visits: clientData.total_visits ?? 0,
+            total_spent: clientData.total_spent ?? 0,
+            preferences: clientData.preferences ?? null,
+            last_visit: clientData.last_visit ?? null,
             professional_id: userAuth.user.id,
           };
+
           const { data, error } = await supabase
             .from('clients')
             .insert([payload])
             .select('*')
             .single();
+
           if (error) throw error;
 
           const newClient = data as Client;
@@ -647,12 +643,14 @@ fetchAppointments: async () => {
         try {
           set({ isLoading: true });
           const { id: _, created_at: __, ...updateData } = clientData as any;
+          
           const { data, error } = await supabase
             .from('clients')
             .update(updateData)
             .eq('id', id)
             .select('*')
             .single();
+
           if (error) throw error;
 
           set(state => ({
@@ -677,6 +675,7 @@ fetchAppointments: async () => {
             .from('clients')
             .delete()
             .eq('id', id);
+
           if (error) throw error;
 
           set(state => ({
@@ -695,9 +694,6 @@ fetchAppointments: async () => {
         }
       },
 
-      // ==================================================
-      // MODIFICAÇÃO ABAIXO
-      // ==================================================
       fetchClients: async () => {
         try {
           const { data: userAuth } = await supabase.auth.getUser();
@@ -709,12 +705,11 @@ fetchAppointments: async () => {
           const { data, error } = await supabase
             .from('clients')
             .select('*')
-            // A LINHA ABAIXO FOI REMOVIDA PARA MOSTRAR TODOS OS CLIENTES 
-            // .eq('professional_id', userAuth.user.id) 
             .order('created_at', { ascending: false });
+
           if (error) throw error;
 
-          console.log(`✅ fetchClients: ${data?.length || 0} clientes carregados (sem filtro)`);
+          console.log(`✅ fetchClients: ${data?.length || 0} clientes carregados`);
           set({
             clients: data || [],
             lastSync: new Date().toISOString()
@@ -724,36 +719,28 @@ fetchAppointments: async () => {
           console.error('❌ Erro ao buscar clientes:', error);
         }
       },
-      // ==================================================
-      // FIM DA MODIFICAÇÃO
-      // ==================================================
 
       // ============================================
       // APPOINTMENTS
       // ============================================
-
       addAppointment: async (appointmentData) => {
         try {
           set({ isLoading: true });
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
+
           const cleanData = {
-            client_id: appointmentData.client_id ??
-              null,
+            client_id: appointmentData.client_id ?? null,
             scheduled_date: appointmentData.scheduled_date,
             service_type: appointmentData.service_type,
-            status: appointmentData.status ||
-              'scheduled',
-            price: appointmentData.price ??
-              0,
-            payment_method: appointmentData.payment_method ??
-              null,
-            created_via: appointmentData.created_via ??
-              'manual',
-            notes: appointmentData.notes ??
-              null,
+            status: appointmentData.status || 'scheduled',
+            price: appointmentData.price ?? 0,
+            payment_method: appointmentData.payment_method ?? null,
+            created_via: appointmentData.created_via ?? 'manual',
+            notes: appointmentData.notes ?? null,
             professional_id: userAuth.user.id,
           };
+
           const { data, error } = await supabase
             .from('appointments')
             .insert([cleanData])
@@ -761,22 +748,25 @@ fetchAppointments: async () => {
               *,
               client:clients!client_id (
                 id,
-            
-    name,
+                name,
                 phone,
                 email
               )
             `)
             .single();
+
           if (error) throw error;
 
           const newAppointment = data as Appointment;
+          
           set(state => ({
             appointments: [newAppointment, ...state.appointments],
             lastSync: new Date().toISOString()
           }));
           get().calculateMetrics();
 
+          // 🔥 NOTIFICAÇÃO APENAS PARA AGENDAMENTOS MANUAIS
+          // (realtime cuida dos agendamentos via landing)
           const clientName = newAppointment.client?.name || 'Cliente';
 
           get().addNotification({
@@ -786,7 +776,6 @@ fetchAppointments: async () => {
             appointmentId: newAppointment.id,
             clientName,
             serviceType: newAppointment.service_type,
-
             scheduledDate: new Date(newAppointment.scheduled_date),
           });
 
@@ -814,14 +803,14 @@ fetchAppointments: async () => {
             .select(`
               *,
               client:clients!client_id (
-          
-      id,
+                id,
                 name,
                 phone,
                 email
               )
             `)
             .single();
+
           if (error) {
             console.error('❌ Erro no update:', error);
             throw error;
@@ -857,6 +846,7 @@ fetchAppointments: async () => {
             .from('appointments')
             .delete()
             .eq('id', id);
+
           if (error) throw error;
 
           set(state => ({
@@ -887,16 +877,16 @@ fetchAppointments: async () => {
           }
 
           const priceToUse = finalPrice !== undefined && finalPrice !== null && finalPrice > 0
-            ?
-            finalPrice
+            ? finalPrice
             : appointment.price;
+
           const updates: Partial<Appointment> = {
             status: 'completed',
-            payment_method: paymentMethod?.toLowerCase() ||
-              'dinheiro',
+            payment_method: paymentMethod?.toLowerCase() || 'dinheiro',
             price: priceToUse,
             completed_at: new Date().toISOString(),
           };
+
           console.log('📝 Atualizações a serem aplicadas:', updates);
 
           const success = await get().updateAppointment(id, updates);
@@ -907,6 +897,7 @@ fetchAppointments: async () => {
           }
 
           console.log('✅ Agendamento atualizado com sucesso');
+
           // Atualizar dados do cliente
           if (appointment.client_id) {
             console.log('👤 Atualizando dados do cliente:', appointment.client_id);
@@ -920,6 +911,7 @@ fetchAppointments: async () => {
                 total_spent: newTotalSpent,
                 last_visit: new Date().toISOString()
               });
+
               if (clientUpdated) {
                 console.log('✅ Cliente atualizado:', {
                   totalVisits: newTotalVisits,
@@ -933,7 +925,6 @@ fetchAppointments: async () => {
           }
 
           toast.success('✅ Atendimento finalizado com sucesso!');
-          // Forçar recálculo das métricas
           get().calculateMetrics();
 
           return true;
@@ -953,16 +944,17 @@ fetchAppointments: async () => {
           if (success) {
             const client = appointment.client_id ?
               get().getClientById(appointment.client_id) : null;
+
             get().addNotification({
               type: 'cancellation',
               title: '❌ Cancelamento',
               message: `${client?.name || 'Cliente'} - ${appointment.service_type}`,
               appointmentId: appointment.id,
               clientName: client?.name || 'Cliente',
-              serviceType:
-                appointment.service_type,
+              serviceType: appointment.service_type,
               scheduledDate: new Date(appointment.scheduled_date),
             });
+
             toast.success('Agendamento cancelado');
           }
 
@@ -976,14 +968,12 @@ fetchAppointments: async () => {
       // ============================================
       // SERVICES
       // ============================================
-
       fetchServices: async () => {
         try {
           const { data, error } = await supabase
             .from('services')
             .select('*')
-            .eq('active',
-              true)
+            .eq('active', true)
             .order('name');
 
           if (error) throw error;
@@ -1001,14 +991,12 @@ fetchAppointments: async () => {
       // ============================================
       // MÉTODOS DE CÁLCULO
       // ============================================
-
       getTodaysAppointments: () => getAppointmentsByDate(get().appointments, new Date()),
       getClientById: (id) => get().clients.find(c => c.id === id),
       getRecentClients: () => get().clients
         .filter(c => c.last_visit)
         .sort((a, b) => new Date(b.last_visit!).getTime() - new Date(a.last_visit!).getTime())
         .slice(0, 10),
-
 
       calculateMetrics: () => {
         const appointments = get().appointments;
@@ -1017,6 +1005,7 @@ fetchAppointments: async () => {
         const todayRevenue = todaysAppointments
           .filter(a => a.status === 'completed')
           .reduce((sum, a) => sum + (Number(a.price) || 0), 0);
+
         const metrics: DashboardMetrics = {
           todayRevenue,
           todayAppointments: todaysAppointments.length,
@@ -1025,6 +1014,7 @@ fetchAppointments: async () => {
           completedToday: todaysAppointments.filter(a => a.status === 'completed').length,
           scheduledToday: todaysAppointments.filter(a => a.status !== 'completed' && a.status !== 'cancelled').length,
         };
+
         console.log('📊 Métricas calculadas:', metrics);
         set({ metrics });
       },
@@ -1032,17 +1022,18 @@ fetchAppointments: async () => {
       // ============================================
       // CLIENTES MENSAIS
       // ============================================
-
       fetchMonthlyClients: async () => {
         try {
           set({ monthlyClientsLoading: true });
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
+
           const { data: monthlyClientsData, error: mcError } = await supabase
             .from('monthly_clients')
             .select('*')
             .eq('professional_id', userAuth.user.id)
             .order('created_at', { ascending: false });
+
           if (mcError) throw mcError;
 
           if (!monthlyClientsData || monthlyClientsData.length === 0) {
@@ -1055,6 +1046,7 @@ fetchAppointments: async () => {
             .from('clients')
             .select('id, name, phone, email')
             .in('id', clientIds);
+
           if (clientsError) throw clientsError;
 
           const monthlyClientIds = monthlyClientsData.map(mc => mc.id);
@@ -1064,6 +1056,7 @@ fetchAppointments: async () => {
             .in('monthly_client_id', monthlyClientIds)
             .eq('active', true)
             .order('day_of_week');
+
           if (schedulesError) throw schedulesError;
 
           const monthlyClientsWithDetails: MonthlyClientWithDetails[] = monthlyClientsData
@@ -1073,15 +1066,13 @@ fetchAppointments: async () => {
 
               const schedules = schedulesData?.filter(s => s.monthly_client_id === mc.id) || [];
 
-
               return {
                 ...mc,
                 client,
                 schedules
               };
             })
-            .filter(Boolean) as
-            MonthlyClientWithDetails[];
+            .filter(Boolean) as MonthlyClientWithDetails[];
 
           set({
             monthlyClients: monthlyClientsWithDetails,
@@ -1102,12 +1093,14 @@ fetchAppointments: async () => {
         try {
           set({ monthlyClientsLoading: true });
           const { id: _, created_at: __, ...updateData } = data as any;
+
           const { data: updated, error } = await supabase
             .from('monthly_clients')
             .update(updateData)
             .eq('id', id)
             .select('*')
             .single();
+
           if (error) throw error;
 
           set(state => ({
@@ -1117,6 +1110,7 @@ fetchAppointments: async () => {
             lastSync: new Date().toISOString(),
             monthlyClientsLoading: false
           }));
+
           await get().fetchMonthlyClients();
           return true;
         } catch (error) {
@@ -1135,6 +1129,7 @@ fetchAppointments: async () => {
             .from('monthly_schedules')
             .delete()
             .eq('monthly_client_id', monthlyClientId);
+
           const schedulesToInsert = schedules.map(schedule => ({
             monthly_client_id: monthlyClientId,
             day_of_week: schedule.dayOfWeek,
@@ -1143,9 +1138,11 @@ fetchAppointments: async () => {
             active: true,
             professional_id: userAuth.user.id
           }));
+
           const { error } = await supabase
             .from('monthly_schedules')
             .insert(schedulesToInsert);
+
           if (error) throw error;
 
           await get().fetchMonthlyClients();
@@ -1165,6 +1162,7 @@ fetchAppointments: async () => {
           set({ monthlyClientsLoading: true });
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
+
           const client = get().clients.find(c => c.id === data.clientId);
           if (!client) {
             toast.error('Cliente não encontrado!');
@@ -1175,6 +1173,7 @@ fetchAppointments: async () => {
           const existing = get().monthlyClients.find(
             mc => mc.client_id === data.clientId && mc.status === 'active'
           );
+
           if (existing) {
             toast.error('Este cliente já possui um plano mensal ativo!');
             set({ monthlyClientsLoading: false });
@@ -1187,6 +1186,7 @@ fetchAppointments: async () => {
             .eq('client_id', data.clientId)
             .in('status', ['active', 'suspended'])
             .maybeSingle();
+
           if (checkError && checkError.code !== 'PGRST116') {
             console.error('❌ Erro ao verificar plano existente:', checkError);
           }
@@ -1202,12 +1202,13 @@ fetchAppointments: async () => {
             .select('scheduled_date, status, professional_id')
             .eq('professional_id', userAuth.user.id)
             .neq('status', 'cancelled');
+
           if (fetchError) throw fetchError;
 
           const pricePerVisit = data.schedules.length > 0
-            ?
-            data.monthlyPrice / data.schedules.length
+            ? data.monthlyPrice / data.schedules.length
             : data.monthlyPrice;
+
           const appointmentsToInsert = data.schedules.map(schedule => {
             const dateToUse = (schedule as any).fullDate || data.startDate;
             const [year, month, day] = dateToUse.split('-').map(Number);
@@ -1215,7 +1216,6 @@ fetchAppointments: async () => {
             const scheduledDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
 
             return {
-
               client_id: data.clientId,
               scheduled_date: scheduledDate.toISOString(),
               service_type: schedule.serviceType,
@@ -1223,11 +1223,11 @@ fetchAppointments: async () => {
               price: pricePerVisit,
               payment_method: null,
               created_via: 'manual',
-
               notes: `🔄 Agendamento Recorrente - Cliente Mensal - ${client.name}`,
               professional_id: userAuth.user.id
             };
           });
+
           const conflicts = [];
           const existingTimestamps = new Set(
             (existingAppointments || []).map(apt => {
@@ -1235,6 +1235,7 @@ fetchAppointments: async () => {
               return `${apt.professional_id}-${timestamp}`;
             })
           );
+
           for (const apt of appointmentsToInsert) {
             const aptDate = new Date(apt.scheduled_date);
             const aptTimestamp = aptDate.getTime();
@@ -1246,7 +1247,6 @@ fetchAppointments: async () => {
                 month: '2-digit',
                 year: 'numeric',
                 hour: '2-digit',
-
                 minute: '2-digit'
               });
               conflicts.push({ date: aptDate, dateStr, timestamp: aptTimestamp });
@@ -1274,17 +1274,17 @@ fetchAppointments: async () => {
             next_payment_date: nextPaymentDate.toISOString(),
             status: 'active',
             payment_status: 'pending',
-
             total_visits: 0,
-            notes: data.notes ||
-              null,
+            notes: data.notes || null,
             professional_id: userAuth.user.id
           };
+
           const { data: newMonthlyClient, error: mcError } = await supabase
             .from('monthly_clients')
             .insert(monthlyClientPayload)
             .select()
             .single();
+
           if (mcError) {
             if ((mcError as any).code === '42501' || (mcError as any).status === 403) {
               toast.error('❌ Erro de permissão: Verifique as políticas RLS!');
@@ -1302,6 +1302,7 @@ fetchAppointments: async () => {
                 uniqueSchedulesMap.set(key, schedule);
               }
             });
+
             const uniqueSchedules = Array.from(uniqueSchedulesMap.values());
             const schedulesToInsert = uniqueSchedules.map(schedule => ({
               monthly_client_id: newMonthlyClient.id,
@@ -1310,11 +1311,12 @@ fetchAppointments: async () => {
               service_type: schedule.serviceType,
               active: true,
               professional_id: userAuth.user.id
-
             }));
+
             const { error: schedulesError } = await supabase
               .from('monthly_schedules')
               .insert(schedulesToInsert);
+
             if (schedulesError) {
               await supabase.from('monthly_clients').delete().eq('id', newMonthlyClient.id);
               throw schedulesError;
@@ -1328,18 +1330,17 @@ fetchAppointments: async () => {
                 const { data: insertedApt, error: singleInsertError } = await supabase
                   .from('appointments')
                   .insert([apt])
-
                   .select(`
                     *,
                     client:clients!client_id (
                       id,
                       name,
-            
-          phone,
+                      phone,
                       email
                     )
                   `)
                   .single();
+
                 if (singleInsertError) {
                   const aptDate = new Date(apt.scheduled_date);
                   failedAppointments.push({
@@ -1395,6 +1396,7 @@ fetchAppointments: async () => {
         try {
           set({ monthlyClientsLoading: true });
           const monthlyClient = get().monthlyClients.find(mc => mc.id === monthlyClientId);
+          
           if (!monthlyClient) {
             toast.error('Cliente mensal não encontrado!');
             set({ monthlyClientsLoading: false });
@@ -1410,6 +1412,7 @@ fetchAppointments: async () => {
             .eq('client_id', monthlyClient.client_id)
             .gte('scheduled_date', today.toISOString())
             .or('notes.ilike.%Cliente Mensal%,notes.ilike.%Recorrente%');
+
           if (fetchError) {
             console.error('❌ Erro ao buscar agendamentos:', fetchError);
           }
@@ -1417,8 +1420,7 @@ fetchAppointments: async () => {
           const appointmentsToDelete = futureAppointments?.filter(apt =>
             apt.notes?.includes('Cliente Mensal') ||
             apt.notes?.includes('Recorrente')
-          ) ||
-            [];
+          ) || [];
 
           const appointmentIds = appointmentsToDelete.map(a => a.id);
 
@@ -1427,6 +1429,7 @@ fetchAppointments: async () => {
               .from('appointments')
               .delete()
               .in('id', appointmentIds);
+
             if (deleteAppsError) {
               console.error('❌ Erro ao excluir agendamentos:', deleteAppsError);
               toast.error('Erro ao excluir agendamentos vinculados');
@@ -1439,6 +1442,7 @@ fetchAppointments: async () => {
             .from('monthly_clients')
             .delete()
             .eq('id', monthlyClientId);
+
           if (error) throw error;
 
           set(state => ({
@@ -1447,6 +1451,7 @@ fetchAppointments: async () => {
             lastSync: new Date().toISOString(),
             monthlyClientsLoading: false
           }));
+
           await get().fetchAppointments();
 
           toast.success(
@@ -1482,11 +1487,13 @@ fetchAppointments: async () => {
 
           const nextPaymentDate = new Date();
           nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
+
           const success = await get().updateMonthlyClient(id, {
             payment_status: 'paid',
             last_payment_date: new Date().toISOString(),
             next_payment_date: nextPaymentDate.toISOString()
           });
+
           if (success) toast.success('Pagamento registrado!');
           return success;
         } catch (error) {
@@ -1502,6 +1509,7 @@ fetchAppointments: async () => {
 
           const { data: userAuth } = await supabase.auth.getUser();
           if (!userAuth.user) throw new Error('Não autenticado');
+
           const nextMonth = new Date();
           nextMonth.setMonth(nextMonth.getMonth() + 1);
           nextMonth.setDate(1);
@@ -1513,18 +1521,20 @@ fetchAppointments: async () => {
               serviceType: s.service_type
             })),
             monthlyClient.client_id,
-
             nextMonth.toISOString(),
             monthlyClient.monthly_price
           );
+
           if (monthlyAppointments.length > 0) {
             const appointmentsToInsert = monthlyAppointments.map(apt => ({
               ...apt,
               professional_id: userAuth.user.id
             }));
+
             const { error } = await supabase
               .from('appointments')
               .insert(appointmentsToInsert);
+
             if (error) throw error;
 
             await get().fetchAppointments();
@@ -1557,7 +1567,6 @@ fetchAppointments: async () => {
             'postgres_changes',
             { event: '*', schema: 'public', table: 'monthly_clients' },
             async () => {
-
               await get().fetchMonthlyClients();
             }
           )
@@ -1566,10 +1575,10 @@ fetchAppointments: async () => {
             { event: '*', schema: 'public', table: 'monthly_schedules' },
             async () => {
               await get().fetchMonthlyClients();
-
             }
           )
           .subscribe();
+
         return () => {
           supabase.removeChannel(channel);
         };
@@ -1588,7 +1597,6 @@ fetchAppointments: async () => {
         appointments: state.appointments,
         services: state.services,
         selectedDate: state.selectedDate,
-
         lastSync: state.lastSync,
         notifications: state.notifications,
         unreadCount: state.unreadCount,
