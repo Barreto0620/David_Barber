@@ -31,7 +31,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
-import type { LoyaltyClient, LoyaltySettings } from '@/types/loyalty'; 
+import type { LoyaltyClient, LoyaltySettings } from '@/types/loyalty';
 
 export default function LoyaltyPage() {
     // ============================================
@@ -43,13 +43,13 @@ export default function LoyaltyPage() {
         loyaltyStats: stats,
         loyaltyLoading: loading,
         updateLoyaltySettings,
-        spinWheel: storeSpinWheel, 
+        spinWheel: storeSpinWheel,
         redeemFreeHaircut: storeRedeem,
         addNotification,
     } = useAppStore();
 
     const cutsForFree = settings?.cuts_for_free || 10;
-    
+
     // ============================================
     // 2. ESTADOS LOCAIS E EFEITOS
     // ============================================
@@ -60,7 +60,7 @@ export default function LoyaltyPage() {
     const [winner, setWinner] = useState(null);
     const [winnerDialogOpen, setWinnerDialogOpen] = useState(false);
     const [lastWinnerId, setLastWinnerId] = useState(null);
-    
+
     useEffect(() => {
         setTempCutsForFree(cutsForFree);
     }, [cutsForFree]);
@@ -71,11 +71,11 @@ export default function LoyaltyPage() {
     const totalPoints = stats?.totalPoints || 0;
     const totalFreeHaircuts = stats?.totalFreeHaircuts || 0;
     const clientsNearReward = stats?.clientsNearReward || 0;
-    
+
     // 🔥 CORREÇÃO: Usar useMemo ao invés de useCallback
     const weeklyClients = useMemo(() => {
         console.log('🔍 Calculando weeklyClients. Total de clientes:', clients?.length || 0);
-        
+
         if (!clients || clients.length === 0) {
             console.log('⚠️ Nenhum cliente disponível');
             return [];
@@ -84,22 +84,22 @@ export default function LoyaltyPage() {
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
         weekAgo.setHours(0, 0, 0, 0);
-        
+
         const filtered = clients.filter(client => {
             if (!client.last_visit) {
                 return false;
             }
-            
+
             const lastVisit = new Date(client.last_visit);
             const isEligible = lastVisit >= weekAgo;
-            
+
             if (isEligible) {
                 console.log('✅ Cliente elegível:', client.name, '- Última visita:', lastVisit.toLocaleDateString('pt-BR'));
             }
-            
+
             return isEligible;
         }).sort((a, b) => a.client_id.localeCompare(b.client_id));
-        
+
         console.log('📊 Total de clientes elegíveis:', filtered.length);
         return filtered;
     }, [clients]); // Recalcula quando 'clients' mudar
@@ -123,10 +123,10 @@ export default function LoyaltyPage() {
         }
 
         setSpinning(true);
-        
+
         let selectedClient;
         let randomIndex;
-        
+
         if (weeklyClients.length > 1) {
             let attempts = 0;
             do {
@@ -138,29 +138,29 @@ export default function LoyaltyPage() {
             selectedClient = weeklyClients[0];
             randomIndex = 0;
         }
-        
+
         const segmentAngle = 360 / weeklyClients.length;
         const targetOffset = (randomIndex * segmentAngle) + (segmentAngle / 2);
-        const targetStopAngle = 360 - targetOffset; 
-        
+        const targetStopAngle = 360 - targetOffset;
+
         const currentRotationNormalized = rotation % 360;
         let diff = targetStopAngle - currentRotationNormalized;
-        if (diff < 0) diff += 360; 
-        
-        const fullRotations = 5; 
-        const finalRotation = rotation + (360 * fullRotations) + diff + 360; 
-        
-        setRotation(finalRotation); 
-        
+        if (diff < 0) diff += 360;
+
+        const fullRotations = 5;
+        const finalRotation = rotation + (360 * fullRotations) + diff + 360;
+
+        setRotation(finalRotation);
+
         setTimeout(async () => {
-            const winnerFromStore = await storeSpinWheel(selectedClient.client_id); 
-            
+            const winnerFromStore = await storeSpinWheel(selectedClient.client_id);
+
             if (winnerFromStore) {
                 setWinner(winnerFromStore);
                 setWinnerDialogOpen(true);
-                setLastWinnerId(winnerFromStore.client_id); 
+                setLastWinnerId(winnerFromStore.client_id);
             }
-            setSpinning(false); 
+            setSpinning(false);
         }, 5000);
     };
 
@@ -171,7 +171,7 @@ export default function LoyaltyPage() {
     // ============================================
     // 5. RENDERIZAÇÃO
     // ============================================
-    
+
     return (
         <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6 pb-20 sm:pb-6">
 
@@ -273,7 +273,7 @@ export default function LoyaltyPage() {
                             {clients.map((client) => {
                                 const progress = (client.points / cutsForFree) * 100;
                                 const isNearReward = client.points >= cutsForFree - 2;
-                                
+
                                 return (
                                     <Card key={client.client_id} className={cn(
                                         "hover:shadow-lg transition-all shadow-sm",
@@ -348,7 +348,7 @@ export default function LoyaltyPage() {
                                                 <div>
                                                     <p className="text-muted-foreground">Última Visita:</p>
                                                     <p className="font-bold truncate">
-                                                        {client.last_visit 
+                                                        {client.last_visit
                                                             ? new Date(client.last_visit).toLocaleDateString('pt-BR', {
                                                                 day: '2-digit',
                                                                 month: '2-digit'
@@ -365,7 +365,7 @@ export default function LoyaltyPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     className="flex-1 text-xs sm:text-sm h-9 sm:h-10"
-                                                    disabled={true} 
+                                                    disabled={true}
                                                 >
                                                     <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                                     <span className="hidden xs:inline">Pontuação Automática</span>
@@ -376,7 +376,7 @@ export default function LoyaltyPage() {
                                                         variant="default"
                                                         size="sm"
                                                         className="flex-1 text-xs sm:text-sm h-9 sm:h-10 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-transform touch-manipulation"
-                                                        onClick={() => redeemFreeHaircut(client.client_id)} 
+                                                        onClick={() => redeemFreeHaircut(client.client_id)}
                                                         disabled={loading}
                                                     >
                                                         <Gift className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
@@ -426,9 +426,9 @@ export default function LoyaltyPage() {
                                     {weeklyClients.length > 0 ? (
                                         <>
                                             <div className="absolute w-[95%] h-[95%] rounded-full border-2 sm:border-4 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.5)] sm:shadow-[0_0_30px_rgba(251,191,36,0.5)] animate-pulse" />
-                                            
-                                            <svg 
-                                                className="w-[90%] h-[90%] absolute" 
+
+                                            <svg
+                                                className="w-[90%] h-[90%] absolute"
                                                 viewBox="0 0 400 400"
                                                 style={{
                                                     transform: `rotate(${rotation}deg)`,
@@ -457,23 +457,23 @@ export default function LoyaltyPage() {
                                                         );
                                                     })}
                                                 </defs>
-                                                
+
                                                 {weeklyClients.map((client, idx) => {
                                                     const segmentAngle = 360 / weeklyClients.length;
                                                     const startAngle = idx * segmentAngle - 90;
                                                     const endAngle = (idx + 1) * segmentAngle - 90;
-                                                    
+
                                                     const startX = 200 + 190 * Math.cos((startAngle * Math.PI) / 180);
                                                     const startY = 200 + 190 * Math.sin((startAngle * Math.PI) / 180);
                                                     const endX = 200 + 190 * Math.cos((endAngle * Math.PI) / 180);
                                                     const endY = 200 + 190 * Math.sin((endAngle * Math.PI) / 180);
                                                     const largeArcFlag = segmentAngle > 180 ? 1 : 0;
-                                                    
+
                                                     const midAngle = startAngle + segmentAngle / 2;
-                                                    const correctedTextRadius = 160; 
+                                                    const correctedTextRadius = 160;
                                                     const textX = 200 + correctedTextRadius * Math.cos((midAngle * Math.PI) / 180);
                                                     const textY = 200 + correctedTextRadius * Math.sin((midAngle * Math.PI) / 180);
-                                                    
+
                                                     return (
                                                         <g key={client.client_id}>
                                                             <path
@@ -496,34 +496,40 @@ export default function LoyaltyPage() {
                                                                 fontWeight="bold"
                                                                 textAnchor="middle"
                                                                 dominantBaseline="middle"
-                                                                transform={`rotate(${midAngle + 90}, ${textX}, ${textY})`} 
+                                                                transform={`rotate(${midAngle + 90}, ${textX}, ${textY})`}
                                                                 style={{
                                                                     filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.9))',
                                                                     textTransform: weeklyClients.length > 4 ? 'uppercase' : 'none',
                                                                 }}
                                                             >
-                                                                {client.name.split(' ')[0]}
+                                                                {(() => {
+                                                                    const parts = client.name.trim().split(' ');
+                                                                    if (parts.length === 1) return parts[0];
+                                                                    const firstName = parts[0];
+                                                                    const lastNameInitial = parts[parts.length - 1][0];
+                                                                    return `${firstName} ${lastNameInitial}.`;
+                                                                })()}
                                                             </text>
                                                         </g>
                                                     );
                                                 })}
-                                                
+
                                                 <circle cx="200" cy="200" r="190" fill="none" stroke="#f59e0b" strokeWidth="10" />
                                                 <circle cx="200" cy="200" r="50" fill="#f59e0b" />
                                                 <circle cx="200" cy="200" r="50" fill="none" stroke="white" strokeWidth="5" />
                                             </svg>
-                                            
+
                                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20">
                                                 <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white drop-shadow-lg" />
                                             </div>
-                                            
+
                                             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 sm:-translate-y-6 z-30">
                                                 <div className="relative">
                                                     <div className="w-0 h-0 border-l-[20px] sm:border-l-[30px] border-l-transparent border-r-[20px] sm:border-r-[30px] border-r-transparent border-t-[40px] sm:border-t-[60px] border-t-red-600 drop-shadow-2xl" />
                                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[16px] sm:border-l-[24px] border-l-transparent border-r-[16px] sm:border-r-[24px] border-r-transparent border-t-[32px] sm:border-t-[48px] border-t-red-500" />
                                                 </div>
                                             </div>
-                                            
+
                                             {spinning && (
                                                 <div className="absolute w-full h-full rounded-full bg-gradient-radial from-amber-500/20 to-transparent animate-ping pointer-events-none" />
                                             )}
@@ -541,7 +547,7 @@ export default function LoyaltyPage() {
                                 <Button
                                     size="lg"
                                     className="w-full h-12 sm:h-14 text-base sm:text-lg font-bold active:scale-95 transition-transform touch-manipulation"
-                                    onClick={spinWheel} 
+                                    onClick={spinWheel}
                                     disabled={spinning || weeklyClients.length === 0 || loading}
                                 >
                                     {spinning ? (
@@ -633,16 +639,16 @@ export default function LoyaltyPage() {
                     </div>
 
                     <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setSettingsOpen(false)} 
+                        <Button
+                            variant="outline"
+                            onClick={() => setSettingsOpen(false)}
                             disabled={loading}
                             className="w-full sm:w-auto h-11 active:scale-95 transition-transform touch-manipulation"
                         >
                             Cancelar
                         </Button>
-                        <Button 
-                            onClick={handleSaveSettings} 
+                        <Button
+                            onClick={handleSaveSettings}
                             disabled={loading}
                             className="w-full sm:w-auto h-11 active:scale-95 transition-transform touch-manipulation"
                         >
@@ -673,7 +679,7 @@ export default function LoyaltyPage() {
 
                     <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl" />
                     <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
-                    
+
                     <div className="relative z-10 p-4 sm:p-6">
                         <DialogHeader className="space-y-3 sm:space-y-4">
                             <div className="flex justify-center">
