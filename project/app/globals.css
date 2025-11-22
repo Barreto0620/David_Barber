@@ -155,10 +155,19 @@
   * {
     @apply border-border;
   }
-  
+
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     position: relative;
+    /* Gradiente colorido inspirado na página de login */
+    background: linear-gradient(135deg,
+      rgb(239, 246, 255) 0%,    /* from-blue-50 */
+      rgb(238, 242, 255) 25%,   /* via-indigo-50 */
+      rgb(250, 245, 255) 50%,   /* to-purple-50 */
+      rgb(238, 242, 255) 75%,   /* via-indigo-50 */
+      rgb(239, 246, 255) 100%   /* from-blue-50 */
+    );
+    background-attachment: fixed;
   }
 
   /* Background image aplicado via pseudo-elemento */
@@ -179,7 +188,7 @@
     z-index: 0;
   }
 
-  /* Overlay para melhorar legibilidade */
+  /* Overlay sutil para melhorar legibilidade mantendo as cores */
   body::before {
     content: '';
     position: fixed;
@@ -187,14 +196,24 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: hsl(var(--background) / 0.85);
+    background-color: rgba(255, 255, 255, 0.4);
     pointer-events: none;
     z-index: -1;
   }
 
-  /* Ajuste no dark mode */
+  /* Ajuste no dark mode - mantém gradiente mas em tons escuros */
+  .dark body {
+    background: linear-gradient(135deg,
+      rgb(3, 7, 18) 0%,         /* from-gray-950 */
+      rgb(23, 37, 84) 25%,      /* via-blue-950 */
+      rgb(17, 24, 39) 50%,      /* to-gray-900 */
+      rgb(23, 37, 84) 75%,      /* via-blue-950 */
+      rgb(3, 7, 18) 100%        /* from-gray-950 */
+    );
+  }
+
   .dark body::before {
-    background-color: hsl(var(--background) / 0.90);
+    background-color: rgba(0, 0, 0, 0.3);
   }
 
   .dark body::after {
