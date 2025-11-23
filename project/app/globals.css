@@ -190,11 +190,15 @@
   }
 
   /* Garantir que o conteúdo fique acima */
-  body > * {
-    background-image: url('/logo_grafite.png');
-    position: relative;
-    z-index: 1;
-  }
+body > * {
+  background-image: url('/logo_grafite.png');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  background-attachment: fixed;
+  position: relative;
+  z-index: 1;
+}
 }
 
 /* ================================================= */

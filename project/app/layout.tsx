@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 // Metadata com configurações para melhor responsividade
 export const metadata: Metadata = {
-  title: 'David Barber - Sistema de Gestão',
+  title: 'David Barber - Gestão de Barbearia',
   description: 'Sistema de gerenciamento para barbearia',
   icons: {
     // Aponta para o arquivo que está em /public/favicon.png
