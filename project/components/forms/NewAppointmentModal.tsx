@@ -1,8 +1,15 @@
+
 // @ts-nocheck
 'use client';
-
 import { useState, useMemo } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogOverlay, // <<< IMPORTADO PARA APLICAR CLASSE NO OVERLAY
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,41 +52,35 @@ const generateTimeSlots = () => {
   }
   return slots;
 };
-
 const TIME_SLOTS = generateTimeSlots();
 
 // Funções de data sem date-fns
 const getDaysInMonth = (year: number, month: number) => {
   return new Date(year, month + 1, 0).getDate();
 };
-
 const getFirstDayOfMonth = (year: number, month: number) => {
   return new Date(year, month, 1).getDay();
 };
-
 const formatDate = (date: Date) => {
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = date.getFullYear();
   return `${year}-${month}-${day}`;
 };
-
 const formatDateDisplay = (date: Date) => {
   const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-  
   return `${days[date.getDay()]}, ${date.getDate()} de ${months[date.getMonth()]}`;
 };
-
 const isSameDay = (date1: Date, date2: Date) => {
   return date1.getFullYear() === date2.getFullYear() &&
-         date1.getMonth() === date2.getMonth() &&
-         date1.getDate() === date2.getDate();
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate();
 };
 
 export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointmentModalProps) {
   const { clients, services, appointments, addAppointment, addClient } = useAppStore();
-  
+
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -87,11 +88,12 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
   const [selectedTime, setSelectedTime] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [notes, setNotes] = useState('');
+
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [serviceSearchOpen, setServiceSearchOpen] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Quick Add Client
   const [showQuickAddClient, setShowQuickAddClient] = useState(false);
   const [quickClientName, setQuickClientName] = useState('');
@@ -104,32 +106,30 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
     const month = currentMonth.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
     const firstDay = getFirstDayOfMonth(year, month);
-    
+
     const days = [];
-    
+
     // Dias do mês anterior
     const prevMonth = month === 0 ? 11 : month - 1;
     const prevYear = month === 0 ? year - 1 : year;
     const daysInPrevMonth = getDaysInMonth(prevYear, prevMonth);
-    
     for (let i = firstDay - 1; i >= 0; i--) {
       days.push(new Date(prevYear, prevMonth, daysInPrevMonth - i));
     }
-    
+
     // Dias do mês atual
     for (let i = 1; i <= daysInMonth; i++) {
       days.push(new Date(year, month, i));
     }
-    
+
     // Dias do próximo mês
     const remainingDays = 42 - days.length; // 6 semanas * 7 dias
     const nextMonth = month === 11 ? 0 : month + 1;
     const nextYear = month === 11 ? year + 1 : year;
-    
     for (let i = 1; i <= remainingDays; i++) {
       days.push(new Date(nextYear, nextMonth, i));
     }
-    
+
     return days;
   }, [currentMonth]);
 
@@ -140,14 +140,14 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
     const proposedDateTime = new Date(date);
     proposedDateTime.setHours(hours, minutes, 0, 0);
 
+    // bloqueio de horários "em cima da hora" (<= 30 min a partir de agora)
     const now = new Date();
     const today = formatDate(now);
     const selectedDateStr = formatDate(date);
-    
+
     if (selectedDateStr === today) {
       const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
       const proposedTimeInMinutes = hours * 60 + minutes;
-      
       if (proposedTimeInMinutes <= currentTimeInMinutes + 30) {
         return false;
       }
@@ -167,9 +167,8 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
     return !occupiedSlots.some(occupied => {
       const occupiedStart = new Date(occupied.scheduled_date);
       const service = services.find(s => s.name === occupied.service_type);
-      const durationMinutes = service?.duration_minutes || 60;
+      const durationMinutes = service?.duration_minutes ?? 60;
       const occupiedEnd = new Date(occupiedStart.getTime() + durationMinutes * 60000);
-
       return (proposedDateTime < occupiedEnd && proposedEnd > occupiedStart);
     });
   };
@@ -177,18 +176,15 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
   const getOccupiedSlotsForDate = (date: Date): string[] => {
     const dateStr = formatDate(date);
     const occupied: string[] = [];
-
     appointments.forEach(apt => {
       const aptDate = new Date(apt.scheduled_date);
       const aptDateStr = formatDate(aptDate);
-      
       if (aptDateStr === dateStr && apt.status !== 'cancelled') {
         const hours = aptDate.getHours().toString().padStart(2, '0');
         const minutes = aptDate.getMinutes().toString().padStart(2, '0');
         occupied.push(`${hours}:${minutes}`);
       }
     });
-
     return [...new Set(occupied)].sort();
   };
 
@@ -204,7 +200,6 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
 
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {};
-
     if (!selectedClient) newErrors.client = 'Selecione um cliente';
     if (!selectedService) newErrors.service = 'Selecione um serviço';
     if (!selectedDate) newErrors.date = 'Selecione uma data';
@@ -229,11 +224,10 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
   const handleDateClick = (date: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (date < today || date.getMonth() !== currentMonth.getMonth()) {
       return;
     }
-
     setSelectedDate(date);
     setSelectedTime('');
     clearFieldError('date');
@@ -245,20 +239,18 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
       toast.error('Preencha nome e telefone do cliente');
       return;
     }
-
     setIsAddingClient(true);
     try {
       const newClient = await addClient({
         name: quickClientName.trim(),
         phone: quickClientPhone.trim(),
-        email: quickClientEmail.trim() || undefined,
+        email: quickClientEmail.trim() ?? undefined,
         notes: undefined,
         total_visits: 0,
         total_spent: 0,
         preferences: null,
         last_visit: null,
       });
-
       if (newClient) {
         setSelectedClient(newClient);
         setShowQuickAddClient(false);
@@ -277,13 +269,11 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    
     if (!validateForm()) {
       setIsSubmitting(false);
       toast.error('Por favor, corrija os erros antes de continuar');
       return;
     }
-
     try {
       const dateStr = formatDate(selectedDate!);
       const scheduledDateTime = new Date(dateStr + 'T' + selectedTime + ':00');
@@ -295,12 +285,11 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
         status: 'scheduled' as const,
         price: customPrice ? parseFloat(customPrice) : selectedService!.price,
         created_via: 'manual' as const,
-        notes: notes || undefined,
+        notes: notes ?? undefined,
       };
 
       await addAppointment(appointment);
       toast.success('Agendamento criado com sucesso!');
-      
       resetForm();
       onSuccess();
       onClose();
@@ -334,14 +323,12 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
   const prevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
   };
-
   const nextMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
   };
-
   const getMonthName = (date: Date) => {
-    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
@@ -349,13 +336,17 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
   today.setHours(0, 0, 0, 0);
 
   const occupiedSlots = selectedDate ? getOccupiedSlotsForDate(selectedDate) : [];
-  const availableTimeSlots = selectedDate 
+  const availableTimeSlots = selectedDate
     ? TIME_SLOTS.filter(time => isTimeSlotAvailable(selectedDate, time))
     : [];
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[950px] max-h-[95vh] overflow-y-auto">
+      {/* >>> Overlay com classe personalizada para fundo escuro + blur */}
+      <DialogOverlay className="appointment-modal-overlay" />
+
+      {/* >>> Content com classe personalizada para background escuro */}
+      <DialogContent className="appointment-modal-content sm:max-w-[950px] max-h-[95vh] overflow-y-auto">
         <DialogHeader className="space-y-3 pb-4 border-b">
           <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
             ✨ Novo Agendamento
@@ -463,7 +454,7 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
                         Cancelar
                       </Button>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Input
                         placeholder="Nome completo *"
@@ -645,11 +636,12 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
                         )}
                       >
                         <div className="text-center">{day.getDate()}</div>
-                        
                         {hasAppointments && !isSelected && (
                           <div className="absolute top-1 right-1">
-                            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" 
-                                 title={`${appointmentsCount} agendamento(s)`} />
+                            <div
+                              className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"
+                              title={`${appointmentsCount} agendamento(s)`}
+                            />
                           </div>
                         )}
                       </button>
@@ -734,8 +726,8 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
                     </Card>
                   )}
 
-                  <Select 
-                    value={selectedTime} 
+                  <Select
+                    value={selectedTime}
                     onValueChange={(value) => {
                       setSelectedTime(value);
                       clearFieldError('time');
@@ -791,6 +783,7 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
                   </div>
                   <Label className="text-lg font-bold">Preço Personalizado</Label>
                 </div>
+
                 <Input
                   type="number"
                   step="0.01"
@@ -799,6 +792,7 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
                   onChange={(e) => setCustomPrice(e.target.value)}
                   className="h-14 text-lg"
                 />
+
                 {selectedService && (
                   <p className="text-sm text-muted-foreground">
                     💡 Valor padrão do serviço: <strong>R$ {selectedService.price.toFixed(2)}</strong>
@@ -816,6 +810,7 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
                   </div>
                   <Label className="text-lg font-bold">Observações</Label>
                 </div>
+
                 <Textarea
                   placeholder="Adicione observações sobre o agendamento..."
                   value={notes}
@@ -830,16 +825,16 @@ export function NewAppointmentModal({ open, onClose, onSuccess }: NewAppointment
 
         {/* Footer Actions */}
         <div className="flex justify-between items-center pt-6 border-t gap-4">
-          <Button 
-            variant="outline" 
-            onClick={handleClose} 
+          <Button
+            variant="outline"
+            onClick={handleClose}
             disabled={isSubmitting}
             className="h-14 px-8 text-base"
           >
             Cancelar
           </Button>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             disabled={isSubmitting || !selectedClient || !selectedService || !selectedDate || !selectedTime}
             className="h-14 px-8 text-base bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold shadow-lg hover:shadow-xl transition-all"
           >
