@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { UserPlus, Phone, Mail, FileText, User } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import type { Client } from '@/types/database';
 import { toast } from 'sonner';
@@ -76,63 +77,104 @@ export function NewClientModal({ open, onClose, onSuccess }: NewClientModalProps
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent 
+        className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto !bg-zinc-950 dark:!bg-zinc-950 border-zinc-800 shadow-2xl"
+        style={{ 
+          backgroundColor: '#09090b',
+          backgroundImage: 'none',
+          opacity: 1,
+          zIndex: 50,
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+        }}
+      >
         <DialogHeader>
-          <DialogTitle>Novo Cliente</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="flex items-center gap-2 text-xl sm:text-2xl font-bold text-white">
+            <UserPlus className="h-6 w-6 text-blue-500" />
+            Novo Cliente
+          </DialogTitle>
+          <DialogDescription className="text-sm sm:text-base text-zinc-400">
             Adicione um novo cliente à base de dados
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Nome *</Label>
+          {/* Nome */}
+          <div className="space-y-2">
+            <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+              <User className="h-4 w-4" />
+              Nome <span className="text-red-400">*</span>
+            </Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Nome completo do cliente"
+              className="!bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="phone">Telefone *</Label>
+          {/* Telefone */}
+          <div className="space-y-2">
+            <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+              <Phone className="h-4 w-4" />
+              Telefone <span className="text-red-400">*</span>
+            </Label>
             <Input
               id="phone"
               value={phone}
               onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="(11) 99999-9999"
+              className="!bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+              <Mail className="h-4 w-4" />
+              Email (opcional)
+            </Label>
             <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="cliente@email.com"
+              className="!bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="notes">Observações</Label>
+          {/* Observações */}
+          <div className="space-y-2">
+            <Label htmlFor="notes" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+              <FileText className="h-4 w-4" />
+              Observações (opcional)
+            </Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Preferências, alergias, observações..."
               rows={3}
+              className="min-h-[80px] resize-none !bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
             />
           </div>
         </div>
 
-        <div className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={onClose}>
+        {/* Footer com botões */}
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-zinc-800">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+            className="w-full sm:w-auto text-sm"
+          >
             Cancelar
           </Button>
-          <Button onClick={handleSubmit}>
+          <Button 
+            onClick={handleSubmit}
+            className="w-full sm:w-auto text-sm bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
             Adicionar Cliente
           </Button>
         </div>

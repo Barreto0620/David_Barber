@@ -201,13 +201,22 @@ export function AddMonthlyClientModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-5xl max-h-[90vh] overflow-y-auto !bg-zinc-950 dark:!bg-zinc-950 border-zinc-800 shadow-2xl"
+        style={{ 
+          backgroundColor: '#09090b',
+          backgroundImage: 'none',
+          opacity: 1,
+          zIndex: 50,
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+        }}
+      >
         <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" />
+          <DialogTitle className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
+            <Sparkles className="w-6 h-6 text-purple-500" />
             Adicionar Cliente Mensal
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm sm:text-base text-zinc-400">
             Transforme um cliente em assinante mensal com agendamentos recorrentes
           </DialogDescription>
         </DialogHeader>
@@ -217,11 +226,11 @@ export function AddMonthlyClientModal({
         {step === 1 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                <UserCheck className="w-5 h-5" />
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
+                <UserCheck className="w-5 h-5 text-blue-500" />
                 Selecione o Cliente
               </h3>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-zinc-400 mb-4">
                 Escolha um cliente existente para transformar em cliente mensal
               </p>
             </div>
@@ -230,12 +239,12 @@ export function AddMonthlyClientModal({
               placeholder="Buscar cliente por nome ou telefone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="mb-4"
+              className="mb-4 !bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500"
             />
 
             <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2">
               {filteredClients.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-zinc-400">
                   <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>
                     {availableClients.length === 0 
@@ -249,22 +258,22 @@ export function AddMonthlyClientModal({
                   <Card
                     key={client.id}
                     className={cn(
-                      "cursor-pointer transition-all hover:shadow-md",
-                      selectedClientId === client.id && "ring-2 ring-primary"
+                      "cursor-pointer transition-all hover:shadow-md !bg-zinc-900 border-zinc-800",
+                      selectedClientId === client.id && "ring-2 ring-blue-500"
                     )}
                     onClick={() => setSelectedClientId(client.id)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold">{client.name}</h4>
-                          <p className="text-sm text-muted-foreground">{client.phone}</p>
+                          <h4 className="font-semibold text-white">{client.name}</h4>
+                          <p className="text-sm text-zinc-400">{client.phone}</p>
                           {client.email && (
-                            <p className="text-xs text-muted-foreground">{client.email}</p>
+                            <p className="text-xs text-zinc-500">{client.email}</p>
                           )}
                         </div>
                         {selectedClientId === client.id && (
-                          <CheckCircle2 className="w-6 h-6 text-primary" />
+                          <CheckCircle2 className="w-6 h-6 text-blue-500" />
                         )}
                       </div>
                     </CardContent>
@@ -278,25 +287,25 @@ export function AddMonthlyClientModal({
         {step === 2 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
+                <DollarSign className="w-5 h-5 text-green-500" />
                 Escolha o Plano
               </h3>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-zinc-400 mb-4">
                 Selecione o tipo de plano mensal para o cliente
               </p>
             </div>
 
             {selectedClient && (
-              <Card className="bg-muted/50">
+              <Card className="!bg-zinc-900 border-zinc-800">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <UserCheck className="w-5 h-5 text-primary" />
+                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                      <UserCheck className="w-5 h-5 text-blue-500" />
                     </div>
                     <div>
-                      <p className="font-medium">{selectedClient.name}</p>
-                      <p className="text-sm text-muted-foreground">{selectedClient.phone}</p>
+                      <p className="font-medium text-white">{selectedClient.name}</p>
+                      <p className="text-sm text-zinc-400">{selectedClient.phone}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -308,7 +317,7 @@ export function AddMonthlyClientModal({
                 <Card
                   key={plan.value}
                   className={cn(
-                    "cursor-pointer transition-all hover:shadow-lg hover:scale-105",
+                    "cursor-pointer transition-all hover:shadow-lg hover:scale-105 !bg-zinc-900 border-zinc-800",
                     planType === plan.value && "ring-4 ring-primary shadow-xl"
                   )}
                   onClick={() => setPlanType(plan.value)}
@@ -320,13 +329,13 @@ export function AddMonthlyClientModal({
                     )}>
                       {plan.icon}
                     </div>
-                    <h4 className="font-bold text-2xl">{plan.label}</h4>
-                    <p className="text-base text-muted-foreground">{plan.description}</p>
+                    <h4 className="font-bold text-2xl text-white">{plan.label}</h4>
+                    <p className="text-base text-zinc-400">{plan.description}</p>
                     <div className="pt-4">
-                      <div className="text-4xl font-bold text-green-600">
+                      <div className="text-4xl font-bold text-green-500">
                         R$ {plan.price}
                       </div>
-                      <p className="text-sm text-muted-foreground">por mês</p>
+                      <p className="text-sm text-zinc-500">por mês</p>
                     </div>
                     {planType === plan.value && (
                       <Badge className="mt-2 bg-green-500 text-base py-1 px-4">
@@ -341,25 +350,27 @@ export function AddMonthlyClientModal({
             {planType && (
               <>
                 <div className="space-y-2">
-                  <Label>Preço Personalizado (opcional)</Label>
+                  <Label className="text-sm font-medium text-zinc-200">Preço Personalizado (opcional)</Label>
                   <Input
                     type="number"
                     placeholder={`Padrão: R$ ${selectedPlan?.price}`}
                     value={customPrice}
                     onChange={(e) => setCustomPrice(e.target.value)}
                     step="0.01"
+                    className="!bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-zinc-500">
                     Deixe em branco para usar o valor padrão do plano
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Data de Início do Plano</Label>
+                  <Label className="text-sm font-medium text-zinc-200">Data de Início do Plano</Label>
                   <Input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    className="!bg-zinc-900 border-zinc-800 text-white"
                   />
                 </div>
               </>
@@ -370,25 +381,25 @@ export function AddMonthlyClientModal({
         {step === 3 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
+                <Calendar className="w-5 h-5 text-blue-500" />
                 Agendamentos do Mês
               </h3>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-zinc-400 mb-4">
                 Selecione as datas específicas para este mês
               </p>
             </div>
 
             {selectedPlan && (
-              <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+              <Card className="!bg-blue-950/30 border-blue-800">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
                     <div className="text-sm">
-                      <p className="font-medium text-blue-900 dark:text-blue-100">
+                      <p className="font-medium text-blue-200">
                         Plano {selectedPlan.label}
                       </p>
-                      <p className="text-blue-700 dark:text-blue-300">
+                      <p className="text-blue-300">
                         Selecione {selectedPlan.minSchedules === selectedPlan.maxSchedules
                           ? `${selectedPlan.minSchedules} data(s) específica(s)`
                           : `de ${selectedPlan.minSchedules} a ${selectedPlan.maxSchedules} datas`
@@ -412,53 +423,53 @@ export function AddMonthlyClientModal({
         {step === 4 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5" />
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
                 Revisão Final
               </h3>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-zinc-400 mb-4">
                 Revise as informações antes de confirmar
               </p>
             </div>
 
-            <Card>
+            <Card className="!bg-zinc-900 border-zinc-800">
               <CardContent className="p-4">
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <h4 className="font-semibold mb-3 flex items-center gap-2 text-white">
                   <UserCheck className="w-4 h-4" />
                   Cliente
                 </h4>
                 <div className="space-y-1">
-                  <p className="font-medium">{selectedClient?.name}</p>
-                  <p className="text-sm text-muted-foreground">{selectedClient?.phone}</p>
+                  <p className="font-medium text-white">{selectedClient?.name}</p>
+                  <p className="text-sm text-zinc-400">{selectedClient?.phone}</p>
                   {selectedClient?.email && (
-                    <p className="text-sm text-muted-foreground">{selectedClient?.email}</p>
+                    <p className="text-sm text-zinc-400">{selectedClient?.email}</p>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="!bg-zinc-900 border-zinc-800">
               <CardContent className="p-4">
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <h4 className="font-semibold mb-3 flex items-center gap-2 text-white">
                   <DollarSign className="w-4 h-4" />
                   Plano e Pagamento
                 </h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Plano:</span>
+                    <span className="text-zinc-400">Plano:</span>
                     <Badge className={selectedPlan?.color}>
                       {selectedPlan?.icon} {selectedPlan?.label}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Valor Mensal:</span>
-                    <span className="font-bold text-green-600">
+                    <span className="text-zinc-400">Valor Mensal:</span>
+                    <span className="font-bold text-green-500">
                       R$ {(customPrice ? parseFloat(customPrice) : selectedPlan?.price)?.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Data de Início:</span>
-                    <span className="font-medium">
+                    <span className="text-zinc-400">Data de Início:</span>
+                    <span className="font-medium text-white">
                       {new Date(startDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                     </span>
                   </div>
@@ -466,10 +477,10 @@ export function AddMonthlyClientModal({
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="!bg-zinc-900 border-zinc-800">
               <CardContent className="p-4">
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
+                <h4 className="font-semibold mb-3 flex items-center gap-2 text-white">
+                  <Calendar className="w-4 w-4" />
                   Agendamentos ({schedules.length})
                 </h4>
                 <div className="space-y-2">
@@ -482,15 +493,15 @@ export function AddMonthlyClientModal({
                       const formattedDate = scheduleDate.toLocaleDateString('pt-BR');
                       
                       return (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div key={idx} className="flex items-center justify-between p-3 !bg-zinc-800/50 rounded-lg">
                           <div className="flex items-center gap-3">
-                            <span className="font-bold text-primary">{dayOfWeek}</span>
-                            <span className="text-muted-foreground">•</span>
-                            <span className="font-semibold">{formattedDate}</span>
-                            <span className="text-muted-foreground">•</span>
-                            <span className="font-mono font-semibold text-lg">{schedule.time}</span>
+                            <span className="font-bold text-blue-400">{dayOfWeek}</span>
+                            <span className="text-zinc-500">•</span>
+                            <span className="font-semibold text-white">{formattedDate}</span>
+                            <span className="text-zinc-500">•</span>
+                            <span className="font-mono font-semibold text-lg text-white">{schedule.time}</span>
                           </div>
-                          <span className="text-sm text-muted-foreground">{schedule.serviceType}</span>
+                          <span className="text-sm text-zinc-400">{schedule.serviceType}</span>
                         </div>
                       );
                     })}
@@ -499,23 +510,24 @@ export function AddMonthlyClientModal({
             </Card>
 
             <div className="space-y-2">
-              <Label>Observações (opcional)</Label>
+              <Label className="text-sm font-medium text-zinc-200">Observações (opcional)</Label>
               <Textarea
                 placeholder="Adicione observações sobre este cliente mensal..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
+                className="!bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500"
               />
             </div>
           </div>
         )}
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-4 border-t border-zinc-800">
           {step > 1 && (
             <Button
               variant="outline"
               onClick={() => setStep(step - 1)}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto text-sm"
               disabled={isSubmitting}
             >
               Voltar
@@ -530,7 +542,7 @@ export function AddMonthlyClientModal({
                 (step === 2 && !canProceedStep2) ||
                 (step === 3 && !canProceedStep3)
               }
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto text-sm"
             >
               Próximo
             </Button>
@@ -538,7 +550,7 @@ export function AddMonthlyClientModal({
             <Button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+              className="w-full sm:w-auto text-sm bg-green-600 hover:bg-green-700"
             >
               {isSubmitting ? (
                 <>

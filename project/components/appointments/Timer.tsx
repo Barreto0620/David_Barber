@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Pause, Square, Clock, CheckCircle, FileText, AlertCircle, DollarSign } from 'lucide-react';
+import { Play, Pause, Square, Clock, CheckCircle, FileText, AlertCircle, DollarSign, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // Adicione a função completeAppointment aqui
 import { useAppStore } from '@/lib/store'; 
@@ -349,70 +349,94 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
                   Finalizar Atendimento
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent 
+                className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto !bg-zinc-950 dark:!bg-zinc-950 border-zinc-800 shadow-2xl"
+                style={{ 
+                  backgroundColor: '#09090b',
+                  backgroundImage: 'none',
+                  opacity: 1,
+                  zIndex: 50,
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+                }}
+              >
                 <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
+                  <DialogTitle className="flex items-center gap-2 text-xl font-bold text-white">
+                    <CheckCircle className="h-6 w-6 text-green-500" />
                     Finalizar Atendimento
                   </DialogTitle>
-                  <DialogDescription>
+                  <DialogDescription className="text-sm text-zinc-400">
                     Confirme os detalhes do serviço realizado para {appointment.customer_name}
                   </DialogDescription>
                 </DialogHeader>
                 
-                <div className="space-y-4">
+                <div className="space-y-4 py-4">
                   {/* Serviço */}
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">Serviço</Label>
-                    <div className="p-3 bg-muted rounded-lg">
-                      <div className="font-medium text-sm">{appointment.service_type}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-zinc-200">Serviço</Label>
+                    <div className="p-3 !bg-zinc-900 border border-zinc-800 rounded-lg">
+                      <div className="font-medium text-sm text-white">{appointment.service_type}</div>
+                      <div className="text-xs text-zinc-400 mt-1">
                         Valor original: {formatCurrency(getOriginalValue())}
                       </div>
                     </div>
                   </div>
 
                   {/* Valor Final */}
-                  <div>
-                    <Label htmlFor="final-value" className="text-sm font-medium">
+                  <div className="space-y-2">
+                    <Label htmlFor="final-value" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                      <DollarSign className="h-4 w-4" />
                       Valor Final (opcional)
                     </Label>
-                    <div className="relative mt-1">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
                       <Input
                         id="final-value"
                         type="text"
                         placeholder={getOriginalValue().toFixed(2).replace('.', ',')}
                         value={finalValue}
                         onChange={(e) => handleFinalValueChange(e.target.value)}
-                        className="pl-9"
+                        className="pl-9 !bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-zinc-500">
                       Deixe em branco para usar o valor original
                     </p>
                   </div>
 
                   {/* Forma de Pagamento */}
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">Forma de Pagamento</Label>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                      <CreditCard className="h-4 w-4" />
+                      Forma de Pagamento <span className="text-red-400">*</span>
+                    </Label>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger>
+                      <SelectTrigger className="!bg-zinc-900 border-zinc-800 text-sm text-white">
                         <SelectValue placeholder="Selecione a forma de pagamento" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                        <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
-                        <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-                        <SelectItem value="pix">PIX</SelectItem>
-                        <SelectItem value="transferencia">Transferência</SelectItem>
+                      <SelectContent className="!bg-zinc-900 border-zinc-800">
+                        <SelectItem value="dinheiro" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
+                          💵 Dinheiro
+                        </SelectItem>
+                        <SelectItem value="cartao_debito" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
+                          💳 Cartão de Débito
+                        </SelectItem>
+                        <SelectItem value="cartao_credito" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
+                          💳 Cartão de Crédito
+                        </SelectItem>
+                        <SelectItem value="pix" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
+                          📱 PIX
+                        </SelectItem>
+                        <SelectItem value="transferencia" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
+                          🏦 Transferência
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   {/* Observações */}
-                  <div>
-                    <Label htmlFor="completion-notes" className="text-sm font-medium">
+                  <div className="space-y-2">
+                    <Label htmlFor="completion-notes" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                      <FileText className="h-4 w-4" />
                       Observações (opcional)
                     </Label>
                     <Textarea
@@ -420,13 +444,13 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
                       placeholder="Adicione observações sobre o atendimento..."
                       value={completionNotes}
                       onChange={(e) => setCompletionNotes(e.target.value)}
-                      className="mt-1"
                       rows={3}
+                      className="min-h-[80px] resize-none !bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
                     />
                   </div>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-4 border-t border-zinc-800">
                   <Button 
                     variant="outline" 
                     onClick={() => {
@@ -436,13 +460,14 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
                       setPaymentMethod('');
                     }}
                     disabled={isCompleting}
+                    className="w-full sm:w-auto text-sm"
                   >
                     Cancelar
                   </Button>
                   <Button 
                     onClick={completeService}
                     disabled={isCompleting || !paymentMethod}
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="w-full sm:w-auto text-sm bg-green-600 hover:bg-green-700 text-white"
                   >
                     {isCompleting ? (
                       <>

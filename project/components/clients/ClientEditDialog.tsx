@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2 } from 'lucide-react';
+import { Trash2, User, Phone, Mail, FileText, Edit3 } from 'lucide-react';
 import type { Client } from '@/types/database';
 
 interface ClientEditDialogProps {
@@ -223,80 +223,117 @@ export function ClientEditDialog({ client, open, onOpenChange }: ClientEditDialo
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto !bg-zinc-950 dark:!bg-zinc-950 border-zinc-800 shadow-2xl"
+          style={{ 
+            backgroundColor: '#09090b',
+            backgroundImage: 'none',
+            opacity: 1,
+            zIndex: 50,
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>Editar Cliente</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="flex items-center gap-2 text-xl sm:text-2xl font-bold text-white">
+              <Edit3 className="h-6 w-6 text-blue-500" />
+              Editar Cliente
+            </DialogTitle>
+            <DialogDescription className="text-sm sm:text-base text-zinc-400">
               Altere as informações do cliente. Clique em salvar quando terminar.
             </DialogDescription>
           </DialogHeader>
           
-          <form onSubmit={handleSubmit} className="space-y-5 py-2">
+          <form onSubmit={handleSubmit} className="space-y-4 py-4">
+            {/* Nome */}
             <div className="space-y-2">
-              <Label htmlFor="name">Nome completo *</Label>
+              <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                <User className="h-4 w-4" />
+                Nome completo <span className="text-red-400">*</span>
+              </Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={handleInputChange('name')}
                 placeholder="Digite o nome completo"
-                className={errors.name ? 'border-red-500' : ''}
+                className={`!bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500 ${
+                  errors.name ? 'border-red-500' : ''
+                }`}
                 disabled={isLoading}
               />
               {errors.name && (
-                <p className="text-sm text-red-500">{errors.name}</p>
+                <p className="text-sm text-red-400">{errors.name}</p>
               )}
             </div>
 
+            {/* Telefone */}
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefone *</Label>
+              <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                <Phone className="h-4 w-4" />
+                Telefone <span className="text-red-400">*</span>
+              </Label>
               <Input
                 id="phone"
                 value={formData.phone}
                 onChange={handlePhoneChange}
                 placeholder="(11) 99999-9999"
-                className={errors.phone ? 'border-red-500' : ''}
+                className={`!bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500 ${
+                  errors.phone ? 'border-red-500' : ''
+                }`}
                 disabled={isLoading}
               />
               {errors.phone && (
-                <p className="text-sm text-red-500">{errors.phone}</p>
+                <p className="text-sm text-red-400">{errors.phone}</p>
               )}
             </div>
 
+            {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                <Mail className="h-4 w-4" />
+                Email (opcional)
+              </Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange('email')}
                 placeholder="cliente@email.com"
-                className={errors.email ? 'border-red-500' : ''}
+                className={`!bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500 ${
+                  errors.email ? 'border-red-500' : ''
+                }`}
                 disabled={isLoading}
               />
               {errors.email && (
-                <p className="text-sm text-red-500">{errors.email}</p>
+                <p className="text-sm text-red-400">{errors.email}</p>
               )}
             </div>
 
+            {/* Observações */}
             <div className="space-y-2">
-              <Label htmlFor="notes">Observações</Label>
+              <Label htmlFor="notes" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                <FileText className="h-4 w-4" />
+                Observações (opcional)
+              </Label>
               <Textarea
                 id="notes"
                 value={formData.notes}
                 onChange={handleInputChange('notes')}
                 placeholder="Preferências, anotações importantes..."
-                className="min-h-[100px] resize-none"
+                className="min-h-[100px] resize-none !bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
                 disabled={isLoading}
               />
             </div>
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+            {/* Footer */}
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-4 border-t border-zinc-800">
               <Button
-                type="submit"
-                disabled={isLoading || isDeleting || !formData.name.trim() || !formData.phone.trim()}
-                className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isLoading || isDeleting}
+                className="w-full sm:w-auto text-sm order-3 sm:order-1"
               >
-                {isLoading ? 'Salvando...' : 'Salvar Informações'}
+                Cancelar
               </Button>
               
               <Button
@@ -304,20 +341,18 @@ export function ClientEditDialog({ client, open, onOpenChange }: ClientEditDialo
                 variant="destructive"
                 onClick={() => setShowDeleteAlert(true)}
                 disabled={isLoading || isDeleting}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto text-sm order-2"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Excluir Cliente
               </Button>
-              
+
               <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isLoading || isDeleting}
-                className="w-full sm:w-auto"
+                type="submit"
+                disabled={isLoading || isDeleting || !formData.name.trim() || !formData.phone.trim()}
+                className="w-full sm:w-auto text-sm bg-blue-600 hover:bg-blue-700 text-white order-1 sm:order-3"
               >
-                Cancelar
+                {isLoading ? 'Salvando...' : 'Salvar Informações'}
               </Button>
             </DialogFooter>
           </form>
@@ -325,24 +360,35 @@ export function ClientEditDialog({ client, open, onOpenChange }: ClientEditDialo
       </Dialog>
 
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          className="!bg-zinc-950 dark:!bg-zinc-950 border-zinc-800"
+          style={{ 
+            backgroundColor: '#09090b',
+            backgroundImage: 'none'
+          }}
+        >
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{client.name}</strong>?
+            <AlertDialogTitle className="text-xl font-bold text-white">
+              Confirmar exclusão
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-zinc-400">
+              Tem certeza que deseja excluir <strong className="text-white">{client.name}</strong>?
               <br />
               <br />
               Esta ação não pode ser desfeita. Todos os agendamentos e histórico deste cliente também serão removidos.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel 
+              disabled={isDeleting}
+              className="w-full sm:w-auto"
+            >
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isDeleting}
-              className="bg-destructive hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
             >
               {isDeleting ? 'Excluindo...' : 'Sim, excluir'}
             </AlertDialogAction>

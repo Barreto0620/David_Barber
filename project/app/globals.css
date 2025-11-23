@@ -305,16 +305,18 @@ body > * {
   background-image: none !important;
 }
 
-/* Forçar remoção de background em todos os filhos diretos do body quando modal está aberto */
-body:has([data-radix-dialog-overlay]) > *:not([data-radix-portal]) {
+/* Classes específicas para modais */
+.appointment-modal-overlay,
+.service-completion-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.92) !important;
   background-image: none !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-/* Garantir que o portal do Radix não herde o background */
-[data-radix-portal] {
+.appointment-modal-content,
+.service-completion-modal-content {
+  background-color: #09090b !important;
   background-image: none !important;
-}
-
-[data-radix-portal] * {
-  background-image: none !important;
+  opacity: 1 !important;
 }
