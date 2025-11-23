@@ -354,7 +354,7 @@ export default function CalendarPage() {
       days = [];
     }
 
-    return <div className="border rounded-lg overflow-hidden">{rows}</div>;
+    return <div className="border rounded-lg overflow-hidden bg-card">{rows}</div>;
   };
 
   const renderWeekView = () => {
@@ -365,7 +365,7 @@ export default function CalendarPage() {
     const now = getBrazilNow();
 
     return (
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-hidden bg-card">
         {/* Header */}
         <div className="grid grid-cols-[50px_repeat(7,1fr)] sm:grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/30">
           <div className="p-1 sm:p-2 border-r"></div>
@@ -486,7 +486,7 @@ export default function CalendarPage() {
     const isPastDate = currentDate < today;
 
     return (
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-hidden bg-card">
         {/* Header */}
         <div className={`p-3 sm:p-4 border-b bg-muted/30 ${isPastDate ? 'opacity-50' : ''}`}>
           <div className="text-center space-y-1 sm:space-y-2">
@@ -747,12 +747,14 @@ export default function CalendarPage() {
           </CardContent>
         </Card>
 
-        {/* Calendar Views */}
-        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-          {viewMode === 'month' && renderMonthView()}
-          {viewMode === 'week' && renderWeekView()}
-          {viewMode === 'day' && renderDayView()}
-        </div>
+        {/* Calendar Views - Envolvido em Card para melhor contraste */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            {viewMode === 'month' && renderMonthView()}
+            {viewMode === 'week' && renderWeekView()}
+            {viewMode === 'day' && renderDayView()}
+          </CardContent>
+        </Card>
 
         {/* Modal */}
         {(() => {

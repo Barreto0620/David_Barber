@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, Calendar, Clock, User, DollarSign, CreditCard } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import type { Appointment, Client, Service } from '@/lib/supabase';
@@ -299,23 +299,34 @@ export default function AppointmentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="appointment-modal-content sm:max-w-[600px] max-h-[90vh] overflow-y-auto !bg-zinc-950 dark:!bg-zinc-950 border-zinc-800 shadow-2xl"
+        style={{ 
+          backgroundColor: '#09090b',
+          backgroundImage: 'none',
+          opacity: 1,
+          zIndex: 50,
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+        }}
+      >
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-xl sm:text-2xl font-bold text-white">
             {appointment ? 'Editar Agendamento' : 'Novo Agendamento'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm sm:text-base text-zinc-400">
             {appointment
               ? 'Atualize as informações do agendamento'
               : 'Preencha os dados para criar um novo agendamento'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 py-4">
+          {/* Data e Horário */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="scheduled_date">
-                Data <span className="text-red-500">*</span>
+              <Label htmlFor="scheduled_date" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                <Calendar className="h-4 w-4" />
+                Data <span className="text-red-400">*</span>
               </Label>
               {(() => {
                 console.log('Renderizando input date com valor:', formData.scheduled_date);
@@ -331,15 +342,17 @@ export default function AppointmentModal({
                   setFormData({ ...formData, scheduled_date: e.target.value });
                 }}
                 required
+                className="!bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-zinc-500">
                 Não é possível agendar em datas passadas
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="scheduled_time">
-                Horário <span className="text-red-500">*</span>
+              <Label htmlFor="scheduled_time" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                <Clock className="h-4 w-4" />
+                Horário <span className="text-red-400">*</span>
               </Label>
               <Select
                 value={formData.scheduled_time}
@@ -348,38 +361,42 @@ export default function AppointmentModal({
                 }
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="!bg-zinc-900 border-zinc-800 text-sm text-white">
                   <SelectValue placeholder="Selecione um horário" />
                 </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
+                <SelectContent className="!bg-zinc-900 border-zinc-800 max-h-[200px]">
                   {availableHours.map((hour) => (
-                    <SelectItem key={hour} value={hour}>
+                    <SelectItem key={hour} value={hour} className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
                       {hour}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-zinc-500">
                 Horário de funcionamento: {HORARIO_ABERTURA} às {HORARIO_FECHAMENTO}
               </p>
             </div>
           </div>
 
+          {/* Cliente */}
           <div className="space-y-2">
-            <Label htmlFor="client_id">Cliente (Opcional)</Label>
+            <Label htmlFor="client_id" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+              <User className="h-4 w-4" />
+              Cliente (Opcional)
+            </Label>
             <Select
               value={formData.client_id}
               onValueChange={(value) =>
                 setFormData({ ...formData, client_id: value })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="!bg-zinc-900 border-zinc-800 text-sm text-white">
                 <SelectValue placeholder="Selecione um cliente" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem cliente</SelectItem>
+              <SelectContent className="!bg-zinc-900 border-zinc-800 max-h-[300px]">
+                <SelectItem value="none" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Sem cliente</SelectItem>
                 {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
+                  <SelectItem key={client.id} value={client.id} className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
                     {client.name} - {client.phone}
                   </SelectItem>
                 ))}
@@ -387,23 +404,24 @@ export default function AppointmentModal({
             </Select>
           </div>
 
+          {/* Serviço */}
           <div className="space-y-2">
-            <Label htmlFor="service_type">
-              Serviço <span className="text-red-500">*</span>
+            <Label htmlFor="service_type" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+              Serviço <span className="text-red-400">*</span>
             </Label>
             <Select
               value={formData.service_type}
               onValueChange={handleServiceChange}
               required
             >
-              <SelectTrigger>
+              <SelectTrigger className="!bg-zinc-900 border-zinc-800 text-sm text-white">
                 <SelectValue placeholder="Selecione um serviço" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="!bg-zinc-900 border-zinc-800 max-h-[300px]">
                 {services
                   .filter((s) => s.active)
                   .map((service) => (
-                    <SelectItem key={service.id} value={service.name}>
+                    <SelectItem key={service.id} value={service.name} className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
                       {service.name} - R$ {service.price.toFixed(2)} (
                       {service.duration_minutes} min)
                     </SelectItem>
@@ -412,30 +430,32 @@ export default function AppointmentModal({
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Status e Preço */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status" className="text-sm font-medium text-zinc-200">Status</Label>
               <Select
                 value={formData.status}
                 onValueChange={(value: any) =>
                   setFormData({ ...formData, status: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="!bg-zinc-900 border-zinc-800 text-sm text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="scheduled">Agendado</SelectItem>
-                  <SelectItem value="in_progress">Em Andamento</SelectItem>
-                  <SelectItem value="completed">Concluído</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                <SelectContent className="!bg-zinc-900 border-zinc-800">
+                  <SelectItem value="scheduled" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Agendado</SelectItem>
+                  <SelectItem value="in_progress" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Em Andamento</SelectItem>
+                  <SelectItem value="completed" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Concluído</SelectItem>
+                  <SelectItem value="cancelled" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="price">
-                Preço (R$) <span className="text-red-500">*</span>
+              <Label htmlFor="price" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                <DollarSign className="h-4 w-4" />
+                Preço (R$) <span className="text-red-400">*</span>
               </Label>
               <Input
                 id="price"
@@ -446,33 +466,40 @@ export default function AppointmentModal({
                   setFormData({ ...formData, price: e.target.value })
                 }
                 required
+                placeholder="0.00"
+                className="!bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
               />
             </div>
           </div>
 
+          {/* Método de Pagamento */}
           <div className="space-y-2">
-            <Label htmlFor="payment_method">Método de Pagamento</Label>
+            <Label htmlFor="payment_method" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+              <CreditCard className="h-4 w-4" />
+              Método de Pagamento
+            </Label>
             <Select
               value={formData.payment_method}
               onValueChange={(value: any) =>
                 setFormData({ ...formData, payment_method: value })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="!bg-zinc-900 border-zinc-800 text-sm text-white">
                 <SelectValue placeholder="Selecione um método" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Não definido</SelectItem>
-                <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                <SelectItem value="cartao">Cartão</SelectItem>
-                <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="transferencia">Transferência</SelectItem>
+              <SelectContent className="!bg-zinc-900 border-zinc-800">
+                <SelectItem value="none" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Não definido</SelectItem>
+                <SelectItem value="dinheiro" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Dinheiro</SelectItem>
+                <SelectItem value="cartao" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Cartão</SelectItem>
+                <SelectItem value="pix" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">PIX</SelectItem>
+                <SelectItem value="transferencia" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">Transferência</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
+          {/* Observações */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Observações</Label>
+            <Label htmlFor="notes" className="text-sm font-medium text-zinc-200">Observações</Label>
             <Textarea
               id="notes"
               value={formData.notes}
@@ -481,34 +508,49 @@ export default function AppointmentModal({
               }
               placeholder="Observações adicionais..."
               rows={3}
+              className="min-h-[80px] resize-none !bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
             />
           </div>
 
-          <DialogFooter className="gap-2">
+          {/* Footer com botões */}
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-4 border-t border-zinc-800">
             {appointment && (
               <Button
                 type="button"
                 variant="destructive"
                 onClick={handleDelete}
                 disabled={loading}
+                className="w-full sm:w-auto sm:mr-auto text-sm"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Excluir
               </Button>
             )}
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar'
-              )}
-            </Button>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+                disabled={loading}
+                className="w-full sm:w-auto text-sm"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={loading}
+                className="w-full sm:w-auto text-sm"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar'
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

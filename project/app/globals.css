@@ -61,7 +61,7 @@
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted-foreground: 0 0% 75%; /* AJUSTADO: De 63.9% para 75% para melhor legibilidade */
     --accent: 0 0% 14.9%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
@@ -185,19 +185,16 @@
     background-color: rgba(0, 0, 0, 0.3);
   }
 
-  .dark body::after {
-    opacity: 0.08;
-  }
-
   /* Garantir que o conteúdo fique acima */
 body > * {
-  background-image: url('/logo_grafite.png');
+  background-image: url('/logo_grafite.jpg');
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
   background-attachment: fixed;
   position: relative;
   z-index: 1;
+  opacity: 0.95;
 }
 }
 
@@ -268,13 +265,56 @@ body > * {
 @media (max-width: 768px) {
   body::after {
     background-size: 60%;
-    opacity: 0.12;
   }
 }
 
 @media (max-width: 480px) {
   body::after {
     background-size: 80%;
-    opacity: 0.10;
   }
+}
+
+/* ================================================= */
+/* CUSTOMIZAÇÃO DO DIALOG/MODAL                      */
+/* ================================================= */
+
+/* Overlay do Dialog - fundo escurecido sem imagem de fundo */
+[data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.92) !important;
+  background-image: none !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 49;
+}
+
+.dark [data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  background-image: none !important;
+}
+
+/* Garantir que o Dialog Content seja opaco e sem imagem de fundo */
+[data-radix-dialog-content] {
+  background-color: #09090b !important;
+  background-image: none !important;
+  opacity: 1 !important;
+  z-index: 50;
+}
+
+.dark [data-radix-dialog-content] {
+  background-color: #09090b !important;
+  background-image: none !important;
+}
+
+/* Forçar remoção de background em todos os filhos diretos do body quando modal está aberto */
+body:has([data-radix-dialog-overlay]) > *:not([data-radix-portal]) {
+  background-image: none !important;
+}
+
+/* Garantir que o portal do Radix não herde o background */
+[data-radix-portal] {
+  background-image: none !important;
+}
+
+[data-radix-portal] * {
+  background-image: none !important;
 }
