@@ -93,12 +93,12 @@ export default function AppointmentModal({
   const prevOpen = useRef(open);
 
   // Configurações de horário de funcionamento
-  const HORARIO_ABERTURA = '08:00';
-  const HORARIO_FECHAMENTO = '20:00';
+  const HORARIO_ABERTURA = '09:00';
+  const HORARIO_FECHAMENTO = '18:00';
   const INTERVALO_MINUTOS = 30; // Intervalos de 30 minutos
 
   // Data mínima (hoje) - usando timezone de Brasília
-  const minDate = formatBrazilDate(getBrazilNow(), 'yyyy-MM-dd');
+  const minDate = formatBrazilDate(getBrazilNow(), 'dd-MM-yyyy');
 
   // Gerar horários disponíveis
   const generateAvailableHours = () => {

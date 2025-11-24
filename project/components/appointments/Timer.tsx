@@ -6,16 +6,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Pause, Square, Clock, CheckCircle, FileText, AlertCircle, DollarSign, CreditCard } from 'lucide-react';
+import { Play, Pause, Square, Clock, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// Adicione a função completeAppointment aqui
-import { useAppStore } from '@/lib/store'; 
-import type { Appointment } from '@/types/database';
+import { useAppStore } from '@/lib/store';
+import { ServiceCompletionModal } from './ServiceCompletionModal';
+import type { Appointment, PaymentMethod } from '@/types/database';
 
 interface TimerProps {
   appointment: Appointment;
@@ -30,37 +25,16 @@ interface TimerState {
 }
 
 export function Timer({ appointment, serviceDuration }: TimerProps) {
-  // Substitua 'updateAppointment' por 'completeAppointment'
-  const { completeAppointment } = useAppStore(); 
+  const { completeAppointment, updateAppointment } = useAppStore();
   const [timer, setTimer] = useState<TimerState>({
     isRunning: false,
     timeElapsed: 0,
     isCompleted: false
   });
   
-  const [completionNotes, setCompletionNotes] = useState('');
-  const [finalValue, setFinalValue] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('');
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
 
   const targetTimeInSeconds = serviceDuration * 60;
-
-  // Função para obter o valor original do serviço
-  const getOriginalValue = () => {
-    // Aqui você pode definir os valores dos serviços ou buscar de uma base de dados
-    const serviceValues: Record<string, number> = {
-      'Corte': 25.00,
-      'Barba': 15.00,
-      'Sobrancelha': 10.00,
-      'Corte + Barba': 35.00,
-      'Corte + Sobrancelha': 30.00,
-      'Corte + Barba + Sobrancelha': 45.00,
-      'Barba + Sobrancelha': 20.00,
-    };
-    
-    return serviceValues[appointment.service_type] || 0;
-  };
 
   // Load saved timer state from localStorage
   useEffect(() => {
@@ -111,7 +85,7 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
     return () => clearInterval(intervalId);
   }, [timer.isRunning, timer.isCompleted, appointment.id, targetTimeInSeconds]);
 
-  const startTimer = useCallback(() => {
+  const startTimer = useCallback(async () => {
     const startTime = new Date();
     const newState = {
       isRunning: true,
@@ -122,7 +96,18 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
     
     setTimer(newState);
     localStorage.setItem(`timer-${appointment.id}`, JSON.stringify(newState));
-  }, [timer.timeElapsed, appointment.id]);
+
+    // CORREÇÃO: Atualizar o status do agendamento para "in_progress"
+    if (appointment.status !== 'in_progress') {
+      try {
+        await updateAppointment(appointment.id, {
+          status: 'in_progress'
+        });
+      } catch (error) {
+        console.error('Erro ao atualizar status do agendamento:', error);
+      }
+    }
+  }, [timer.timeElapsed, appointment.id, appointment.status, updateAppointment]);
 
   const pauseTimer = useCallback(() => {
     const newState = { ...timer, isRunning: false };
@@ -130,7 +115,7 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
     localStorage.setItem(`timer-${appointment.id}`, JSON.stringify(newState));
   }, [timer, appointment.id]);
 
-  const stopTimer = useCallback(() => {
+  const stopTimer = useCallback(async () => {
     const newState = {
       isRunning: false,
       timeElapsed: 0,
@@ -139,21 +124,30 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
     
     setTimer(newState);
     localStorage.removeItem(`timer-${appointment.id}`);
-  }, [appointment.id]);
 
-  const completeService = useCallback(async () => {
-    setIsCompleting(true);
-    
+    // CORREÇÃO: Voltar o status para "scheduled" ao parar o timer
+    if (appointment.status === 'in_progress') {
+      try {
+        await updateAppointment(appointment.id, {
+          status: 'scheduled'
+        });
+      } catch (error) {
+        console.error('Erro ao atualizar status do agendamento:', error);
+      }
+    }
+  }, [appointment.id, appointment.status, updateAppointment]);
+
+  const handleCompleteService = useCallback(async (
+    paymentMethod: PaymentMethod,
+    finalPrice: number,
+    notes?: string
+  ) => {
     try {
-      // Valor final, usa o valor digitado ou o valor original se o campo estiver vazio
-      const finalPrice = finalValue ? parseFloat(finalValue.replace(',', '.')) : getOriginalValue();
-      
-      // Chame a função completa da store
       await completeAppointment(
-        appointment.id, 
-        paymentMethod, 
+        appointment.id,
+        paymentMethod,
         finalPrice,
-        completionNotes.trim()
+        notes
       );
 
       // Clean up timer state
@@ -165,19 +159,12 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
       
       setTimer(finalState);
       localStorage.setItem(`timer-${appointment.id}`, JSON.stringify(finalState));
-      setShowCompletionDialog(false);
-      
-      // Reset form
-      setCompletionNotes('');
-      setFinalValue('');
-      setPaymentMethod('');
       
     } catch (error) {
       console.error('Erro ao finalizar serviço:', error);
-    } finally {
-      setIsCompleting(false);
+      throw error;
     }
-  }, [timer.timeElapsed, appointment.id, completeAppointment, completionNotes, finalValue, paymentMethod]); // Corrigido a dependência para completeAppointment
+  }, [timer.timeElapsed, appointment.id, completeAppointment]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -202,18 +189,7 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
   };
 
   const canComplete = () => {
-    // Altera a lógica para que o botão de finalização apareça sempre que o status do agendamento não for "concluído".
     return appointment.status !== 'completed';
-  };
-
-  const formatCurrency = (value: number) => {
-    return `R$ ${value.toFixed(2).replace('.', ',')}`;
-  };
-
-  const handleFinalValueChange = (value: string) => {
-    // Permitir apenas números e vírgula/ponto
-    const cleaned = value.replace(/[^\d,.]/g, '');
-    setFinalValue(cleaned);
   };
 
   if (appointment.status === 'completed') {
@@ -236,7 +212,7 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
           </div>
           {appointment.notes && (
             <div className="text-sm mt-2">
-              <Label className="text-xs font-medium text-muted-foreground">Observações:</Label>
+              <span className="text-xs font-medium text-muted-foreground">Observações:</span>
               <p className="text-sm mt-1 p-2 bg-muted rounded-md">{appointment.notes}</p>
             </div>
           )}
@@ -246,257 +222,130 @@ export function Timer({ appointment, serviceDuration }: TimerProps) {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          Cronômetro - {appointment.service_type}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Timer Display */}
-        <div className="text-center">
-          <div className={cn("text-4xl font-mono font-bold", getTimerColor())}>
-            {formatTime(timer.timeElapsed)}
+    <>
+      <Card className="w-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Cronômetro - {appointment.service_type}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Timer Display */}
+          <div className="text-center">
+            <div className={cn("text-4xl font-mono font-bold", getTimerColor())}>
+              {formatTime(timer.timeElapsed)}
+            </div>
+            <div className="text-sm text-muted-foreground mt-1">
+              Tempo restante: {getRemainingTime()}
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-secondary rounded-full h-2 mt-3">
+              <div 
+                className={cn(
+                  "h-2 rounded-full transition-all duration-1000 ease-out",
+                  getProgressPercentage() >= 100 
+                    ? "bg-green-500" 
+                    : getProgressPercentage() >= 80 
+                    ? "bg-orange-500" 
+                    : "bg-blue-500"
+                )}
+                style={{ width: `${Math.min(getProgressPercentage(), 100)}%` }}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {getProgressPercentage().toFixed(1)}% concluído
+            </div>
           </div>
-          <div className="text-sm text-muted-foreground mt-1">
-            Tempo restante: {getRemainingTime()}
+
+          {/* Status Badge */}
+          <div className="flex justify-center">
+            {timer.isCompleted ? (
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Tempo Concluído
+              </Badge>
+            ) : timer.isRunning ? (
+              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                <Play className="h-3 w-3 mr-1" />
+                Em Andamento
+              </Badge>
+            ) : (
+              <Badge variant="secondary">
+                <Pause className="h-3 w-3 mr-1" />
+                Pausado
+              </Badge>
+            )}
           </div>
-          
-          {/* Progress Bar */}
-          <div className="w-full bg-secondary rounded-full h-2 mt-3">
-            <div 
-              className={cn(
-                "h-2 rounded-full transition-all duration-1000 ease-out",
-                getProgressPercentage() >= 100 
-                  ? "bg-green-500" 
-                  : getProgressPercentage() >= 80 
-                  ? "bg-orange-500" 
-                  : "bg-blue-500"
-              )}
-              style={{ width: `${Math.min(getProgressPercentage(), 100)}%` }}
-            />
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {getProgressPercentage().toFixed(1)}% concluído
-          </div>
-        </div>
 
-        {/* Status Badge */}
-        <div className="flex justify-center">
-          {timer.isCompleted ? (
-            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Tempo Concluído
-            </Badge>
-          ) : timer.isRunning ? (
-            <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              <Play className="h-3 w-3 mr-1" />
-              Em Andamento
-            </Badge>
-          ) : (
-            <Badge variant="secondary">
-              <Pause className="h-3 w-3 mr-1" />
-              Pausado
-            </Badge>
-          )}
-        </div>
-
-        {/* Controls */}
-        <div className="flex justify-center gap-2 flex-wrap">
-          {!timer.isRunning && !timer.isCompleted && (
-            <Button 
-              onClick={startTimer}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Play className="h-4 w-4 mr-1" />
-              {timer.timeElapsed > 0 ? 'Continuar' : 'Iniciar'}
-            </Button>
-          )}
-
-          {timer.isRunning && (
-            <Button 
-              onClick={pauseTimer}
-              variant="outline"
-              size="sm"
-            >
-              <Pause className="h-4 w-4 mr-1" />
-              Pausar
-            </Button>
-          )}
-
-          {timer.timeElapsed > 0 && (
-            <Button 
-              onClick={stopTimer}
-              variant="outline"
-              size="sm"
-              className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
-            >
-              <Square className="h-4 w-4 mr-1" />
-              Parar
-            </Button>
-          )}
-
-          {canComplete() && (
-            <Dialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
-              <DialogTrigger asChild>
-                <Button 
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  size="sm"
-                >
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Finalizar Atendimento
-                </Button>
-              </DialogTrigger>
-              <DialogContent 
-                className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto !bg-zinc-950 dark:!bg-zinc-950 border-zinc-800 shadow-2xl"
-                style={{ 
-                  backgroundColor: '#09090b',
-                  backgroundImage: 'none',
-                  opacity: 1,
-                  zIndex: 50,
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
-                }}
+          {/* Controls */}
+          <div className="flex justify-center gap-2 flex-wrap">
+            {!timer.isRunning && !timer.isCompleted && (
+              <Button 
+                onClick={startTimer}
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-xl font-bold text-white">
-                    <CheckCircle className="h-6 w-6 text-green-500" />
-                    Finalizar Atendimento
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-zinc-400">
-                    Confirme os detalhes do serviço realizado para {appointment.customer_name}
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4 py-4">
-                  {/* Serviço */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-zinc-200">Serviço</Label>
-                    <div className="p-3 !bg-zinc-900 border border-zinc-800 rounded-lg">
-                      <div className="font-medium text-sm text-white">{appointment.service_type}</div>
-                      <div className="text-xs text-zinc-400 mt-1">
-                        Valor original: {formatCurrency(getOriginalValue())}
-                      </div>
-                    </div>
-                  </div>
+                <Play className="h-4 w-4 mr-1" />
+                {timer.timeElapsed > 0 ? 'Continuar' : 'Iniciar'}
+              </Button>
+            )}
 
-                  {/* Valor Final */}
-                  <div className="space-y-2">
-                    <Label htmlFor="final-value" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
-                      <DollarSign className="h-4 w-4" />
-                      Valor Final (opcional)
-                    </Label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                      <Input
-                        id="final-value"
-                        type="text"
-                        placeholder={getOriginalValue().toFixed(2).replace('.', ',')}
-                        value={finalValue}
-                        onChange={(e) => handleFinalValueChange(e.target.value)}
-                        className="pl-9 !bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
-                      />
-                    </div>
-                    <p className="text-xs text-zinc-500">
-                      Deixe em branco para usar o valor original
-                    </p>
-                  </div>
+            {timer.isRunning && (
+              <Button 
+                onClick={pauseTimer}
+                variant="outline"
+                size="sm"
+              >
+                <Pause className="h-4 w-4 mr-1" />
+                Pausar
+              </Button>
+            )}
 
-                  {/* Forma de Pagamento */}
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-sm font-medium text-zinc-200">
-                      <CreditCard className="h-4 w-4" />
-                      Forma de Pagamento <span className="text-red-400">*</span>
-                    </Label>
-                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger className="!bg-zinc-900 border-zinc-800 text-sm text-white">
-                        <SelectValue placeholder="Selecione a forma de pagamento" />
-                      </SelectTrigger>
-                      <SelectContent className="!bg-zinc-900 border-zinc-800">
-                        <SelectItem value="dinheiro" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
-                          💵 Dinheiro
-                        </SelectItem>
-                        <SelectItem value="cartao_debito" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
-                          💳 Cartão de Débito
-                        </SelectItem>
-                        <SelectItem value="cartao_credito" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
-                          💳 Cartão de Crédito
-                        </SelectItem>
-                        <SelectItem value="pix" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
-                          📱 PIX
-                        </SelectItem>
-                        <SelectItem value="transferencia" className="text-sm text-white hover:!bg-zinc-800 focus:!bg-zinc-800">
-                          🏦 Transferência
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {/* Observações */}
-                  <div className="space-y-2">
-                    <Label htmlFor="completion-notes" className="flex items-center gap-2 text-sm font-medium text-zinc-200">
-                      <FileText className="h-4 w-4" />
-                      Observações (opcional)
-                    </Label>
-                    <Textarea
-                      id="completion-notes"
-                      placeholder="Adicione observações sobre o atendimento..."
-                      value={completionNotes}
-                      onChange={(e) => setCompletionNotes(e.target.value)}
-                      rows={3}
-                      className="min-h-[80px] resize-none !bg-zinc-900 border-zinc-800 text-sm text-white placeholder:text-zinc-500"
-                    />
-                  </div>
-                </div>
+            {timer.timeElapsed > 0 && (
+              <Button 
+                onClick={stopTimer}
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+              >
+                <Square className="h-4 w-4 mr-1" />
+                Parar
+              </Button>
+            )}
 
-                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-4 border-t border-zinc-800">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setShowCompletionDialog(false);
-                      setCompletionNotes('');
-                      setFinalValue('');
-                      setPaymentMethod('');
-                    }}
-                    disabled={isCompleting}
-                    className="w-full sm:w-auto text-sm"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={completeService}
-                    disabled={isCompleting || !paymentMethod}
-                    className="w-full sm:w-auto text-sm bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {isCompleting ? (
-                      <>
-                        <Clock className="h-4 w-4 mr-1 animate-spin" />
-                        Finalizando...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Finalizar Atendimento
-                      </>
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
+            {canComplete() && (
+              <Button 
+                onClick={() => setShowCompletionDialog(true)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                size="sm"
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Finalizar Atendimento
+              </Button>
+            )}
+          </div>
 
-        {/* Service Info */}
-        <div className="text-xs text-muted-foreground text-center pt-2 border-t">
-          Duração estimada: {serviceDuration} minutos
-          {timer.timeElapsed > 0 && (
-            <span className="block mt-1">
-              Tempo decorrido: {Math.round(timer.timeElapsed / 60)} min
-            </span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          {/* Service Info */}
+          <div className="text-xs text-muted-foreground text-center pt-2 border-t">
+            Duração estimada: {serviceDuration} minutos
+            {timer.timeElapsed > 0 && (
+              <span className="block mt-1">
+                Tempo decorrido: {Math.round(timer.timeElapsed / 60)} min
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal de Finalização */}
+      <ServiceCompletionModal
+        appointment={appointment}
+        open={showCompletionDialog}
+        onClose={() => setShowCompletionDialog(false)}
+        onComplete={handleCompleteService}
+      />
+    </>
   );
 }
