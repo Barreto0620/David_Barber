@@ -27,9 +27,9 @@ export default function SettingsPage() {
   
   // Business settings
   const [businessName, setBusinessName] = useState('David Barber');
-  const [businessPhone, setBusinessPhone] = useState('(11) 99999-0000');
-  const [businessAddress, setBusinessAddress] = useState('Rua das Flores, 123 - São Paulo, SP');
-  const [businessHours, setBusinessHours] = useState('08:00 - 20:00');
+  const [businessPhone, setBusinessPhone] = useState('(11) 97872-6013');
+  const [businessAddress, setBusinessAddress] = useState('Rua Basil Cameron 46, São Paulo, SP');
+  const [businessHours, setBusinessHours] = useState('09:00 - 18:00');
   
   // Notification settings
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
