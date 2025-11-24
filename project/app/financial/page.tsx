@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 'use client';
 import { useState, useMemo, useEffect } from 'react';
@@ -573,7 +572,7 @@ tr:nth-child(even) { background: #f9fafb; }
         {/* Se quiser overlay com blur, habilite e aplique sua classe:
             <DialogOverlay className="appointment-modal-overlay" />
         */}
-        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px] mx-auto rounded-lg border-2 border-emerald-700 bg-slate-950/60 backdrop-blur">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px] mx-auto rounded-lg border-2 border-emerald-700 bg-slate-950/95 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-2xl text-emerald-300 font-extrabold">Exportar Relatório</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm text-emerald-200">
@@ -608,7 +607,7 @@ tr:nth-child(even) { background: #f9fafb; }
       </Dialog>
 
       {/* Filters */}
-      <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+      <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
         <CardContent className="p-3 sm:p-4 md:pt-6">
           <div className="flex flex-col gap-2 sm:gap-3">
             {/* Linha 1: Período e Pagamento */}
@@ -616,7 +615,7 @@ tr:nth-child(even) { background: #f9fafb; }
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Calendar className="h-4 w-4 text-emerald-400 flex-shrink-0" />
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                  <SelectTrigger className="flex-1 h-10 border-2 border-emerald-600 bg-slate-950/40 text-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-400">
+                  <SelectTrigger className="flex-1 h-10 border-2 border-emerald-600 bg-slate-950/60 text-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-400">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-950 border border-emerald-700">
@@ -631,7 +630,7 @@ tr:nth-child(even) { background: #f9fafb; }
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Filter className="h-4 w-4 text-cyan-400 flex-shrink-0" />
                 <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-                  <SelectTrigger className="flex-1 h-10 border-2 border-cyan-600 bg-slate-950/40 text-cyan-100 focus-visible:ring-2 focus-visible:ring-cyan-400">
+                  <SelectTrigger className="flex-1 h-10 border-2 border-cyan-600 bg-slate-950/60 text-cyan-100 focus-visible:ring-2 focus-visible:ring-cyan-400">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-950 border border-cyan-700">
@@ -650,7 +649,7 @@ tr:nth-child(even) { background: #f9fafb; }
               placeholder="🔍 Buscar por cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-10 border-2 border-purple-600 bg-slate-950/40 text-purple-100 placeholder:text-purple-300 focus-visible:ring-2 focus-visible:ring-purple-400"
+              className="w-full h-10 border-2 border-purple-600 bg-slate-950/60 text-purple-100 placeholder:text-purple-300 focus-visible:ring-2 focus-visible:ring-purple-400"
             />
           </div>
         </CardContent>
@@ -659,7 +658,7 @@ tr:nth-child(even) { background: #f9fafb; }
       {/* Metrics Cards */}
       <div className="grid gap-2 sm:gap-3 md:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
         {/* Receita Confirmada */}
-        <Card className="border-2 border-emerald-700 bg-gradient-to-br from-emerald-900/40 to-emerald-800/30 relative overflow-hidden shadow-sm">
+        <Card className="border-2 border-emerald-700 bg-gradient-to-br from-emerald-900/70 to-emerald-800/60 backdrop-blur-sm relative overflow-hidden shadow-lg">
           <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-emerald-500/20 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16" />
           <CardHeader className="relative px-3 sm:px-6 pt-3 sm:pt-6 pb-2">
             <div className="flex items-center justify-between">
@@ -680,7 +679,7 @@ tr:nth-child(even) { background: #f9fafb; }
         </Card>
 
         {/* Receita a Receber */}
-        <Card className="border-2 border-cyan-700 bg-gradient-to-br from-cyan-900/40 to-cyan-800/30 relative overflow-hidden shadow-sm">
+        <Card className="border-2 border-cyan-700 bg-gradient-to-br from-cyan-900/70 to-cyan-800/60 backdrop-blur-sm relative overflow-hidden shadow-lg">
           <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-cyan-500/20 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16" />
           <CardHeader className="relative px-3 sm:px-6 pt-3 sm:pt-6 pb-2">
             <div className="flex items-center justify-between">
@@ -701,7 +700,7 @@ tr:nth-child(even) { background: #f9fafb; }
         </Card>
 
         {/* Atendimentos */}
-        <Card className="border-2 border-purple-700 bg-gradient-to-br from-purple-900/40 to-purple-800/30 relative overflow-hidden shadow-sm">
+        <Card className="border-2 border-purple-700 bg-gradient-to-br from-purple-900/70 to-purple-800/60 backdrop-blur-sm relative overflow-hidden shadow-lg">
           <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-purple-500/20 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16" />
           <CardHeader className="relative px-3 sm:px-6 pt-3 sm:pt-6 pb-2">
             <div className="flex items-center justify-between">
@@ -724,7 +723,7 @@ tr:nth-child(even) { background: #f9fafb; }
         {/* Meta do Mês (Trigger) */}
         <Dialog open={editingGoal} onOpenChange={setEditingGoal}>
           <DialogTrigger asChild>
-            <Card className="border-2 border-orange-700 bg-gradient-to-br from-orange-900/40 to-red-800/30 relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow shadow-sm">
+            <Card className="border-2 border-orange-700 bg-gradient-to-br from-orange-900/70 to-red-800/60 backdrop-blur-sm relative overflow-hidden cursor-pointer hover:shadow-xl transition-all shadow-lg">
               <div className="absolute bottom-2 right-2 p-1 sm:p-1.5 bg-white/10 rounded-full">
                 <Edit3 className="h-3 w-3 sm:h-4 sm:w-4 text-orange-300" />
               </div>
@@ -749,7 +748,7 @@ tr:nth-child(even) { background: #f9fafb; }
           </DialogTrigger>
 
           {/* Dialog Meta do Mês */}
-          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px] mx-auto rounded-lg border-2 border-orange-700 bg-slate-950/60 backdrop-blur">
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px] mx-auto rounded-lg border-2 border-orange-700 bg-slate-950/95 backdrop-blur-xl">
             <DialogHeader>
               <DialogTitle className="text-lg sm:text-2xl text-orange-300 font-extrabold">Configurar Meta Mensal</DialogTitle>
               <DialogDescription className="text-xs sm:text-sm text-orange-200">
@@ -767,14 +766,14 @@ tr:nth-child(even) { background: #f9fafb; }
                   value={tempGoal}
                   onChange={(e) => setTempGoal(e.target.value)}
                   placeholder="5000"
-                  className="sm:col-span-3 h-11 bg-slate-900/60 text-orange-100 border-2 border-orange-600 focus-visible:ring-2 focus-visible:ring-orange-400"
+                  className="sm:col-span-3 h-11 bg-slate-900/80 text-orange-100 border-2 border-orange-600 focus-visible:ring-2 focus-visible:ring-orange-400"
                   type="number"
                   min="0"
                   step="0.01"
                 />
               </div>
 
-              <div className="bg-slate-900/50 p-3 sm:p-4 rounded-lg border border-slate-700">
+              <div className="bg-slate-900/80 p-3 sm:p-4 rounded-lg border border-slate-700">
                 <div className="text-xs sm:text-sm text-slate-300 mb-2">Progresso atual:</div>
                 <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <span className="text-xl sm:text-2xl font-extrabold text-emerald-400">
@@ -816,7 +815,7 @@ tr:nth-child(even) { background: #f9fafb; }
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-3 sm:space-y-4">
-        <TabsList className="bg-slate-900/40 border-2 border-slate-700 w-full h-auto grid grid-cols-2 sm:grid-cols-4 p-1 gap-1">
+        <TabsList className="bg-slate-950/90 backdrop-blur-sm border-2 border-slate-700 w-full h-auto grid grid-cols-2 sm:grid-cols-4 p-1 gap-1">
           <TabsTrigger
             value="overview"
             className="data-[state=active]:bg-slate-800 text-xs sm:text-sm py-2 font-bold"
@@ -855,7 +854,7 @@ tr:nth-child(even) { background: #f9fafb; }
         <TabsContent value="overview" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
             {/* Métodos de Pagamento */}
-            <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+            <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-white text-base sm:text-lg font-extrabold">
                   <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 flex-shrink-0" />
@@ -904,7 +903,7 @@ tr:nth-child(even) { background: #f9fafb; }
             </Card>
 
             {/* Top Services/Clients */}
-            <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+            <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -917,7 +916,7 @@ tr:nth-child(even) { background: #f9fafb; }
                     </CardDescription>
                   </div>
                   <Select value={topViewMode} onValueChange={setTopViewMode}>
-                    <SelectTrigger className="w-24 sm:w-32 h-9 border-2 border-purple-600 bg-slate-950/40 text-purple-100 text-xs sm:text-sm">
+                    <SelectTrigger className="w-24 sm:w-32 h-9 border-2 border-purple-600 bg-slate-950/60 text-purple-100 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-950 border border-purple-700">
@@ -932,7 +931,7 @@ tr:nth-child(even) { background: #f9fafb; }
                   {topViewMode === 'services' ? (
                     financialData.topServices.length > 0 ? (
                       financialData.topServices.map(([service, revenue], index) => (
-                        <div key={service} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-800/40 hover:bg-slate-800/60 transition-colors gap-2 border border-slate-700">
+                        <div key={service} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-800/60 hover:bg-slate-800/80 transition-colors gap-2 border border-slate-700">
                           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                             <Badge variant="outline" className="text-xs font-extrabold border-purple-600 text-purple-300 flex-shrink-0" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
                               #{index + 1}
@@ -952,7 +951,7 @@ tr:nth-child(even) { background: #f9fafb; }
                   ) : (
                     financialData.topClients.length > 0 ? (
                       financialData.topClients.map(([name, revenue, count], index) => (
-                        <div key={name} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-800/40 hover:bg-slate-800/60 transition-colors gap-2 border border-slate-700">
+                        <div key={name} className="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-slate-800/60 hover:bg-slate-800/80 transition-colors gap-2 border border-slate-700">
                           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                             <Badge variant="outline" className="text-xs font-extrabold border-purple-600 text-purple-300 flex-shrink-0" style={{ color: Object.values(CHART_COLORS)[index % 4] }}>
                               #{index + 1}
@@ -978,7 +977,7 @@ tr:nth-child(even) { background: #f9fafb; }
             </Card>
 
             {/* Pizza Pagamentos */}
-            <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+            <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-white text-base sm:text-lg font-extrabold">
                   <PieChartIcon className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400 flex-shrink-0" />
@@ -1026,7 +1025,7 @@ tr:nth-child(even) { background: #f9fafb; }
             </Card>
 
             {/* Receita Futura */}
-            <Card className="border-2 border-cyan-700 bg-gradient-to-br from-cyan-900/30 to-cyan-800/20 shadow-sm">
+            <Card className="border-2 border-cyan-700 bg-gradient-to-br from-cyan-900/60 to-cyan-800/50 backdrop-blur-sm shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-white text-base sm:text-lg font-extrabold">
                   <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400 flex-shrink-0" />
@@ -1037,7 +1036,7 @@ tr:nth-child(even) { background: #f9fafb; }
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6 space-y-3 sm:space-y-4">
-                <div className="text-center p-4 sm:p-6 bg-slate-900/40 rounded-lg border border-cyan-700">
+                <div className="text-center p-4 sm:p-6 bg-slate-900/60 rounded-lg border border-cyan-700">
                   <div className="text-3xl sm:text-4xl font-extrabold text-cyan-400 mb-2 truncate">
                     {formatCurrency(financialData.expectedRevenue)}
                   </div>
@@ -1052,7 +1051,7 @@ tr:nth-child(even) { background: #f9fafb; }
                     {financialData.futureAppointments.slice(0, 3).map((apt) => {
                       const client = clients.find(c => c.id === apt.client_id);
                       return (
-                        <div key={apt.id} className="flex items-center justify-between p-2 sm:p-3 bg-slate-900/40 rounded-lg gap-2 border border-cyan-700">
+                        <div key={apt.id} className="flex items-center justify-between p-2 sm:p-3 bg-slate-900/60 rounded-lg gap-2 border border-cyan-700">
                           <div className="min-w-0 flex-1">
                             <div className="font-bold text-xs sm:text-sm text-slate-200 truncate">{client?.name ?? 'Cliente'}</div>
                             <div className="text-[10px] sm:text-xs text-slate-300 truncate">{apt.service_type}</div>
@@ -1073,7 +1072,7 @@ tr:nth-child(even) { background: #f9fafb; }
 
         {/* GRAPHICS */}
         <TabsContent value="graphics" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-          <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+          <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
             <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -1087,7 +1086,7 @@ tr:nth-child(even) { background: #f9fafb; }
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Select value={selectedMetric} onValueChange={setSelectedMetric}>
-                    <SelectTrigger className="w-full xs:w-32 sm:w-40 h-9 border-2 border-emerald-600 bg-slate-950/40 text-emerald-100 text-xs sm:text-sm">
+                    <SelectTrigger className="w-full xs:w-32 sm:w-40 h-9 border-2 border-emerald-600 bg-slate-950/60 text-emerald-100 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-950 border border-emerald-700">
@@ -1098,7 +1097,7 @@ tr:nth-child(even) { background: #f9fafb; }
                   </Select>
 
                   <Select value={chartType} onValueChange={setChartType}>
-                    <SelectTrigger className="w-full xs:w-28 sm:w-32 h-9 border-2 border-cyan-600 bg-slate-950/40 text-cyan-100 text-xs sm:text-sm">
+                    <SelectTrigger className="w-full xs:w-28 sm:w-32 h-9 border-2 border-cyan-600 bg-slate-950/60 text-cyan-100 text-xs sm:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-950 border border-cyan-700">
@@ -1124,7 +1123,7 @@ tr:nth-child(even) { background: #f9fafb; }
           {/* Comparison */}
           <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
             {/* Comparativo de Receitas */}
-            <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+            <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-white text-base sm:text-lg font-extrabold">
                   <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 flex-shrink-0" />
@@ -1169,7 +1168,7 @@ tr:nth-child(even) { background: #f9fafb; }
             </Card>
 
             {/* Performance por Serviço */}
-            <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+            <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-white text-base sm:text-lg font-extrabold">
                   <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400 flex-shrink-0" />
@@ -1218,7 +1217,7 @@ tr:nth-child(even) { background: #f9fafb; }
 
         {/* TRANSACTIONS */}
         <TabsContent value="transactions" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-          <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+          <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
             <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
               <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -1230,7 +1229,7 @@ tr:nth-child(even) { background: #f9fafb; }
                     {searchFilteredAppointments.length} transações • Ordenadas por data (mais recente primeiro)
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="bg-cyan-900/30 text-cyan-300 border-cyan-700 text-xs self-start xs:self-auto">
+                <Badge variant="outline" className="bg-cyan-900/50 text-cyan-300 border-cyan-700 text-xs self-start xs:self-auto">
                   <Clock className="h-3 w-3 mr-1" />
                   {financialData.futureAppointments.length} futuras
                 </Badge>
@@ -1245,7 +1244,7 @@ tr:nth-child(even) { background: #f9fafb; }
                     const client = clients.find(c => c.id === appointment.client_id);
                     const isCompleted = appointment.status === 'completed';
                     return (
-                      <div key={appointment.id} className="p-3 bg-slate-800/40 rounded-lg space-y-2 border-2 border-slate-700">
+                      <div key={appointment.id} className="p-3 bg-slate-800/70 rounded-lg space-y-2 border-2 border-slate-700">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-sm text-slate-200 truncate">
@@ -1267,12 +1266,12 @@ tr:nth-child(even) { background: #f9fafb; }
                             {appointment.service_type}
                           </Badge>
                           {isCompleted ? (
-                            <Badge className="bg-emerald-800/40 text-emerald-300 border border-emerald-700 text-xs">
+                            <Badge className="bg-emerald-800/50 text-emerald-300 border border-emerald-700 text-xs">
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Confirmado
                             </Badge>
                           ) : (
-                            <Badge className="bg-cyan-800/40 text-cyan-300 border border-cyan-700 text-xs">
+                            <Badge className="bg-cyan-800/50 text-cyan-300 border border-cyan-700 text-xs">
                               <Clock className="h-3 w-3 mr-1" />
                               Agendado
                             </Badge>
@@ -1300,7 +1299,7 @@ tr:nth-child(even) { background: #f9fafb; }
               {/* Desktop table */}
               <div className="hidden sm:block rounded-lg border-2 border-slate-700 overflow-hidden">
                 <Table>
-                  <TableHeader className="bg-slate-800/40">
+                  <TableHeader className="bg-slate-800/70">
                     <TableRow className="border-slate-700">
                       <TableHead className="font-bold text-slate-200">Data</TableHead>
                       <TableHead className="font-bold text-slate-200">Cliente</TableHead>
@@ -1316,7 +1315,7 @@ tr:nth-child(even) { background: #f9fafb; }
                         const client = clients.find(c => c.id === appointment.client_id);
                         const isCompleted = appointment.status === 'completed';
                         return (
-                          <TableRow key={appointment.id} className="border-slate-700 hover:bg-slate-800/40">
+                          <TableRow key={appointment.id} className="border-slate-700 hover:bg-slate-800/60">
                             <TableCell className="font-mono text-sm text-slate-300">
                               {formatDateTime(appointment.scheduled_date)}
                             </TableCell>
@@ -1351,12 +1350,12 @@ tr:nth-child(even) { background: #f9fafb; }
                             </TableCell>
                             <TableCell>
                               {isCompleted ? (
-                                <Badge className="bg-emerald-800/40 text-emerald-300 border border-emerald-700">
+                                <Badge className="bg-emerald-800/50 text-emerald-300 border border-emerald-700">
                                   <CheckCircle2 className="h-3 w-3 mr-1" />
                                   Confirmado
                                 </Badge>
                               ) : (
-                                <Badge className="bg-cyan-800/40 text-cyan-300 border border-cyan-700">
+                                <Badge className="bg-cyan-800/50 text-cyan-300 border border-cyan-700">
                                   <Clock className="h-3 w-3 mr-1" />
                                   Agendado
                                 </Badge>
@@ -1394,7 +1393,7 @@ tr:nth-child(even) { background: #f9fafb; }
         <TabsContent value="analytics" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
             {/* Resumo */}
-            <Card className="border-2 border-emerald-700 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 shadow-sm">
+            <Card className="border-2 border-emerald-700 bg-gradient-to-br from-emerald-900/60 to-emerald-800/50 backdrop-blur-sm shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-white text-base sm:text-lg font-extrabold">
                   <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 flex-shrink-0" />
@@ -1403,13 +1402,13 @@ tr:nth-child(even) { background: #f9fafb; }
               </CardHeader>
               <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6 space-y-3 sm:space-y-4">
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div className="text-center p-3 sm:p-4 bg-slate-900/40 rounded-lg border border-emerald-700">
+                  <div className="text-center p-3 sm:p-4 bg-slate-900/70 rounded-lg border border-emerald-700">
                     <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 truncate">
                       {formatCurrency(financialData.confirmedRevenue)}
                     </div>
                     <div className="text-xs sm:text-sm text-slate-300 mt-1">Receita Total</div>
                   </div>
-                  <div className="text-center p-3 sm:p-4 bg-slate-900/40 rounded-lg border border-emerald-700">
+                  <div className="text-center p-3 sm:p-4 bg-slate-900/70 rounded-lg border border-emerald-700">
                     <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400">
                       {financialData.totalAppointments}
                     </div>
@@ -1417,7 +1416,7 @@ tr:nth-child(even) { background: #f9fafb; }
                   </div>
                 </div>
 
-                <div className="p-3 sm:p-4 bg-slate-900/40 rounded-lg border border-emerald-700">
+                <div className="p-3 sm:p-4 bg-slate-900/70 rounded-lg border border-emerald-700">
                   <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                     <span className="text-xs sm:text-sm font-bold text-slate-300">Ticket Médio</span>
                     <span className="text-xl sm:text-2xl font-extrabold text-emerald-400 truncate">
@@ -1432,7 +1431,7 @@ tr:nth-child(even) { background: #f9fafb; }
             </Card>
 
             {/* Progresso da Meta */}
-            <Card className="border-2 border-slate-700 bg-slate-900/40 shadow-sm">
+            <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-white text-base sm:text-lg font-extrabold">
                   <Target className="h-4 w-4 sm:h-5 sm:w-5 text-orange-400 flex-shrink-0" />
@@ -1441,7 +1440,7 @@ tr:nth-child(even) { background: #f9fafb; }
               </CardHeader>
               <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                 <div className="space-y-4 sm:space-y-6">
-                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-orange-900/30 to-red-800/20 rounded-lg border border-orange-700">
+                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-orange-900/50 to-red-800/40 rounded-lg border border-orange-700">
                     <div className="text-4xl sm:text-5xl font-extrabold text-orange-300 mb-2">
                       {goalProgress.toFixed(1)}%
                     </div>
@@ -1491,7 +1490,7 @@ tr:nth-child(even) { background: #f9fafb; }
             </Card>
 
             {/* Projeção Total */}
-            <Card className="border-2 border-slate-700 bg-slate-900/40 md:col-span-2 shadow-sm">
+            <Card className="border-2 border-slate-700 bg-slate-950/90 backdrop-blur-sm md:col-span-2 shadow-lg">
               <CardHeader className="px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-3">
                 <CardTitle className="flex items-center gap-2 text-white text-base sm:text-lg font-extrabold">
                   <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400 flex-shrink-0" />
@@ -1503,21 +1502,21 @@ tr:nth-child(even) { background: #f9fafb; }
               </CardHeader>
               <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
                 <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4">
-                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-emerald-900/30 to-emerald-800/20 rounded-lg border border-emerald-700">
+                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-emerald-900/50 to-emerald-800/40 rounded-lg border border-emerald-700">
                     <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-400 mx-auto mb-2 sm:mb-3" />
                     <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 mb-1 truncate">
                       {formatCurrency(financialData.confirmedRevenue)}
                     </div>
                     <div className="text-xs sm:text-sm text-slate-300">Receita Confirmada</div>
                   </div>
-                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-cyan-900/30 to-cyan-800/20 rounded-lg border border-cyan-700">
+                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-cyan-900/50 to-cyan-800/40 rounded-lg border border-cyan-700">
                     <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-400 mx-auto mb-2 sm:mb-3" />
                     <div className="text-xl sm:text-2xl font-extrabold text-cyan-400 mb-1 truncate">
                       {formatCurrency(financialData.expectedRevenue)}
                     </div>
                     <div className="text-xs sm:text-sm text-slate-300">Receita Futura</div>
                   </div>
-                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-purple-900/30 to-purple-800/20 rounded-lg border border-purple-700">
+                  <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-purple-900/50 to-purple-800/40 rounded-lg border border-purple-700">
                     <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-purple-400 mx-auto mb-2 sm:mb-3" />
                     <div className="text-xl sm:text-2xl font-extrabold text-purple-400 mb-1 truncate">
                       {formatCurrency(financialData.confirmedRevenue + financialData.expectedRevenue)}
