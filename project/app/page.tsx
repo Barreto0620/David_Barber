@@ -39,6 +39,11 @@ export default function Dashboard() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [dynamicMetrics, setDynamicMetrics] = useState({
+    yesterdayRevenue: 0,
+    revenuePercentChange: 0,
+    newClientsThisMonth: 0
+  });
 
   useEffect(() => {
     setIsClient(true);
@@ -73,13 +78,52 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [syncWithSupabase]);
 
-  // Recalcular métricas quando appointments ou clients mudarem
+  // Calcular métricas dinâmicas (comparação com ontem e novos clientes)
   useEffect(() => {
     if (isClient && appointments.length > 0) {
       console.log('📊 Dashboard: Recalculando métricas...');
       calculateMetrics();
+
+      // Calcular receita de ontem
+      const now = new Date();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      
+      const yesterdayEnd = new Date(yesterday);
+      yesterdayEnd.setHours(23, 59, 59, 999);
+
+      const yesterdayAppointments = appointments.filter(apt => {
+        const aptDate = new Date(apt.scheduled_date);
+        return aptDate >= yesterday && 
+               aptDate <= yesterdayEnd && 
+               apt.status === 'completed';
+      });
+
+      const yesterdayRevenue = yesterdayAppointments.reduce((sum, apt) => sum + (apt.price || 0), 0);
+      
+      // Calcular percentual de mudança
+      let revenuePercentChange = 0;
+      if (yesterdayRevenue > 0) {
+        revenuePercentChange = ((metrics.todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100;
+      } else if (metrics.todayRevenue > 0) {
+        revenuePercentChange = 100;
+      }
+
+      // Calcular novos clientes este mês
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const newClientsThisMonth = clients.filter(client => {
+        const createdDate = new Date(client.created_at);
+        return createdDate >= firstDayOfMonth;
+      }).length;
+
+      setDynamicMetrics({
+        yesterdayRevenue,
+        revenuePercentChange,
+        newClientsThisMonth
+      });
     }
-  }, [appointments, clients, isClient, calculateMetrics]);
+  }, [appointments, clients, isClient, calculateMetrics, metrics.todayRevenue]);
 
   const handleRefresh = async () => {
     console.log('🔄 Dashboard: Refresh manual iniciado...');
@@ -150,6 +194,14 @@ export default function Dashboard() {
     return 'Cliente não encontrado';
   };
 
+  // Formatar percentual de mudança
+  const formatPercentChange = (percent) => {
+    if (!isFinite(percent) || isNaN(percent)) return null;
+    const absPercent = Math.abs(percent).toFixed(1);
+    const sign = percent >= 0 ? '+' : '-';
+    return `${sign}${absPercent}% vs ontem`;
+  };
+
   if (isLoading && !lastSync) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-screen px-4">
@@ -160,6 +212,9 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const revenueTrend = dynamicMetrics.revenuePercentChange >= 0 ? 'up' : 'down';
+  const revenueTrendValue = formatPercentChange(dynamicMetrics.revenuePercentChange);
 
   return (
     <div className="flex-1 w-full">
@@ -226,8 +281,8 @@ export default function Dashboard() {
             title="Receita Hoje"
             value={isClient ? metrics.todayRevenue : 0}
             type="currency"
-            trend="up"
-            trendValue="+12.5% vs ontem"
+            trend={revenueTrend}
+            trendValue={revenueTrendValue}
             icon={<DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
             className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
           />
@@ -252,8 +307,8 @@ export default function Dashboard() {
           <MetricCard
             title="Total de Clientes"
             value={isClient ? clients.length : 0}
-            trend="up"
-            trendValue="+3 este mês"
+            trend={dynamicMetrics.newClientsThisMonth > 0 ? "up" : "neutral"}
+            trendValue={dynamicMetrics.newClientsThisMonth > 0 ? `+${dynamicMetrics.newClientsThisMonth} este mês` : "nenhum este mês"}
             icon={<Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           />
         </div>
