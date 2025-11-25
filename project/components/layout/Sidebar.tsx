@@ -21,6 +21,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/lib/store';
 
 // 🚀 OTIMIZAÇÃO: Array estático fora do componente
 const navigation = [
@@ -154,16 +155,28 @@ const NavContent = memo(({ isMobile = false, onItemClick }: { isMobile?: boolean
 
 NavContent.displayName = 'NavContent';
 
-// 🚀 OTIMIZAÇÃO: Componente principal
+// 🚀 OTIMIZAÇÃO: Componente principal COM ANIMAÇÃO DE SCROLL
 export function Sidebar({ className, mobileOpen, setMobileOpen }: SidebarProps) {
   const handleMobileClose = useCallback(() => {
     setMobileOpen?.(false);
   }, [setMobileOpen]);
 
+  // 🔥 NOVO: Obter estado de visibilidade do store
+  const sidebarVisible = useAppStore((state) => state.sidebarVisible);
+
   return (
     <>
-      {/* Desktop Sidebar */}
-      <div className={cn("hidden md:flex w-80 flex-col border-r bg-card/50 backdrop-blur-sm", className)}>
+      {/* Desktop Sidebar - COM ANIMAÇÃO SUAVE */}
+      <div 
+        className={cn(
+          "hidden md:flex flex-col border-r bg-card/50 backdrop-blur-sm",
+          "transition-all duration-500 ease-in-out",
+          sidebarVisible 
+            ? "w-80 opacity-100 translate-x-0" 
+            : "w-0 opacity-0 -translate-x-full overflow-hidden",
+          className
+        )}
+      >
         <NavContent />
       </div>
       

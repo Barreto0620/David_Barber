@@ -1,5 +1,5 @@
 // @ts-nocheck
-// lib/store.ts - VERSÃO CORRIGIDA - SEM NOTIFICAÇÕES DUPLICADAS
+// lib/store.ts - VERSÃO CORRIGIDA COM SIDEBAR VISIBLE
 'use client';
 
 import { create } from 'zustand';
@@ -108,6 +108,9 @@ interface AppStore extends LoyaltyStore {
   monthlyClients: MonthlyClientWithDetails[];
   monthlyClientsLoading: boolean;
   
+  // 🔥 NOVO: Estado de visibilidade do sidebar
+  sidebarVisible: boolean;
+  
   setClients: (clients: Client[]) => void;
   setAppointments: (appointments: Appointment[]) => void;
   setServices: (services: Service[]) => void;
@@ -215,6 +218,9 @@ export const useAppStore = create<AppStore>()(
       unreadCount: 0,
       monthlyClients: [],
       monthlyClientsLoading: false,
+
+      // 🔥 NOVO: Sidebar visível por padrão
+      sidebarVisible: true,
 
       // 🔥 ESTADO DE FIDELIDADE
       loyaltySettings: null,
@@ -1606,8 +1612,10 @@ export const useAppStore = create<AppStore>()(
         loyaltyHistory: state.loyaltyHistory,
         loyaltyStats: state.loyaltyStats,
         loyaltyLoading: state.loyaltyLoading,
+        // 🔥 NOVO: Persistir estado do sidebar
+        sidebarVisible: state.sidebarVisible,
       }),
-      version: 1.4,
+      version: 1.5, // 🔥 Incrementar versão
     }
   )
 );

@@ -1,5 +1,5 @@
 // @ts-nocheck
-// src/components/layout/Header.tsx
+// components/layout/Header.tsx - VERSÃO COM NAVEGAÇÃO CENTRALIZADA
 "use client";
 
 import { Bell, LogOut, X, Scissors, Check, Trash2, Menu } from "lucide-react";
@@ -12,13 +12,19 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Sheet,
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabase";
 import { useRouter, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useCallback, useMemo, memo } from "react";
 import { useAppStore } from "@/lib/store";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -36,6 +42,7 @@ import {
   Sparkles,
   CalendarDays
 } from 'lucide-react';
+import { useScrollDetection } from '@/hooks/useScrollDetection';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -49,6 +56,34 @@ const navigation = [
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 
+// 🔥 OTIMIZAÇÃO: Componente de navegação memoizado
+const NavigationIcon = memo(({ item, isActive, onClick }: any) => {
+  const Icon = item.icon;
+  
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant={isActive ? "default" : "ghost"}
+          size="icon"
+          className={cn(
+            "h-9 w-9 transition-all duration-200",
+            isActive && "shadow-md"
+          )}
+          onClick={onClick}
+        >
+          <Icon className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="font-medium">
+        {item.name}
+      </TooltipContent>
+    </Tooltip>
+  );
+});
+
+NavigationIcon.displayName = 'NavigationIcon';
+
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
@@ -57,17 +92,20 @@ export function Header() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // 🔥 CORRIGIDO: Removido setNotifications inexistente
-  const {
-    notifications,
-    unreadCount,
-    markAsRead,
-    markAllAsRead,
-    removeNotification,
-    clearAllNotifications  // ✅ Usar a função do store
-  } = useAppStore();
+  // 🔥 USAR HOOK OTIMIZADO para scroll detection
+  useScrollDetection(100);
 
-  async function handleLogout() {
+  // 🔥 Usar seletor específico para evitar re-renders
+  const sidebarVisible = useAppStore((state) => state.sidebarVisible);
+  const notifications = useAppStore((state) => state.notifications);
+  const unreadCount = useAppStore((state) => state.unreadCount);
+  const markAsRead = useAppStore((state) => state.markAsRead);
+  const markAllAsRead = useAppStore((state) => state.markAllAsRead);
+  const removeNotification = useAppStore((state) => state.removeNotification);
+  const clearAllNotifications = useAppStore((state) => state.clearAllNotifications);
+
+  // 🔥 CALLBACKS MEMOIZADOS
+  const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     try {
       await supabase.auth.signOut();
@@ -76,42 +114,58 @@ export function Header() {
       console.error("Erro ao fazer logout:", error);
       setIsLoggingOut(false);
     }
-  }
+  }, [router]);
 
-  function handleLogoutClick() {
-    setShowLogoutModal(true);
-  }
+  const handleLogoutClick = useCallback(() => setShowLogoutModal(true), []);
+  const handleCancelLogout = useCallback(() => setShowLogoutModal(false), []);
 
-  function handleCancelLogout() {
-    setShowLogoutModal(false);
-  }
-
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = useCallback((type: string) => {
     switch (type) {
-      case 'appointment':
-        return '📅';
-      case 'cancellation':
-        return '❌';
-      case 'reminder':
-        return '⏰';
-      default:
-        return '🔔';
+      case 'appointment': return '📅';
+      case 'cancellation': return '❌';
+      case 'reminder': return '⏰';
+      default: return '🔔';
     }
-  };
+  }, []);
 
-  const handleNotificationClick = (notificationId: string) => {
+  const handleNotificationClick = useCallback((notificationId: string) => {
     markAsRead(notificationId);
-  };
+  }, [markAsRead]);
+
+  const handleNavClick = useCallback((href: string) => {
+    router.push(href);
+  }, [router]);
+
+  // 🔥 NAVEGAÇÃO MEMOIZADA - AGORA CENTRALIZADA
+  const navigationIcons = useMemo(() => (
+    <TooltipProvider delayDuration={200}>
+      <div className={cn(
+        "hidden md:flex items-center gap-1 transition-all duration-500 ease-in-out",
+        sidebarVisible 
+          ? "opacity-0 scale-95 pointer-events-none" 
+          : "opacity-100 scale-100"
+      )}>
+        {navigation.map((item) => (
+          <NavigationIcon
+            key={item.href}
+            item={item}
+            isActive={pathname === item.href}
+            onClick={() => handleNavClick(item.href)}
+          />
+        ))}
+      </div>
+    </TooltipProvider>
+  ), [sidebarVisible, pathname, handleNavClick]);
 
   return (
     <>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-16 items-center px-4 md:px-8 gap-4"> 
-          {/* Mobile Menu Button */}
+        <div className="flex h-16 items-center px-4 md:px-8 gap-4">
+          {/* Mobile Menu */}
           <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="transition-all duration-200 hover:scale-110">
+                <Button variant="outline" size="icon">
                   <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
@@ -133,11 +187,11 @@ export function Header() {
                     {navigation.map((item) => {
                       const isActive = pathname === item.href;
                       return (
-                        <Link key={item.name} href={item.href} className="block">
+                        <Link key={item.name} href={item.href}>
                           <Button
                             variant={isActive ? "default" : "ghost"}
                             className={cn(
-                              "w-full justify-start transition-all duration-200 hover:scale-[1.02]",
+                              "w-full justify-start",
                               isActive && "bg-primary text-primary-foreground shadow-lg"
                             )}
                             onClick={() => setMobileMenuOpen(false)}
@@ -150,7 +204,7 @@ export function Header() {
                     })}
                   </nav>
 
-                  <div className="px-4 py-4 border-t border-b">
+                  <div className="px-4 py-4 border-t">
                     <div className="mb-4">
                       <ThemeToggle />
                     </div>
@@ -163,37 +217,41 @@ export function Header() {
             </Sheet>
           </div>
 
-          <div className="flex-1 flex items-center justify-between">
-            {/* Contêiner do Logo e Título */}
-            <div className="flex items-center space-x-4">
-              
-              {/* Logo Redondo, Linkado para o Dashboard */}
+          {/* 🎯 NOVA ESTRUTURA: 3 COLUNAS (ESQUERDA - CENTRO - DIREITA) */}
+          <div className="flex-1 grid grid-cols-3 items-center">
+            {/* COLUNA ESQUERDA: Logo */}
+            <div className="flex items-center justify-start">
               <h1 className="hidden md:block">
                 <a 
                   onClick={() => router.push("/")} 
-                  className="cursor-pointer flex items-center h-full hover:opacity-80 transition-opacity"
+                  className="cursor-pointer flex items-center hover:opacity-80 transition-opacity"
                 >
                   <img 
                     src="/logo_david_barber.png"
-                    alt="David Barber Logo"
+                    alt="David Barber"
                     className="w-12 h-12 rounded-full object-cover shadow-md border border-zinc-700" 
                   />
                 </a>
               </h1>
 
-              {/* Título (Mobile) */}
               <h1 className="text-lg font-semibold md:hidden">David Barber</h1>
             </div>
 
-            <div className="flex items-center space-x-4">
-              {/* 🔥 Sino de Notificações - OTIMIZADO */}
+            {/* 🎯 COLUNA CENTRO: Navegação Centralizada */}
+            <div className="flex items-center justify-center">
+              {navigationIcons}
+            </div>
+
+            {/* COLUNA DIREITA: Notificações e Logout */}
+            <div className="flex items-center justify-end space-x-4">
+              {/* Notificações */}
               <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="icon" className="relative">
                     <Bell className="h-4 w-4" />
                     {unreadCount > 0 && (
                       <Badge
-                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs animate-pulse"
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                         variant="destructive"
                       >
                         {unreadCount > 9 ? '9+' : unreadCount}
@@ -215,12 +273,7 @@ export function Header() {
                     {notifications.length > 0 && (
                       <div className="flex gap-1">
                         {unreadCount > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={markAllAsRead}
-                            className="text-xs h-8"
-                          >
+                          <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs h-8">
                             <Check className="h-3 w-3 mr-1" />
                             Marcar todas
                           </Button>
@@ -228,12 +281,8 @@ export function Header() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            clearAllNotifications();
-                          }}
+                          onClick={clearAllNotifications}
                           className="text-xs text-destructive hover:text-destructive h-8"
-                          title="Limpar todas as notificações"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -259,7 +308,7 @@ export function Header() {
                             onClick={() => handleNotificationClick(notification.id)}
                           >
                             {!notification.read && (
-                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full animate-pulse" />
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full" />
                             )}
 
                             <div className="flex gap-3 pl-4">
@@ -323,24 +372,18 @@ export function Header() {
         </div>
       </header>
 
-      {/* Modal de Confirmação de Logout - Tema Barbearia */}
+      {/* Modal de Logout */}
       {showLogoutModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="relative bg-zinc-900 rounded-3xl shadow-2xl max-w-md w-full border-2 border-zinc-800 overflow-hidden animate-in zoom-in-95 duration-300">
-
-            {/* Header do Modal */}
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <div className="relative bg-zinc-900 rounded-3xl shadow-2xl max-w-md w-full border-2 border-zinc-800">
             <div className="p-8 pb-6">
               <div className="flex justify-center mb-6">
-                <div className="relative">
-                  {/* Círculo decorativo externo */}
-                  <div className="absolute inset-0 bg-white/10 rounded-full blur-xl"></div>
-                  <div className="relative w-20 h-20 bg-gradient-to-br from-zinc-800 to-black rounded-full flex items-center justify-center shadow-xl border-4 border-zinc-700/50">
-                    <Scissors size={36} className="text-white" strokeWidth={2.5} />
-                  </div>
+                <div className="relative w-20 h-20 bg-gradient-to-br from-zinc-800 to-black rounded-full flex items-center justify-center shadow-xl border-4 border-zinc-700/50">
+                  <Scissors size={36} className="text-white" strokeWidth={2.5} />
                 </div>
               </div>
 
-              <h3 className="text-2xl font-bold text-center text-white mb-2 tracking-tight">
+              <h3 className="text-2xl font-bold text-center text-white mb-2">
                 Encerrar Sessão?
               </h3>
               <p className="text-zinc-400 text-center text-sm">
@@ -348,27 +391,25 @@ export function Header() {
               </p>
             </div>
 
-            {/* Conteúdo do Modal */}
             <div className="px-8 pb-8">
               <div className="bg-zinc-800/50 rounded-2xl p-6 mb-6 border border-zinc-700/50">
-                <p className="text-zinc-300 text-center leading-relaxed">
+                <p className="text-zinc-300 text-center">
                   Você será desconectado.
                 </p>
               </div>
 
-              {/* Botões de Ação */}
               <div className="flex gap-3">
                 <button
                   onClick={handleCancelLogout}
                   disabled={isLoggingOut}
-                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:scale-[1.02]"
+                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 border border-zinc-700"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-2xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
                 >
                   {isLoggingOut ? (
                     <>
@@ -385,11 +426,10 @@ export function Header() {
               </div>
             </div>
 
-            {/* Botão fechar no canto */}
             <button
               onClick={handleCancelLogout}
               disabled={isLoggingOut}
-              className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors p-2 hover:bg-zinc-800 rounded-lg disabled:opacity-50"
+              className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors p-2 hover:bg-zinc-800 rounded-lg"
             >
               <X size={24} />
             </button>
