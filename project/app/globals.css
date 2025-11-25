@@ -355,6 +355,35 @@
 }
 
 /* ================================================= */
+/* 🎥 VÍDEO DE FUNDO - PÁGINA DE LOGIN                */
+/* ================================================= */
+
+.video-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+}
+
+.video-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 0;
+}
+
+/* Dark mode overlay mais escuro */
+.dark .video-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* ================================================= */
 /* CUSTOMIZAÇÃO DO DIALOG/MODAL                      */
 /* ================================================= */
 

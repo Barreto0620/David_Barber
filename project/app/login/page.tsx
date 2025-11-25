@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Scissors, KeyRound, Moon, Sun, Mail, Lock, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import { KeyRound, Moon, Sun, Mail, Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -82,13 +83,22 @@ export default function LoginPage() {
 
   if (resetSuccess) {
     return (
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-950 dark:via-emerald-950 dark:to-gray-900">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-300 dark:bg-emerald-600 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-30 animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-teal-300 dark:bg-teal-600 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '1s' }}></div>
-        </div>
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        {/* 🎥 Vídeo de Fundo */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="video-background"
+        >
+          <source src="/background.mp4" type="video/mp4" />
+        </video>
+        
+        {/* Overlay escuro */}
+        <div className="video-overlay"></div>
 
-        <Card className="relative w-full max-w-md mx-4 shadow-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+        <Card className="relative w-full max-w-md mx-4 shadow-2xl border-0 bg-gray-900/60 backdrop-blur-2xl z-10">
           <CardHeader className="text-center space-y-4 pb-8">
             <div className="flex justify-center">
               <div className="relative">
@@ -124,7 +134,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-950 dark:via-blue-950 dark:to-gray-900 transition-colors duration-500">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* 🎥 Vídeo de Fundo */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="video-background"
+      >
+        <source src="/background.mp4" type="video/mp4" />
+      </video>
+      
+      {/* Overlay escuro para melhor contraste */}
+      <div className="video-overlay"></div>
+
+      {/* Botão de tema */}
       <button
         onClick={toggleTheme}
         className="fixed top-6 right-6 p-3 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 z-50 border border-gray-200 dark:border-gray-700"
@@ -137,19 +162,18 @@ export default function LoginPage() {
         )}
       </button>
 
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-blue-300 dark:bg-blue-600 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-30 animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-72 h-72 bg-purple-300 dark:bg-purple-600 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute -bottom-32 left-40 w-72 h-72 bg-indigo-300 dark:bg-indigo-600 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '4s' }}></div>
-      </div>
-
-      <Card className="relative w-full max-w-md mx-4 shadow-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl transition-all duration-500">
+      <Card className="relative w-full max-w-md mx-4 shadow-2xl border-0 bg-gray-900/60 backdrop-blur-2xl transition-all duration-500 z-10">
         <CardHeader className="text-center space-y-4 pb-8">
+          {/* 🔥 LOGO DO DAVID BARBER */}
           <div className="flex justify-center">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full blur-xl opacity-50 animate-pulse"></div>
-              <div className="relative p-4 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-full shadow-lg">
-                <Scissors className="h-10 w-10 text-white" strokeWidth={2.5} />
+              <div className="relative">
+                <img
+                  src="/logo_david_barber.png"
+                  alt="David Barber Logo"
+                  className="w-24 h-24 rounded-full object-cover shadow-2xl border-4 border-white dark:border-gray-800"
+                />
               </div>
             </div>
           </div>
@@ -157,15 +181,13 @@ export default function LoginPage() {
             <CardTitle className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
               David Barber
             </CardTitle>
-         
-        
           </div>
         </CardHeader>
         
         <CardContent className="space-y-6">
           <div className="space-y-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <label className="text-sm font-medium text-white/90 flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 E-mail
               </label>
@@ -182,10 +204,10 @@ export default function LoginPage() {
                       handleLogin(e);
                     }
                   }}
-                  className={`h-12 pl-4 pr-4 transition-all duration-300 bg-gray-50 dark:bg-gray-800 border-2 ${
+                  className={`h-12 pl-4 pr-4 transition-all duration-300 backdrop-blur-lg border-2 text-white placeholder:text-white/60 ${
                     emailFocused 
-                      ? 'border-blue-500 dark:border-blue-400 ring-4 ring-blue-100 dark:ring-blue-900/30' 
-                      : 'border-gray-200 dark:border-gray-700'
+                      ? 'border-blue-400 ring-4 ring-blue-500/20 bg-white/5' 
+                      : 'border-white/30 bg-transparent hover:bg-white/5'
                   }`}
                   required
                 />
@@ -193,7 +215,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <label className="text-sm font-medium text-white/90 flex items-center gap-2">
                 <Lock className="h-4 w-4" />
                 Senha
               </label>
@@ -210,10 +232,10 @@ export default function LoginPage() {
                       handleLogin(e);
                     }
                   }}
-                  className={`h-12 pl-4 pr-4 transition-all duration-300 bg-gray-50 dark:bg-gray-800 border-2 ${
+                  className={`h-12 pl-4 pr-4 transition-all duration-300 backdrop-blur-lg border-2 text-white placeholder:text-white/60 ${
                     passwordFocused 
-                      ? 'border-indigo-500 dark:border-indigo-400 ring-4 ring-indigo-100 dark:ring-indigo-900/30' 
-                      : 'border-gray-200 dark:border-gray-700'
+                      ? 'border-indigo-400 ring-4 ring-indigo-500/20 bg-white/5' 
+                      : 'border-white/30 bg-transparent hover:bg-white/5'
                   }`}
                   required
                 />
@@ -245,10 +267,10 @@ export default function LoginPage() {
           
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+              <div className="w-full border-t border-white/30"></div>
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white dark:bg-gray-900 px-2 text-gray-500 dark:text-gray-400">
+              <span className="bg-white/10 backdrop-blur-md px-2 text-white/70">
                 Precisa de ajuda?
               </span>
             </div>
@@ -257,7 +279,7 @@ export default function LoginPage() {
           <Button 
             type="button"
             variant="ghost" 
-            className="w-full h-12 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-300 group"
+            className="w-full h-12 font-medium text-white/80 hover:text-white hover:bg-white/10 transition-all duration-300 group"
             onClick={handleResetPassword}
             disabled={resetLoading}
           >
@@ -267,7 +289,7 @@ export default function LoginPage() {
         </CardContent>
       </Card>
 
-      <div className="absolute bottom-6 text-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="absolute bottom-6 text-center text-sm text-white/80 dark:text-white/60 z-10">
         <p>WebCashCompany©</p>
       </div>
     </div>
