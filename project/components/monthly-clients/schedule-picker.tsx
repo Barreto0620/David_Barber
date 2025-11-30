@@ -277,7 +277,7 @@ export function MonthlySchedulePicker({
                   Não há serviços cadastrados no sistema. É necessário cadastrar pelo menos um serviço antes de criar agendamentos mensais.
                 </p>
                 <p className="text-red-600 dark:text-red-400 text-xs font-medium">
-                  💡 Vá para a seção "Serviços" e cadastre os serviços da sua barbearia.
+                  💡 Vá para a seção &quot;Serviços&quot; e cadastre os serviços da sua barbearia.
                 </p>
               </div>
             </div>

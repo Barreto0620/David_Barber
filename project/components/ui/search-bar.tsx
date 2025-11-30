@@ -169,7 +169,7 @@ export function SearchBar({ className }: { className?: string }) {
       {isOpen && query && results.length === 0 && (
         <Card className="absolute top-full mt-2 w-full z-50 shadow-lg">
           <CardContent className="p-4 text-center text-muted-foreground text-sm">
-            Nenhum resultado encontrado para "{query}"
+            Nenhum resultado encontrado para &quot;{query}&quot;
           </CardContent>
         </Card>
       )}
